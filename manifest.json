@@ -1,0 +1,14 @@
+{
+  "name": "Antigravity Power-Up",
+  "details": "Un Power-Up súper sencillo para probar botones e interacciones básicas.",
+  "author": "Agustín",
+  "capabilities": [
+    "card-buttons",
+    "card-back-section",
+    "board-buttons"
+  ],
+  "connectorUrl": "./index.html",
+  "icon": {
+    "url": "./icon.svg"
+  }
+}
