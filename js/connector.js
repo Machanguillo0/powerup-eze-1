@@ -1,7 +1,7 @@
 console.log("Antigravity Power-Up Connector Cargado");
 
 // Configuración global
-var APP_KEY = 'dcd7ea65b37ed1be20a5f1dca07f3382';
+var APP_KEY = '30767998cbb7b57a692e8bb50cfa9a9c';
 var APP_NAME = 'Antigravity';
 
 window.TrelloPowerUp.initialize({

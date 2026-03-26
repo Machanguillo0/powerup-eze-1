@@ -116,7 +116,7 @@
   <script>
     // Inicializamos este iframe con Trello indicándole nuestra App Key para poder usar la API
     var t = window.TrelloPowerUp.iframe({
-      appKey: 'dcd7ea65b37ed1be20a5f1dca07f3382',
+      appKey: '30767998cbb7b57a692e8bb50cfa9a9c',
       appName: 'Antigravity'
     });
 
@@ -202,7 +202,8 @@
                   // Si el usuario no ha autorizado nunca esta App, pedirselo
                   return t.getRestApi().authorize({
                     scope: 'read,write',
-                    expiration: 'never'
+                    expiration: 'never',
+                    return_url: window.location.href
                   });
                 }
                 return token;
@@ -329,7 +330,11 @@
               .getToken()
               .then(function (token) {
                 if (!token) {
-                  return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never' });
+                  return t.getRestApi().authorize({
+                    scope: 'read,write',
+                    expiration: 'never',
+                    return_url: window.location.href
+                  });
                 }
                 return token;
               })
