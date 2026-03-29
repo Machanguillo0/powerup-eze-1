@@ -136,16 +136,16 @@
 
       var m;
       // Regex para campos de una sola línea
-      if (m = desc.match(/NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/DNI[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/DOMICILIO[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/[*_~`#]*\s*NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/[*_~`#]*\s*DNI[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/[*_~`#]*\s*DOMICILIO[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/[*_~`#]*\s*(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/[*_~`#]*\s*PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/[*_~`#]*\s*OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
 
       // Extracción multilínea para PARRAFADA (hasta el siguiente encabezado conocido o fin de texto)
-      // Usamos un lookahead que busca una nueva línea seguida de uno de nuestros encabezados específicos o un patrón de "CABECERA:" muy claro
-      var regexParrafada = /PARRAFADA[^:]*[:\s-]+\s*([\s\S]*?)(?=\n\s*(?:NOMBRE|DNI|DOMICILIO|TEL[Ée]FONO|TLF|PROFESI[ÓO]N|OBSERVACIONES|$)|\n\s*[A-ZÁÉÍÓÚÑ]{3,}\s*:|$)/i;
+      // Usamos un lookahead que busca una nueva línea seguida opcionalmente de símbolos de Markdown (**_~) y luego uno de nuestros encabezados específicos
+      var regexParrafada = /PARRAFADA[^:]*[:\s-]+\s*([\s\S]*?)(?=\n\s*[*_~`#]*\s*(?:NOMBRE|DNI|DOMICILIO|TEL[Ée]FONO|TLF|PROFESI[ÓO]N|OBSERVACIONES|$)|\n\s*[*_~`#]*\s*[A-ZÁÉÍÓÚÑ]{3,}\s*:|$)/i;
       if (m = desc.match(regexParrafada)) {
         fields.parrafada = m[1].replace(/[*_~`]/g, '').trim();
       }
