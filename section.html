@@ -120,6 +120,37 @@
       appName: 'Antigravity'
     });
 
+    // Función auxiliar para extraer campos de la descripción de la tarjeta
+    function extractFields(desc) {
+      var fields = {
+        nombre: "Cliente Desconocido",
+        dni: "___________",
+        domicilio: "___________",
+        telefono: "___________",
+        profesion: "___________",
+        observaciones: "___________",
+        parrafada: ""
+      };
+
+      if (!desc) return fields;
+
+      var m;
+      // Regex para campos de una sola línea
+      if (m = desc.match(/NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/DNI[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/DOMICILIO[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
+
+      // Extracción multilínea para PARRAFADA (hasta el siguiente encabezado o fin de texto)
+      if (m = desc.match(/PARRAFADA[^:]*[:\s-]+\s*([\s\S]*?)(?=\n\s*(?:NOMBRE|DNI|DOMICILIO|TEL|PROF|OBS|$)|\n\s*[A-ZÁÉÍÓÚÑ ]+[:\s-]+|$)/i)) {
+        fields.parrafada = m[1].replace(/[*_~`]/g, '').trim();
+      }
+
+      return fields;
+    }
+
     // Lógica para procesar el Documento Word
     document.getElementById('word-upload').addEventListener('change', function (event) {
       if (!event.target.files || event.target.files.length === 0) return;
@@ -131,18 +162,7 @@
 
       // Primero, obtenemos los datos de la tarjeta
       t.card('desc').then(function (cardInfo) {
-        var fields = { nombre: "Cliente Desconocido", dni: "___________", domicilio: "___________", telefono: "___________", profesion: "___________", observaciones: "___________" };
-
-        if (cardInfo.desc) {
-          var m;
-          // Regex mejorada: busca la palabra clave y luego cualquier cosa que NO sea un ":" antes del ":" real
-          if (m = cardInfo.desc.match(/NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
-          if (m = cardInfo.desc.match(/DNI[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
-          if (m = cardInfo.desc.match(/DOMICILIO[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
-          if (m = cardInfo.desc.match(/(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
-          if (m = cardInfo.desc.match(/PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
-          if (m = cardInfo.desc.match(/OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
-        }
+        var fields = extractFields(cardInfo.desc);
 
         // Leemos el archivo físico
         var reader = new FileReader();
@@ -180,6 +200,10 @@
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Telefono}}", fields.telefono);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Profesión}}", fields.profesion);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Observaciones}}", fields.observaciones);
+
+            // Reemplazo de PARRAFADA con soporte multilínea (w:br)
+            var parrafadaDocx = fields.parrafada.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Parrafada}}", parrafadaDocx);
 
             // Reemplazamos el archivo en el ZIP
             zip.file("word/document.xml", contentXml);
@@ -266,18 +290,7 @@
 
       // Obtenemos los datos de la tarjeta
       t.card('desc').then(function (cardInfo) {
-        var fields = { nombre: "Cliente Desconocido", dni: "___________", domicilio: "___________", telefono: "___________", profesion: "___________", observaciones: "___________" };
-
-        if (cardInfo.desc) {
-          var m;
-          // Regex mejorada: busca la palabra clave y luego cualquier cosa que NO sea un ":" antes del ":" real
-          if (m = cardInfo.desc.match(/NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
-          if (m = cardInfo.desc.match(/DNI[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
-          if (m = cardInfo.desc.match(/DOMICILIO[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
-          if (m = cardInfo.desc.match(/(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
-          if (m = cardInfo.desc.match(/PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
-          if (m = cardInfo.desc.match(/OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
-        }
+        var fields = extractFields(cardInfo.desc);
 
         var reader = new FileReader();
         reader.onload = async function (e) {
@@ -301,7 +314,8 @@
                             .replace(/\{\{Teléfono\}\}/gi, fields.telefono)
                             .replace(/\{\{Telefono\}\}/gi, fields.telefono)
                             .replace(/\{\{Profesión\}\}/gi, fields.profesion)
-                            .replace(/\{\{Observaciones\}\}/gi, fields.observaciones);
+                            .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
+                            .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
                         }
                       });
                     } else if (typeof cell.value === 'string') {
@@ -312,7 +326,13 @@
                         .replace(/\{\{Teléfono\}\}/gi, fields.telefono)
                         .replace(/\{\{Telefono\}\}/gi, fields.telefono)
                         .replace(/\{\{Profesión\}\}/gi, fields.profesion)
-                        .replace(/\{\{Observaciones\}\}/gi, fields.observaciones);
+                        .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
+                        .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
+                      
+                      // Habilitar wrapText si hay saltos de línea para que se vea bien en Excel
+                      if (fields.parrafada.includes('\n')) {
+                        cell.alignment = { wrapText: true };
+                      }
                     }
                   }
                 });
@@ -387,22 +407,13 @@
         var container = document.getElementById('descripcion-container');
         var desc = cardInfo.desc || "";
 
-        var fields = {
-          nombre: "No encontrado",
-          dni: "No encontrado",
-          telefono: "No encontrado"
-        };
-
-        // Regex ultra-flexible que busca el texto clave ignorando markdown alrededor
-        var m;
-        if (m = desc.match(/NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
-        if (m = desc.match(/DNI[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
-        if (m = desc.match(/(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
+        var fields = extractFields(cardInfo.desc);
 
         container.innerHTML = "<strong>Extracción:</strong><br>" +
           "• Nombre: " + fields.nombre + "<br>" +
           "• DNI: " + fields.dni + "<br>" +
-          "• Teléfono: " + fields.telefono;
+          "• Teléfono: " + fields.telefono + "<br>" +
+          "• Parrafada: <pre>" + fields.parrafada + "</pre>";
 
         container.style.display = 'block';
         t.sizeTo(document.body).done();
