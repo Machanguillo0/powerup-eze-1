@@ -143,8 +143,10 @@
       if (m = desc.match(/PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
 
-      // Extracción multilínea para PARRAFADA (hasta el siguiente encabezado o fin de texto)
-      if (m = desc.match(/PARRAFADA[^:]*[:\s-]+\s*([\s\S]*?)(?=\n\s*(?:NOMBRE|DNI|DOMICILIO|TEL|PROF|OBS|$)|\n\s*[A-ZÁÉÍÓÚÑ ]+[:\s-]+|$)/i)) {
+      // Extracción multilínea para PARRAFADA (hasta el siguiente encabezado conocido o fin de texto)
+      // Usamos un lookahead que busca una nueva línea seguida de uno de nuestros encabezados específicos o un patrón de "CABECERA:" muy claro
+      var regexParrafada = /PARRAFADA[^:]*[:\s-]+\s*([\s\S]*?)(?=\n\s*(?:NOMBRE|DNI|DOMICILIO|TEL[Ée]FONO|TLF|PROFESI[ÓO]N|OBSERVACIONES|$)|\n\s*[A-ZÁÉÍÓÚÑ]{3,}\s*:|$)/i;
+      if (m = desc.match(regexParrafada)) {
         fields.parrafada = m[1].replace(/[*_~`]/g, '').trim();
       }
 
