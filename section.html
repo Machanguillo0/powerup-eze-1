@@ -143,11 +143,39 @@
       if (m = desc.match(/[*_~`#]*\s*PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/[*_~`#]*\s*OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
 
-      // Extracción multilínea para PARRAFADA (hasta el siguiente encabezado conocido o fin de texto)
-      // Usamos un lookahead que busca una nueva línea seguida opcionalmente de símbolos de Markdown (**_~) y luego uno de nuestros encabezados específicos
-      var regexParrafada = /PARRAFADA[^:]*[:\s-]+\s*([\s\S]*?)(?=\n\s*[*_~`#]*\s*(?:NOMBRE|DNI|DOMICILIO|TEL[Ée]FONO|TLF|PROFESI[ÓO]N|OBSERVACIONES|$)|\n\s*[*_~`#]*\s*[A-ZÁÉÍÓÚÑ]{3,}\s*:|$)/i;
-      if (m = desc.match(regexParrafada)) {
-        fields.parrafada = m[1].replace(/[*_~`]/g, '').trim();
+      // Extracción multilínea para PARRAFADA (más robusta: busca el siguiente encabezado manualmente)
+      var parrafadaRegex = /PARRAFADA[^:]*[:\s-]+\s*/i;
+      var startMatch = desc.match(parrafadaRegex);
+      if (startMatch) {
+        var startIndex = startMatch.index + startMatch[0].length;
+        var remainingDesc = desc.substring(startIndex);
+
+        // Definimos qué consideramos un "corte" (el inicio del siguiente campo)
+        var nextHeaderIndex = remainingDesc.length;
+
+        // A. Buscar por palabras clave conocidas (al inicio de una línea)
+        var keywords = ["NOMBRE", "DNI", "DOMICILIO", "TELÉFONO", "TELEFONO", "TLF", "PROFESI[ÓO]N", "OBSERVACIONES"];
+        keywords.forEach(function (key) {
+          var regex = new RegExp("\\n\\s*[*_~`#]*\\s*" + key, "i");
+          var match = remainingDesc.match(regex);
+          if (match && match.index < nextHeaderIndex) {
+            nextHeaderIndex = match.index;
+          }
+        });
+
+        // B. Buscar por un patrón genérico de "ENCABEZADO EN MAYÚSCULAS Y DOS PUNTOS"
+        var genericMatch = remainingDesc.match(/\n\s*[*_~`#]*\s*[A-ZÁÉÍÓÚÑ ]{3,}\s*[:]/);
+        if (genericMatch && genericMatch.index < nextHeaderIndex) {
+          nextHeaderIndex = genericMatch.index;
+        }
+
+        // C. Buscar por líneas separadoras (------, =====, etc)
+        var separatorMatch = remainingDesc.match(/\n\s*[-=_]{3,}/);
+        if (separatorMatch && separatorMatch.index < nextHeaderIndex) {
+          nextHeaderIndex = separatorMatch.index;
+        }
+
+        fields.parrafada = remainingDesc.substring(0, nextHeaderIndex).replace(/[*_~`]/g, '').trim();
       }
 
       return fields;
