@@ -129,6 +129,14 @@
         telefono: "___________",
         profesion: "___________",
         observaciones: "___________",
+        fecha: "___________",
+        hora: "___________",
+        lugar: "___________",
+        ciudad: "___________",
+        matricula1: "___________",
+        aseguradora1: "___________",
+        matricula2: "___________",
+        aseguradora2: "___________",
         parrafada: ""
       };
 
@@ -142,6 +150,25 @@
       if (m = desc.match(/[*_~`#]*\s*(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/[*_~`#]*\s*PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/[*_~`#]*\s*OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/[*_~`#]*\s*(?:FECHA DEL SINIESTRO|Fecha)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/[*_~`#]*\s*(?:HORA)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.hora = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/[*_~`#]*\s*(?:LUGAR)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.lugar = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/[*_~`#]*\s*(?:CIUDAD)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.ciudad = m[1].replace(/[*_~`]/g, '').trim(); }
+
+      // --- EXTRACCIÓN CONTEXTUAL DE VEHÍCULOS ---
+      var propioMatch = desc.match(/VEH[ÍI]CULO PROPIO[\s\S]*?(?=VEH[ÍI]CULO CONTRARIO|PARRAFADA|[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i);
+      if (propioMatch) {
+        var pText = propioMatch[0];
+        if (m = pText.match(/MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula1 = m[1].trim(); }
+        if (m = pText.match(/ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora1 = m[1].trim(); }
+      }
+
+      var contrarioMatch = desc.match(/VEH[ÍI]CULO CONTRARIO[\s\S]*?(?=VEH[ÍI]CULO PROPIO|PARRAFADA|[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i);
+      if (contrarioMatch) {
+        var cText = contrarioMatch[0];
+        if (m = cText.match(/MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula2 = m[1].trim(); }
+        if (m = cText.match(/ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora2 = m[1].trim(); }
+      }
 
       // Extracción multilínea para PARRAFADA (más robusta: busca el siguiente encabezado manualmente)
       var parrafadaRegex = /PARRAFADA[^:]*[:\s-]+\s*/i;
@@ -154,7 +181,7 @@
         var nextHeaderIndex = remainingDesc.length;
 
         // A. Buscar por palabras clave conocidas (al inicio de una línea)
-        var keywords = ["NOMBRE", "DNI", "DOMICILIO", "TELÉFONO", "TELEFONO", "TLF", "PROFESI[ÓO]N", "OBSERVACIONES"];
+        var keywords = ["NOMBRE", "DNI", "DOMICILIO", "TELÉFONO", "TELEFONO", "TLF", "PROFESI[ÓO]N", "OBSERVACIONES", "FECHA", "HORA", "LUGAR", "CIUDAD"];
         keywords.forEach(function (key) {
           var regex = new RegExp("\\n\\s*[*_~`#]*\\s*" + key, "i");
           var match = remainingDesc.match(regex);
@@ -444,11 +471,19 @@
             telefono: "___________",
             profesion: "___________",
             observaciones: "___________",
+            fecha: "___________",
+            hora: "___________",
+            lugar: "___________",
+            ciudad: "___________",
+            matricula1: "___________",
+            aseguradora1: "___________",
+            matricula2: "___________",
+            aseguradora2: "___________",
             parrafada: ""
           };
 
           // Marcadores para saber si hemos encontrado datos reales
-          var found = { nombre: false, dni: false, domicilio: false, telefono: false, profesion: false, observaciones: false };
+          var found = { nombre: false, dni: false, domicilio: false, telefono: false, profesion: false, observaciones: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false };
 
           cardsInList.forEach(function (card) {
             var fields = extractFields(card.desc);
@@ -459,6 +494,14 @@
             if (!found.telefono && fields.telefono !== "___________") { unified.telefono = fields.telefono; found.telefono = true; }
             if (!found.profesion && fields.profesion !== "___________") { unified.profesion = fields.profesion; found.profesion = true; }
             if (!found.observaciones && fields.observaciones !== "___________") { unified.observaciones = fields.observaciones; found.observaciones = true; }
+            if (!found.fecha && fields.fecha !== "___________") { unified.fecha = fields.fecha; found.fecha = true; }
+            if (!found.hora && fields.hora !== "___________") { unified.hora = fields.hora; found.hora = true; }
+            if (!found.lugar && fields.lugar !== "___________") { unified.lugar = fields.lugar; found.lugar = true; }
+            if (!found.ciudad && fields.ciudad !== "___________") { unified.ciudad = fields.ciudad; found.ciudad = true; }
+            if (!found.matricula1 && fields.matricula1 !== "___________") { unified.matricula1 = fields.matricula1; found.matricula1 = true; }
+            if (!found.aseguradora1 && fields.aseguradora1 !== "___________") { unified.aseguradora1 = fields.aseguradora1; found.aseguradora1 = true; }
+            if (!found.matricula2 && fields.matricula2 !== "___________") { unified.matricula2 = fields.matricula2; found.matricula2 = true; }
+            if (!found.aseguradora2 && fields.aseguradora2 !== "___________") { unified.aseguradora2 = fields.aseguradora2; found.aseguradora2 = true; }
 
             if (fields.parrafada) {
               if (unified.parrafada) {
@@ -515,6 +558,14 @@
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Telefono}}", fields.telefono);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Profesión}}", fields.profesion);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Observaciones}}", fields.observaciones);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha}}", fields.fecha);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Hora}}", fields.hora);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Lugar}}", fields.lugar);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Ciudad}}", fields.ciudad);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Matrícula1}}", fields.matricula1);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Aseguradora1}}", fields.aseguradora1);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Matrícula2}}", fields.matricula2);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Aseguradora2}}", fields.aseguradora2);
 
             var parrafadaDocx = fields.parrafada.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Parrafada}}", parrafadaDocx);
@@ -618,6 +669,14 @@
                             .replace(/\{\{Telefono\}\}/gi, fields.telefono)
                             .replace(/\{\{Profesión\}\}/gi, fields.profesion)
                             .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
+                            .replace(/\{\{Fecha\}\}/gi, fields.fecha)
+                            .replace(/\{\{Hora\}\}/gi, fields.hora)
+                            .replace(/\{\{Lugar\}\}/gi, fields.lugar)
+                            .replace(/\{\{Ciudad\}\}/gi, fields.ciudad)
+                            .replace(/\{\{Matrícula1\}\}/gi, fields.matricula1)
+                            .replace(/\{\{Aseguradora1\}\}/gi, fields.aseguradora1)
+                            .replace(/\{\{Matrícula2\}\}/gi, fields.matricula2)
+                            .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2)
                             .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
                         }
                       });
@@ -629,6 +688,14 @@
                         .replace(/\{\{Telefono\}\}/gi, fields.telefono)
                         .replace(/\{\{Profesión\}\}/gi, fields.profesion)
                         .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
+                        .replace(/\{\{Fecha\}\}/gi, fields.fecha)
+                        .replace(/\{\{Hora\}\}/gi, fields.hora)
+                        .replace(/\{\{Lugar\}\}/gi, fields.lugar)
+                        .replace(/\{\{Ciudad\}\}/gi, fields.ciudad)
+                        .replace(/\{\{Matrícula1\}\}/gi, fields.matricula1)
+                        .replace(/\{\{Aseguradora1\}\}/gi, fields.aseguradora1)
+                        .replace(/\{\{Matrícula2\}\}/gi, fields.matricula2)
+                        .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2)
                         .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
                       
                       if (fields.parrafada.includes('\n')) {
@@ -711,6 +778,12 @@
         html += "• Nombre: " + fields.nombre + "<br>" +
                 "• DNI: " + fields.dni + "<br>" +
                 "• Teléfono: " + fields.telefono + "<br>" +
+                "• Siniestro: " + fields.fecha + " a las " + fields.hora + "<br>" +
+                "• Localización: " + fields.lugar + " (" + fields.ciudad + ")<br>" +
+                "<div style='margin: 10px 0; padding: 5px; background: #e2f0d9; border-radius: 3px;'>" +
+                "  <strong>🚗 Vehículo Propio:</strong> " + fields.matricula1 + " (" + fields.aseguradora1 + ")<br>" +
+                "  <strong>🚘 Vehículo Contrario:</strong> " + fields.matricula2 + " (" + fields.aseguradora2 + ")" +
+                "</div>" +
                 "• Profesión: " + fields.profesion + "<br>" +
                 "• Domicilio: " + fields.domicilio + "<br>" +
                 "• Observaciones: " + fields.observaciones + "<br>" +

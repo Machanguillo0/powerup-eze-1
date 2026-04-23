@@ -98,9 +98,14 @@ window.TrelloPowerUp.initialize({
                 { header: 'Tarjeta Trello', key: 'tarjeta', width: 30 },
                 { header: 'Nombre', key: 'nombre', width: 30 },
                 { header: 'DNI', key: 'dni', width: 15 },
-                { header: 'Domicilio', key: 'domicilio', width: 30 },
-                { header: 'Teléfono', key: 'telefono', width: 15 },
-                { header: 'Profesión', key: 'profesion', width: 20 },
+                { header: 'Lugar', key: 'lugar', width: 20 },
+                { header: 'Ciudad', key: 'ciudad', width: 20 },
+                { header: 'Matrícula 1', key: 'matricula1', width: 15 },
+                { header: 'Aseguradora 1', key: 'aseguradora1', width: 20 },
+                { header: 'Matrícula 2', key: 'matricula2', width: 15 },
+                { header: 'Aseguradora 2', key: 'aseguradora2', width: 20 },
+                { header: 'Fecha', key: 'fecha', width: 15 },
+                { header: 'Hora', key: 'hora', width: 10 },
                 { header: 'Observaciones', key: 'observaciones', width: 40 }
               ];
 
@@ -111,6 +116,14 @@ window.TrelloPowerUp.initialize({
                   domicilio: "No encontrado",
                   telefono: "No encontrado",
                   profesion: "No encontrado",
+                  fecha: "No encontrado",
+                  hora: "No encontrado",
+                  lugar: "No encontrado",
+                  ciudad: "No encontrado",
+                  matricula1: "No encontrado",
+                  aseguradora1: "No encontrado",
+                  matricula2: "No encontrado",
+                  aseguradora2: "No encontrado",
                   observaciones: "No encontrado"
                 };
 
@@ -122,6 +135,24 @@ window.TrelloPowerUp.initialize({
                   if (m = c.desc.match(/(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
                   if (m = c.desc.match(/PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
                   if (m = c.desc.match(/OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/(?:FECHA DEL SINIESTRO|Fecha)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/(?:HORA)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.hora = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/(?:LUGAR)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.lugar = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/(?:CIUDAD)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.ciudad = m[1].replace(/[*_~`]/g, '').trim(); }
+                  
+                  // Extracción contextual en connector.js (similar a section.html)
+                  var pM = c.desc.match(/VEH[ÍI]CULO PROPIO[\s\S]*?(?=VEH[ÍI]CULO CONTRARIO|PARRAFADA|[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i);
+                  if (pM) {
+                    var pT = pM[0];
+                    if (m = pT.match(/MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula1 = m[1].trim(); }
+                    if (m = pT.match(/ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora1 = m[1].trim(); }
+                  }
+                  var cM = c.desc.match(/VEH[ÍI]CULO CONTRARIO[\s\S]*?(?=VEH[ÍI]CULO PROPIO|PARRAFADA|[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i);
+                  if (cM) {
+                    var cT = cM[0];
+                    if (m = cT.match(/MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula2 = m[1].trim(); }
+                    if (m = cT.match(/ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora2 = m[1].trim(); }
+                  }
                 }
 
                 sheet.addRow({
@@ -132,6 +163,14 @@ window.TrelloPowerUp.initialize({
                   domicilio: fields.domicilio,
                   telefono: fields.telefono,
                   profesion: fields.profesion,
+                  fecha: fields.fecha,
+                  hora: fields.hora,
+                  lugar: fields.lugar,
+                  ciudad: fields.ciudad,
+                  matricula1: fields.matricula1,
+                  aseguradora1: fields.aseguradora1,
+                  matricula2: fields.matricula2,
+                  aseguradora2: fields.aseguradora2,
                   observaciones: fields.observaciones
                 });
               });
