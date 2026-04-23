@@ -431,26 +431,297 @@
       });
     });
 
-    // Nuevo botón para copiar la descripción de la tarjeta
+    // Función para obtener datos unificados de toda la lista
+    function getUnifiedFields(t) {
+      return t.card('idList').then(function (currentCard) {
+        var idList = currentCard.idList;
+        return t.cards('name', 'desc', 'idList').then(function (allCards) {
+          var cardsInList = allCards.filter(function (c) { return c.idList === idList; });
+          var unified = {
+            nombre: "Cliente Desconocido",
+            dni: "___________",
+            domicilio: "___________",
+            telefono: "___________",
+            profesion: "___________",
+            observaciones: "___________",
+            parrafada: ""
+          };
+
+          // Marcadores para saber si hemos encontrado datos reales
+          var found = { nombre: false, dni: false, domicilio: false, telefono: false, profesion: false, observaciones: false };
+
+          cardsInList.forEach(function (card) {
+            var fields = extractFields(card.desc);
+
+            if (!found.nombre && fields.nombre !== "Cliente Desconocido") { unified.nombre = fields.nombre; found.nombre = true; }
+            if (!found.dni && fields.dni !== "___________") { unified.dni = fields.dni; found.dni = true; }
+            if (!found.domicilio && fields.domicilio !== "___________") { unified.domicilio = fields.domicilio; found.domicilio = true; }
+            if (!found.telefono && fields.telefono !== "___________") { unified.telefono = fields.telefono; found.telefono = true; }
+            if (!found.profesion && fields.profesion !== "___________") { unified.profesion = fields.profesion; found.profesion = true; }
+            if (!found.observaciones && fields.observaciones !== "___________") { unified.observaciones = fields.observaciones; found.observaciones = true; }
+
+            if (fields.parrafada) {
+              if (unified.parrafada) {
+                unified.parrafada += "\n\n---\n\n" + fields.parrafada;
+              } else {
+                unified.parrafada = fields.parrafada;
+              }
+            }
+          });
+
+          return { fields: unified, count: cardsInList.length };
+        });
+      });
+    }
+
+    // Lógica para procesar el Documento Word
+    document.getElementById('word-upload').addEventListener('change', function (event) {
+      if (!event.target.files || event.target.files.length === 0) return;
+
+      var file = event.target.files[0];
+      var statusDiv = document.getElementById('upload-status');
+      statusDiv.textContent = 'Procesando ' + file.name + '...';
+      t.sizeTo(document.body).done();
+
+      // Obtenemos los datos UNIFICADOS de la lista
+      getUnifiedFields(t).then(function (data) {
+        var fields = data.fields;
+
+        // Leemos el archivo físico
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            // Cargar el ZIP en memoria
+            var zip = new PizZip(e.target.result);
+
+            // Acceder al XML principal del documento Word
+            var contentXml = zip.file("word/document.xml").asText();
+            if (!contentXml) {
+              throw new Error("No se encontró word/document.xml dentro del archivo docx.");
+            }
+
+            // --- SUPER REEMPLAZO A PRUEBA DE MICROSOFT WORD ---
+            function reemplazarEtiquetaRota(xml, etiqueta, valor) {
+              var letras = etiqueta.split('');
+              var patron = letras.join('(?:<[^>]+>)*');
+              var regex = new RegExp(patron, "gi");
+              return xml.replace(regex, valor);
+            }
+
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Nombre}}", fields.nombre);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{DNI}}", fields.dni);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Domicilio}}", fields.domicilio);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Teléfono}}", fields.telefono);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Telefono}}", fields.telefono);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Profesión}}", fields.profesion);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Observaciones}}", fields.observaciones);
+
+            var parrafadaDocx = fields.parrafada.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Parrafada}}", parrafadaDocx);
+
+            zip.file("word/document.xml", contentXml);
+
+            var outContent = zip.generate({
+              type: "blob",
+              mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            });
+
+            var nombreFinal = "CARTA_" + fields.nombre.replace(/\s+/g, '_') + ".docx";
+
+            statusDiv.textContent = 'Autenticando con Trello API...';
+
+            t.getRestApi()
+              .getToken()
+              .then(function (token) {
+                if (!token) {
+                  return t.getRestApi().authorize({
+                    scope: 'read,write',
+                    expiration: 'never',
+                    return_url: window.location.href
+                  });
+                }
+                return token;
+              })
+              .then(function (token) {
+                statusDiv.textContent = 'Subiendo documento directamente a Trello...';
+
+                var formData = new FormData();
+                formData.append("key", t.getRestApi().appKey);
+                formData.append("token", token);
+                formData.append("file", outContent, nombreFinal);
+                formData.append("name", nombreFinal);
+
+                var cardId = t.getContext().card;
+                var urlParams = new URLSearchParams();
+                urlParams.append('key', t.getRestApi().appKey);
+                urlParams.append('token', token);
+
+                return fetch(`https://api.trello.com/1/cards/${cardId}/attachments?${urlParams.toString()}`, {
+                  method: 'POST',
+                  body: formData
+                });
+              })
+              .then(function (response) {
+                if (!response.ok) {
+                  throw new Error('La subida de Trello devolvió un error HTTP ' + response.status);
+                }
+                statusDiv.textContent = '¡Documento modificado y adjuntado en la tarjeta con éxito!';
+                event.target.value = ''; 
+                t.sizeTo(document.body).done();
+              })
+              .catch(function (err) {
+                console.error("Fallo de subida API:", err);
+                statusDiv.textContent = 'Fallo en la subida. ' + (err.message || 'Comprueba los logs.');
+                t.sizeTo(document.body).done();
+              });
+
+          } catch (error) {
+            console.error("Detalles del error PizZip:", error);
+            statusDiv.textContent = 'Error: ' + error.message;
+            t.sizeTo(document.body).done();
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      });
+    });
+
+    // Lógica para procesar el Documento Excel
+    document.getElementById('excel-upload').addEventListener('change', function (event) {
+      if (!event.target.files || event.target.files.length === 0) return;
+
+      var file = event.target.files[0];
+      var statusDiv = document.getElementById('upload-status');
+      statusDiv.textContent = 'Procesando ' + file.name + '...';
+      t.sizeTo(document.body).done();
+
+      // Datos UNIFICADOS
+      getUnifiedFields(t).then(function (data) {
+        var fields = data.fields;
+
+        var reader = new FileReader();
+        reader.onload = async function (e) {
+          try {
+            var workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.load(e.target.result);
+
+            workbook.eachSheet(function (worksheet, sheetId) {
+              worksheet.eachRow(function (row, rowNumber) {
+                row.eachCell(function (cell, colNumber) {
+                  if (cell.value) {
+                    if (cell.value.richText) {
+                      cell.value.richText.forEach(function (rt) {
+                        if (rt.text) {
+                          rt.text = rt.text.replace(/\{\{Nombre\}\}/gi, fields.nombre)
+                            .replace(/\{\{DNI\}\}/gi, fields.dni)
+                            .replace(/\{\{Domicilio\}\}/gi, fields.domicilio)
+                            .replace(/\{\{Teléfono\}\}/gi, fields.telefono)
+                            .replace(/\{\{Telefono\}\}/gi, fields.telefono)
+                            .replace(/\{\{Profesión\}\}/gi, fields.profesion)
+                            .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
+                            .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
+                        }
+                      });
+                    } else if (typeof cell.value === 'string') {
+                      cell.value = cell.value.replace(/\{\{Nombre\}\}/gi, fields.nombre)
+                        .replace(/\{\{DNI\}\}/gi, fields.dni)
+                        .replace(/\{\{Domicilio\}\}/gi, fields.domicilio)
+                        .replace(/\{\{Teléfono\}\}/gi, fields.telefono)
+                        .replace(/\{\{Telefono\}\}/gi, fields.telefono)
+                        .replace(/\{\{Profesión\}\}/gi, fields.profesion)
+                        .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
+                        .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
+                      
+                      if (fields.parrafada.includes('\n')) {
+                        cell.alignment = { wrapText: true };
+                      }
+                    }
+                  }
+                });
+              });
+            });
+
+            var buffer = await workbook.xlsx.writeBuffer();
+            var outContent = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            var nombreFinal = "PRESUPUESTO_" + fields.nombre.replace(/\s+/g, '_') + ".xlsx";
+
+            statusDiv.textContent = 'Autenticando con Trello API...';
+
+            t.getRestApi()
+              .getToken()
+              .then(function (token) {
+                if (!token) {
+                  return t.getRestApi().authorize({
+                    scope: 'read,write',
+                    expiration: 'never',
+                    return_url: window.location.href
+                  });
+                }
+                return token;
+              })
+              .then(function (token) {
+                statusDiv.textContent = 'Subiendo Excel directamente a Trello...';
+
+                var formData = new FormData();
+                formData.append("key", t.getRestApi().appKey);
+                formData.append("token", token);
+                formData.append("file", outContent, nombreFinal);
+                formData.append("name", nombreFinal);
+
+                var cardId = t.getContext().card;
+                var urlParams = new URLSearchParams();
+                urlParams.append('key', t.getRestApi().appKey);
+                urlParams.append('token', token);
+
+                return fetch(`https://api.trello.com/1/cards/${cardId}/attachments?${urlParams.toString()}`, {
+                  method: 'POST',
+                  body: formData
+                });
+              })
+              .then(function (response) {
+                if (!response.ok) {
+                  throw new Error('La subida de Trello devolvió un error HTTP ' + response.status);
+                }
+                statusDiv.textContent = '¡Excel modificado y adjuntado con éxito!';
+                event.target.value = ''; 
+                t.sizeTo(document.body).done();
+              })
+              .catch(function (err) {
+                console.error("Fallo de subida API:", err);
+                statusDiv.textContent = 'Fallo en la subida.';
+                t.sizeTo(document.body).done();
+              });
+
+          } catch (error) {
+            console.error("Error procesando Excel:", error);
+            statusDiv.textContent = 'Error: ' + error.message;
+            t.sizeTo(document.body).done();
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      });
+    });
+
+    // Botón para visualizar la extracción unificada
     document.getElementById('boton-desc').addEventListener('click', function () {
-      t.card('desc').then(function (cardInfo) {
+      getUnifiedFields(t).then(function (data) {
+        var fields = data.fields;
         var container = document.getElementById('descripcion-container');
-        var desc = cardInfo.desc || "";
+        
+        var html = "<strong>Ficha unificada del Cliente (datos de " + data.count + " tarjetas):</strong><br><br>";
+        html += "• Nombre: " + fields.nombre + "<br>" +
+                "• DNI: " + fields.dni + "<br>" +
+                "• Teléfono: " + fields.telefono + "<br>" +
+                "• Profesión: " + fields.profesion + "<br>" +
+                "• Domicilio: " + fields.domicilio + "<br>" +
+                "• Observaciones: " + fields.observaciones + "<br>" +
+                "• Parrafada acumulada: <pre style='margin: 5px 0; background: #fafafa; padding: 10px; font-size: 11px; white-space: pre-wrap;'>" + (fields.parrafada || "Sin datos") + "</pre>";
 
-        var fields = extractFields(cardInfo.desc);
-
-        container.innerHTML = "<strong>Extracción:</strong><br>" +
-          "• Nombre: " + fields.nombre + "<br>" +
-          "• DNI: " + fields.dni + "<br>" +
-          "• Teléfono: " + fields.telefono + "<br>" +
-          "• Parrafada: <pre>" + fields.parrafada + "</pre>";
-
+        container.innerHTML = html;
         container.style.display = 'block';
         t.sizeTo(document.body).done();
       });
     });
 
-    // Le decimos a Trello que calcule la altura basándose en el documento HTML entero
     t.render(function () {
       t.sizeTo(document.body).done();
     });
