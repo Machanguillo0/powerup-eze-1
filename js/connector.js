@@ -129,16 +129,16 @@ window.TrelloPowerUp.initialize({
 
                 if (c.desc) {
                   var m;
-                  if (m = c.desc.match(/NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
-                  if (m = c.desc.match(/DNI[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
-                  if (m = c.desc.match(/DOMICILIO[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
-                  if (m = c.desc.match(/(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
-                  if (m = c.desc.match(/PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
-                  if (m = c.desc.match(/OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
-                  if (m = c.desc.match(/(?:FECHA DEL SINIESTRO|Fecha)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha = m[1].replace(/[*_~`]/g, '').replace(/\s*\(.*\)\s*$/, '').trim(); }
-                  if (m = c.desc.match(/(?:HORA)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.hora = m[1].replace(/[*_~`]/g, '').trim(); }
-                  if (m = c.desc.match(/(?:LUGAR)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.lugar = m[1].replace(/[*_~`]/g, '').trim(); }
-                  if (m = c.desc.match(/(?:CIUDAD)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.ciudad = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/DNI[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/DOMICILIO[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/(?:FECHA DEL SINIESTRO|Fecha)[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.fecha = m[1].replace(/[*_~`]/g, '').replace(/\s*\(.*\)\s*$/, '').trim(); }
+                  if (m = c.desc.match(/(?:HORA)[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.hora = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/(?:LUGAR)[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.lugar = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/(?:CIUDAD)[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.ciudad = m[1].replace(/[*_~`]/g, '').trim(); }
                   
                   // Extracción contextual en connector.js (similar a section.html)
                   var pM = c.desc.match(/VEH[ÍI]CULO PROPIO[\s\S]*?(?=VEH[ÍI]CULO CONTRARIO|PARRAFADA|[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i);
@@ -262,12 +262,12 @@ window.TrelloPowerUp.initialize({
                   // Intentamos extraer info de cliente si aún no la tenemos para esta lista
                   if (infoClientePorLista[c.idList].nombre === '' && c.desc) {
                     var m;
-                    if (m = c.desc.match(/NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*)/i)) { infoClientePorLista[c.idList].nombre = m[1].replace(/[*_~`]/g, '').trim(); }
-                    if (m = c.desc.match(/DNI[^:]*[:\s-]+\s*([^\n\r]*)/i)) { infoClientePorLista[c.idList].dni = m[1].replace(/[*_~`]/g, '').trim(); }
-                    if (m = c.desc.match(/DOMICILIO[^:]*[:\s-]+\s*([^\n\r]*)/i)) { infoClientePorLista[c.idList].domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
-                    if (m = c.desc.match(/(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { infoClientePorLista[c.idList].telefono = m[1].replace(/[*_~`]/g, '').trim(); }
-                    if (m = c.desc.match(/PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*)/i)) { infoClientePorLista[c.idList].profesion = m[1].replace(/[*_~`]/g, '').trim(); }
-                    if (m = c.desc.match(/OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*)/i)) { infoClientePorLista[c.idList].observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
+                    if (m = c.desc.match(/NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { infoClientePorLista[c.idList].nombre = m[1].replace(/[*_~`]/g, '').trim(); }
+                    if (m = c.desc.match(/DNI[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { infoClientePorLista[c.idList].dni = m[1].replace(/[*_~`]/g, '').trim(); }
+                    if (m = c.desc.match(/DOMICILIO[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { infoClientePorLista[c.idList].domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
+                    if (m = c.desc.match(/(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { infoClientePorLista[c.idList].telefono = m[1].replace(/[*_~`]/g, '').trim(); }
+                    if (m = c.desc.match(/PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { infoClientePorLista[c.idList].profesion = m[1].replace(/[*_~`]/g, '').trim(); }
+                    if (m = c.desc.match(/OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { infoClientePorLista[c.idList].observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
                   }
 
                   if (tarjetasPorLista[c.idList].length > maxCards) {
