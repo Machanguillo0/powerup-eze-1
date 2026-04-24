@@ -144,16 +144,16 @@
 
       var m;
       // Regex para campos de una sola línea
-      if (m = desc.match(/[*_~`#]*\s*NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/[*_~`#]*\s*DNI[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/[*_~`#]*\s*DOMICILIO[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/[*_~`#]*\s*(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/[*_~`#]*\s*PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/[*_~`#]*\s*OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/[*_~`#]*\s*(?:FECHA DEL SINIESTRO|Fecha)[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.fecha = m[1].replace(/[*_~`]/g, '').replace(/\s*\(.*\)\s*$/, '').trim(); }
-      if (m = desc.match(/[*_~`#]*\s*(?:HORA)[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.hora = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/[*_~`#]*\s*(?:LUGAR)[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.lugar = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/[*_~`#]*\s*(?:CIUDAD)[^:]*[:\s-]+\s*([^\n\r]*?)(?=\s*[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i)) { fields.ciudad = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DNI[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DOMICILIO[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:FECHA DEL SINIESTRO|Fecha)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha = m[1].replace(/[*_~`]/g, '').replace(/\s*\(.*\)\s*$/, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:HORA)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.hora = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:LUGAR)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.lugar = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:CIUDAD)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.ciudad = m[1].replace(/[*_~`]/g, '').trim(); }
 
       // --- EXTRACCIÓN CONTEXTUAL DE VEHÍCULOS ---
       var propioMatch = desc.match(/VEH[ÍI]CULO PROPIO[\s\S]*?(?=VEH[ÍI]CULO CONTRARIO|PARRAFADA|[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i);
