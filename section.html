@@ -786,9 +786,13 @@
                 "• Hora: " + fields.hora + "<br>" +
                 "• Lugar: " + fields.lugar + "<br>" +
                 "• Ciudad: " + fields.ciudad + "<br>" +
-                "<div style='margin: 10px 0; padding: 5px; background: #e2f0d9; border-radius: 3px;'>" +
-                "  <strong>🚗 Vehículo Propio:</strong> " + fields.matricula1 + " (" + fields.aseguradora1 + ")<br>" +
-                "  <strong>🚘 Vehículo Contrario:</strong> " + fields.matricula2 + " (" + fields.aseguradora2 + ")" +
+                "<div style='margin: 10px 0; padding: 8px; background: #e2f0d9; border-radius: 5px; border: 1px solid #c5e0b4;'>" +
+                "  <strong>🚗 Vehículo Propio:</strong><br>" +
+                "  <span style='margin-left: 15px;'>• Matrícula: " + fields.matricula1 + "</span><br>" +
+                "  <span style='margin-left: 15px;'>• Aseguradora: " + fields.aseguradora1 + "</span><br><br>" +
+                "  <strong>🚘 Vehículo Contrario:</strong><br>" +
+                "  <span style='margin-left: 15px;'>• Matrícula: " + fields.matricula2 + "</span><br>" +
+                "  <span style='margin-left: 15px;'>• Aseguradora: " + fields.aseguradora2 + "</span>" +
                 "</div>" +
                 "• Observaciones: " + fields.observaciones + "<br>" +
                 "• Parrafada acumulada: <pre style='margin: 5px 0; background: #fafafa; padding: 10px; font-size: 11px; white-space: pre-wrap;'>" + (fields.parrafada || "Sin datos") + "</pre>";
