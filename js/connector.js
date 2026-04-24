@@ -104,7 +104,7 @@ window.TrelloPowerUp.initialize({
                 { header: 'Aseguradora 1', key: 'aseguradora1', width: 20 },
                 { header: 'Matrícula 2', key: 'matricula2', width: 15 },
                 { header: 'Aseguradora 2', key: 'aseguradora2', width: 20 },
-                { header: 'Fecha', key: 'fecha', width: 15 },
+                { header: 'Fecha del siniestro', key: 'fecha', width: 20 },
                 { header: 'Hora', key: 'hora', width: 10 },
                 { header: 'Observaciones', key: 'observaciones', width: 40 }
               ];
