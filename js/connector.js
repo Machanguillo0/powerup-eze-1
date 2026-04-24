@@ -141,17 +141,19 @@ window.TrelloPowerUp.initialize({
                   if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:CIUDAD)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.ciudad = m[1].replace(/[*_~`]/g, '').trim(); }
                   
                   // Extracción contextual en connector.js (similar a section.html)
-                  var pM = c.desc.match(/VEH[ÍI]CULO PROPIO[\s\S]*?(?=VEH[ÍI]CULO CONTRARIO|PARRAFADA|[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i);
+                  var vLA = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
+                  
+                  var pM = c.desc.match(new RegExp("VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vLA, "i"));
                   if (pM) {
                     var pT = pM[0];
-                    if (m = pT.match(/MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula1 = m[1].trim(); }
-                    if (m = pT.match(/ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora1 = m[1].trim(); }
+                    if (m = pT.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula1 = m[1].trim(); }
+                    if (m = pT.match(/(?:^|\n)[ \t]*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora1 = m[1].trim(); }
                   }
-                  var cM = c.desc.match(/VEH[ÍI]CULO CONTRARIO[\s\S]*?(?=VEH[ÍI]CULO PROPIO|PARRAFADA|[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i);
+                  var cM = c.desc.match(new RegExp("VEH[ÍI]CULO CONTRARIO[\\s\\S]*?" + vLA, "i"));
                   if (cM) {
                     var cT = cM[0];
-                    if (m = cT.match(/MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula2 = m[1].trim(); }
-                    if (m = cT.match(/ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora2 = m[1].trim(); }
+                    if (m = cT.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula2 = m[1].trim(); }
+                    if (m = cT.match(/(?:^|\n)[ \t]*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora2 = m[1].trim(); }
                   }
                 }
 

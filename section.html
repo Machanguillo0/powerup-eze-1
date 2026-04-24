@@ -156,18 +156,20 @@
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:CIUDAD)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.ciudad = m[1].replace(/[*_~`]/g, '').trim(); }
 
       // --- EXTRACCIÓN CONTEXTUAL DE VEHÍCULOS ---
-      var propioMatch = desc.match(/VEH[ÍI]CULO PROPIO[\s\S]*?(?=VEH[ÍI]CULO CONTRARIO|PARRAFADA|[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i);
+      var vehicleLookahead = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
+      
+      var propioMatch = desc.match(new RegExp("VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vehicleLookahead, "i"));
       if (propioMatch) {
         var pText = propioMatch[0];
-        if (m = pText.match(/MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula1 = m[1].trim(); }
-        if (m = pText.match(/ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora1 = m[1].trim(); }
+        if (m = pText.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula1 = m[1].trim(); }
+        if (m = pText.match(/(?:^|\n)[ \t]*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora1 = m[1].trim(); }
       }
 
-      var contrarioMatch = desc.match(/VEH[ÍI]CULO CONTRARIO[\s\S]*?(?=VEH[ÍI]CULO PROPIO|PARRAFADA|[A-ZÁÉÍÓÚÑ ]{3,}:|$)/i);
+      var contrarioMatch = desc.match(new RegExp("VEH[ÍI]CULO CONTRARIO[\\s\\S]*?" + vehicleLookahead, "i"));
       if (contrarioMatch) {
         var cText = contrarioMatch[0];
-        if (m = cText.match(/MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula2 = m[1].trim(); }
-        if (m = cText.match(/ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora2 = m[1].trim(); }
+        if (m = cText.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula2 = m[1].trim(); }
+        if (m = cText.match(/(?:^|\n)[ \t]*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora2 = m[1].trim(); }
       }
 
       // Extracción multilínea para PARRAFADA (más robusta: busca el siguiente encabezado manualmente)
