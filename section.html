@@ -312,7 +312,8 @@
 
             zip.file("word/document.xml", contentXml);
             var outContent = zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-            var nombreFinal = "CARTA_" + fields.nombre.replace(/\s+/g, '_') + ".docx";
+            var baseTemplateName = file.name.substring(0, file.name.lastIndexOf('.'));
+            var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + ".docx";
 
             statusDiv.textContent = 'Autenticando con Trello API...';
             t.getRestApi().getToken().then(function (token) {
@@ -416,7 +417,8 @@
 
             var buffer = await workbook.xlsx.writeBuffer();
             var outContent = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-            var nombreFinal = "PRESUPUESTO_" + fields.nombre.replace(/\s+/g, '_') + ".xlsx";
+            var baseTemplateName = file.name.substring(0, file.name.lastIndexOf('.'));
+            var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + ".xlsx";
 
             statusDiv.textContent = 'Autenticando con Trello API...';
             t.getRestApi().getToken().then(function (token) {
