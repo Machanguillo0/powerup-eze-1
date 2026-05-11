@@ -259,6 +259,14 @@
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Telefono}}", fields.telefono);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Profesión}}", fields.profesion);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Observaciones}}", fields.observaciones);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha del siniestro}}", fields.fecha);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Hora}}", fields.hora);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Lugar}}", fields.lugar);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Ciudad}}", fields.ciudad);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Matrícula1}}", fields.matricula1);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Aseguradora1}}", fields.aseguradora1);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Matrícula2}}", fields.matricula2);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Aseguradora2}}", fields.aseguradora2);
 
             // Reemplazo de PARRAFADA con soporte multilínea (w:br)
             var parrafadaDocx = fields.parrafada.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
@@ -374,6 +382,14 @@
                             .replace(/\{\{Telefono\}\}/gi, fields.telefono)
                             .replace(/\{\{Profesión\}\}/gi, fields.profesion)
                             .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
+                            .replace(/\{\{Fecha del siniestro\}\}/gi, fields.fecha)
+                            .replace(/\{\{Hora\}\}/gi, fields.hora)
+                            .replace(/\{\{Lugar\}\}/gi, fields.lugar)
+                            .replace(/\{\{Ciudad\}\}/gi, fields.ciudad)
+                            .replace(/\{\{Matrícula1\}\}/gi, fields.matricula1)
+                            .replace(/\{\{Aseguradora1\}\}/gi, fields.aseguradora1)
+                            .replace(/\{\{Matrícula2\}\}/gi, fields.matricula2)
+                            .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2)
                             .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
                         }
                       });
@@ -386,6 +402,14 @@
                         .replace(/\{\{Telefono\}\}/gi, fields.telefono)
                         .replace(/\{\{Profesión\}\}/gi, fields.profesion)
                         .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
+                        .replace(/\{\{Fecha del siniestro\}\}/gi, fields.fecha)
+                        .replace(/\{\{Hora\}\}/gi, fields.hora)
+                        .replace(/\{\{Lugar\}\}/gi, fields.lugar)
+                        .replace(/\{\{Ciudad\}\}/gi, fields.ciudad)
+                        .replace(/\{\{Matrícula1\}\}/gi, fields.matricula1)
+                        .replace(/\{\{Aseguradora1\}\}/gi, fields.aseguradora1)
+                        .replace(/\{\{Matrícula2\}\}/gi, fields.matricula2)
+                        .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2)
                         .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
                       
                       // Habilitar wrapText si hay saltos de línea para que se vea bien en Excel
@@ -560,7 +584,7 @@
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Telefono}}", fields.telefono);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Profesión}}", fields.profesion);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Observaciones}}", fields.observaciones);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha}}", fields.fecha);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha del siniestro}}", fields.fecha);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Hora}}", fields.hora);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Lugar}}", fields.lugar);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Ciudad}}", fields.ciudad);
@@ -671,7 +695,7 @@
                             .replace(/\{\{Telefono\}\}/gi, fields.telefono)
                             .replace(/\{\{Profesión\}\}/gi, fields.profesion)
                             .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
-                            .replace(/\{\{Fecha\}\}/gi, fields.fecha)
+                            .replace(/\{\{Fecha del siniestro\}\}/gi, fields.fecha)
                             .replace(/\{\{Hora\}\}/gi, fields.hora)
                             .replace(/\{\{Lugar\}\}/gi, fields.lugar)
                             .replace(/\{\{Ciudad\}\}/gi, fields.ciudad)
@@ -683,14 +707,14 @@
                         }
                       });
                     } else if (typeof cell.value === 'string') {
-                      cell.value = cell.value.replace(/\{\{Nombre\}\}/gi, fields.nombre)
-                        .replace(/\{\{DNI\}\}/gi, fields.dni)
-                        .replace(/\{\{Domicilio\}\}/gi, fields.domicilio)
-                        .replace(/\{\{Teléfono\}\}/gi, fields.telefono)
-                        .replace(/\{\{Telefono\}\}/gi, fields.telefono)
-                        .replace(/\{\{Profesión\}\}/gi, fields.profesion)
-                        .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
-                        .replace(/\{\{Fecha\}\}/gi, fields.fecha)
+                        cell.value = cell.value.replace(/\{\{Nombre\}\}/gi, fields.nombre)
+                            .replace(/\{\{DNI\}\}/gi, fields.dni)
+                            .replace(/\{\{Domicilio\}\}/gi, fields.domicilio)
+                            .replace(/\{\{Teléfono\}\}/gi, fields.telefono)
+                            .replace(/\{\{Telefono\}\}/gi, fields.telefono)
+                            .replace(/\{\{Profesión\}\}/gi, fields.profesion)
+                            .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
+                            .replace(/\{\{Fecha del siniestro\}\}/gi, fields.fecha)
                         .replace(/\{\{Hora\}\}/gi, fields.hora)
                         .replace(/\{\{Lugar\}\}/gi, fields.lugar)
                         .replace(/\{\{Ciudad\}\}/gi, fields.ciudad)
