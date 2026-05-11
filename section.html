@@ -158,14 +158,14 @@
       // --- EXTRACCIÓN CONTEXTUAL DE VEHÍCULOS ---
       var vehicleLookahead = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
       
-      var propioMatch = desc.match(new RegExp("VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vehicleLookahead, "i"));
+      var propioMatch = desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\\s*VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vehicleLookahead, "i"));
       if (propioMatch) {
         var pText = propioMatch[0];
         if (m = pText.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula1 = m[1].trim(); }
         if (m = pText.match(/(?:^|\n)[ \t]*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora1 = m[1].trim(); }
       }
 
-      var contrarioMatch = desc.match(new RegExp("VEH[ÍI]CULO CONTRARIO[\\s\\S]*?" + vehicleLookahead, "i"));
+      var contrarioMatch = desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\\s*VEH[ÍI]CULO CONTRARIO[\\s\\S]*?" + vehicleLookahead, "i"));
       if (contrarioMatch) {
         var cText = contrarioMatch[0];
         if (m = cText.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula2 = m[1].trim(); }

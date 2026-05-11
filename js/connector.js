@@ -25,9 +25,9 @@ window.TrelloPowerUp.initialize({
 
             if (card.desc) {
               var m;
-              if (m = card.desc.match(/NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
-              if (m = card.desc.match(/DNI[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
-              if (m = card.desc.match(/(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
+              if (m = card.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
+              if (m = card.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DNI[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
+              if (m = card.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
             }
 
             return t.alert({
@@ -143,13 +143,13 @@ window.TrelloPowerUp.initialize({
                   // Extracción contextual en connector.js (similar a section.html)
                   var vLA = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
                   
-                  var pM = c.desc.match(new RegExp("VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vLA, "i"));
+                  var pM = c.desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\\s*VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vLA, "i"));
                   if (pM) {
                     var pT = pM[0];
                     if (m = pT.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula1 = m[1].trim(); }
                     if (m = pT.match(/(?:^|\n)[ \t]*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora1 = m[1].trim(); }
                   }
-                  var cM = c.desc.match(new RegExp("VEH[ÍI]CULO CONTRARIO[\\s\\S]*?" + vLA, "i"));
+                  var cM = c.desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\\s*VEH[ÍI]CULO CONTRARIO[\\s\\S]*?" + vLA, "i"));
                   if (cM) {
                     var cT = cM[0];
                     if (m = cT.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula2 = m[1].trim(); }
