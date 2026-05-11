@@ -210,280 +210,6 @@
       return fields;
     }
 
-    // Lógica para procesar el Documento Word
-    document.getElementById('word-upload').addEventListener('change', function (event) {
-      if (!event.target.files || event.target.files.length === 0) return;
-
-      var file = event.target.files[0];
-      var statusDiv = document.getElementById('upload-status');
-      statusDiv.textContent = 'Procesando ' + file.name + '...';
-      t.sizeTo(document.body).done();
-
-      // Primero, obtenemos los datos de la tarjeta
-      t.card('desc').then(function (cardInfo) {
-        var fields = extractFields(cardInfo.desc);
-
-        // Leemos el archivo físico
-        var reader = new FileReader();
-        reader.onload = function (e) {
-          try {
-            // Cargar el ZIP en memoria
-            var zip = new PizZip(e.target.result);
-
-            // Acceder al XML principal del documento Word
-            var contentXml = zip.file("word/document.xml").asText();
-            if (!contentXml) {
-              throw new Error("No se encontró word/document.xml dentro del archivo docx.");
-            }
-
-            // --- SUPER REEMPLAZO A PRUEBA DE MICROSOFT WORD ---
-            // Word a veces separa nuestras llaves con sus propias etiquetas XML invisibles:
-            // Ej: {<w:t>Nombre</w:t>}
-            // Esta función busca las llaves y limpia la basura XML que haya por el medio para que "encajen"
-            function reemplazarEtiquetaRota(xml, etiqueta, valor) {
-              // Creamos un patrón de búsqueda que permite que haya etiquetas <...> entre cada letra del token
-              var letras = etiqueta.split('');
-              var patron = letras.join('(?:<[^>]+>)*');
-              // Creamos la expresión regular de forma dinámica (global e insensible a mayúsculas)
-              var regex = new RegExp(patron, "gi");
-
-              // Si encontramos ese bloque roto, lo sustituimos por el valor deseado
-              // peeeero, para no "romper" el encolado del documento, debemos mantener el texto envuelto en una etiqueta de texto
-              return xml.replace(regex, valor);
-            }
-
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Nombre}}", fields.nombre);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{DNI}}", fields.dni);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Domicilio}}", fields.domicilio);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Teléfono}}", fields.telefono);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Telefono}}", fields.telefono);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Profesión}}", fields.profesion);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Observaciones}}", fields.observaciones);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha del siniestro}}", fields.fecha);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Hora}}", fields.hora);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Lugar}}", fields.lugar);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Ciudad}}", fields.ciudad);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Matrícula1}}", fields.matricula1);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Aseguradora1}}", fields.aseguradora1);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Matrícula2}}", fields.matricula2);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Aseguradora2}}", fields.aseguradora2);
-
-            // Reemplazo de PARRAFADA con soporte multilínea (w:br)
-            var parrafadaDocx = fields.parrafada.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Parrafada}}", parrafadaDocx);
-
-            // Reemplazamos el archivo en el ZIP
-            zip.file("word/document.xml", contentXml);
-
-            // Generar el nuevo archivo modificado como Blob para descarga local
-            var outContent = zip.generate({
-              type: "blob",
-              mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            });
-
-            var nombreFinal = "CARTA_" + fields.nombre.replace(/\s+/g, '_') + ".docx";
-
-            statusDiv.textContent = 'Autenticando con Trello API...';
-
-            // Usamos la API REST oficial en lugar de t.attach()
-            t.getRestApi()
-              .getToken()
-              .then(function (token) {
-                if (!token) {
-                  // Si el usuario no ha autorizado nunca esta App, pedirselo
-                  return t.getRestApi().authorize({
-                    scope: 'read,write',
-                    expiration: 'never',
-                    return_url: window.location.href
-                  });
-                }
-                return token;
-              })
-              .then(function (token) {
-                statusDiv.textContent = 'Subiendo documento directamente a Trello...';
-
-                // Formamos el paquete de datos nativo para enviar archivos
-                var formData = new FormData();
-                formData.append("key", t.getRestApi().appKey);
-                formData.append("token", token);
-                formData.append("file", outContent, nombreFinal);
-                formData.append("name", nombreFinal);
-
-                // Trello nos da el context() con el ID de esta tarjeta abierta
-                var cardId = t.getContext().card;
-                var urlParams = new URLSearchParams();
-                urlParams.append('key', t.getRestApi().appKey);
-                urlParams.append('token', token);
-
-                // Subida oficial de archivo
-                return fetch(`https://api.trello.com/1/cards/${cardId}/attachments?${urlParams.toString()}`, {
-                  method: 'POST',
-                  body: formData
-                });
-              })
-              .then(function (response) {
-                if (!response.ok) {
-                  throw new Error('La subida de Trello devolvió un error HTTP ' + response.status);
-                }
-                statusDiv.textContent = '¡Documento modificado y adjuntado en la tarjeta con éxito!';
-                event.target.value = ''; // Reset input
-                t.sizeTo(document.body).done();
-              })
-              .catch(function (err) {
-                console.error("Fallo de subida API:", err);
-                statusDiv.textContent = 'Fallo en la subida. ' + (err.message || 'Comprueba los logs de la consola.');
-                t.sizeTo(document.body).done();
-              });
-
-          } catch (error) {
-            console.error("Detalles del error PizZip:", error);
-            statusDiv.textContent = 'Error: ' + error.message;
-            t.sizeTo(document.body).done();
-          }
-        };
-        // Iniciar la lectura del archivo como ArrayBuffer para PizZip
-        reader.readAsArrayBuffer(file);
-      });
-    });
-
-    // Lógica para procesar el Documento Excel
-    document.getElementById('excel-upload').addEventListener('change', function (event) {
-      if (!event.target.files || event.target.files.length === 0) return;
-
-      var file = event.target.files[0];
-      var statusDiv = document.getElementById('upload-status');
-      statusDiv.textContent = 'Procesando ' + file.name + '...';
-      t.sizeTo(document.body).done();
-
-      // Obtenemos los datos de la tarjeta
-      t.card('desc').then(function (cardInfo) {
-        var fields = extractFields(cardInfo.desc);
-
-        var reader = new FileReader();
-        reader.onload = async function (e) {
-          try {
-            var workbook = new ExcelJS.Workbook();
-            // Cargar el excel desde ArrayBuffer
-            await workbook.xlsx.load(e.target.result);
-
-            // Recorrer todas las hojas, filas y celdas
-            workbook.eachSheet(function (worksheet, sheetId) {
-              worksheet.eachRow(function (row, rowNumber) {
-                row.eachCell(function (cell, colNumber) {
-                  if (cell.value) {
-                    // Microsoft Excel suele convertir los tags con estilos visuales en un objeto RichText
-                    if (cell.value.richText) {
-                      cell.value.richText.forEach(function (rt) {
-                        if (rt.text) {
-                          rt.text = rt.text.replace(/\{\{Nombre\}\}/gi, fields.nombre)
-                            .replace(/\{\{DNI\}\}/gi, fields.dni)
-                            .replace(/\{\{Domicilio\}\}/gi, fields.domicilio)
-                            .replace(/\{\{Teléfono\}\}/gi, fields.telefono)
-                            .replace(/\{\{Telefono\}\}/gi, fields.telefono)
-                            .replace(/\{\{Profesión\}\}/gi, fields.profesion)
-                            .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
-                            .replace(/\{\{Fecha del siniestro\}\}/gi, fields.fecha)
-                            .replace(/\{\{Hora\}\}/gi, fields.hora)
-                            .replace(/\{\{Lugar\}\}/gi, fields.lugar)
-                            .replace(/\{\{Ciudad\}\}/gi, fields.ciudad)
-                            .replace(/\{\{Matrícula1\}\}/gi, fields.matricula1)
-                            .replace(/\{\{Aseguradora1\}\}/gi, fields.aseguradora1)
-                            .replace(/\{\{Matrícula2\}\}/gi, fields.matricula2)
-                            .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2)
-                            .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
-                        }
-                      });
-                    } else if (typeof cell.value === 'string') {
-                      // Sustitución básica si la celda es string puro
-                      cell.value = cell.value.replace(/\{\{Nombre\}\}/gi, fields.nombre)
-                        .replace(/\{\{DNI\}\}/gi, fields.dni)
-                        .replace(/\{\{Domicilio\}\}/gi, fields.domicilio)
-                        .replace(/\{\{Teléfono\}\}/gi, fields.telefono)
-                        .replace(/\{\{Telefono\}\}/gi, fields.telefono)
-                        .replace(/\{\{Profesión\}\}/gi, fields.profesion)
-                        .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
-                        .replace(/\{\{Fecha del siniestro\}\}/gi, fields.fecha)
-                        .replace(/\{\{Hora\}\}/gi, fields.hora)
-                        .replace(/\{\{Lugar\}\}/gi, fields.lugar)
-                        .replace(/\{\{Ciudad\}\}/gi, fields.ciudad)
-                        .replace(/\{\{Matrícula1\}\}/gi, fields.matricula1)
-                        .replace(/\{\{Aseguradora1\}\}/gi, fields.aseguradora1)
-                        .replace(/\{\{Matrícula2\}\}/gi, fields.matricula2)
-                        .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2)
-                        .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
-                      
-                      // Habilitar wrapText si hay saltos de línea para que se vea bien en Excel
-                      if (fields.parrafada.includes('\n')) {
-                        cell.alignment = { wrapText: true };
-                      }
-                    }
-                  }
-                });
-              });
-            });
-
-            // Generar el nuevo archivo XLSX modificado en un Buffer
-            var buffer = await workbook.xlsx.writeBuffer();
-            var outContent = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-            var nombreFinal = "PRESUPUESTO_" + fields.nombre.replace(/\s+/g, '_') + ".xlsx";
-
-            statusDiv.textContent = 'Autenticando con Trello API...';
-
-            t.getRestApi()
-              .getToken()
-              .then(function (token) {
-                if (!token) {
-                  return t.getRestApi().authorize({
-                    scope: 'read,write',
-                    expiration: 'never',
-                    return_url: window.location.href
-                  });
-                }
-                return token;
-              })
-              .then(function (token) {
-                statusDiv.textContent = 'Subiendo Excel directamente a Trello...';
-
-                var formData = new FormData();
-                formData.append("key", t.getRestApi().appKey);
-                formData.append("token", token);
-                formData.append("file", outContent, nombreFinal);
-                formData.append("name", nombreFinal);
-
-                var cardId = t.getContext().card;
-                var urlParams = new URLSearchParams();
-                urlParams.append('key', t.getRestApi().appKey);
-                urlParams.append('token', token);
-
-                return fetch(`https://api.trello.com/1/cards/${cardId}/attachments?${urlParams.toString()}`, {
-                  method: 'POST',
-                  body: formData
-                });
-              })
-              .then(function (response) {
-                if (!response.ok) {
-                  throw new Error('La subida de Trello devolvió un error HTTP ' + response.status);
-                }
-                statusDiv.textContent = '¡Excel modificado y adjuntado con éxito!';
-                event.target.value = ''; // Reset input
-                t.sizeTo(document.body).done();
-              })
-              .catch(function (err) {
-                console.error("Fallo de subida API:", err);
-                statusDiv.textContent = 'Fallo en la subida. ' + (err.message || 'Mirar consola.');
-                t.sizeTo(document.body).done();
-              });
-
-          } catch (error) {
-            console.error("Error procesando Excel:", error);
-            statusDiv.textContent = 'Error: ' + error.message;
-            t.sizeTo(document.body).done();
-          }
-        };
-        reader.readAsArrayBuffer(file);
-      });
-    });
-
     // Función para obtener datos unificados de toda la lista
     function getUnifiedFields(t) {
       return t.card('idList').then(function (currentCard) {
@@ -508,12 +234,10 @@
             parrafada: ""
           };
 
-          // Marcadores para saber si hemos encontrado datos reales
           var found = { nombre: false, dni: false, domicilio: false, telefono: false, profesion: false, observaciones: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false };
 
           cardsInList.forEach(function (card) {
             var fields = extractFields(card.desc);
-
             if (!found.nombre && fields.nombre !== "Cliente Desconocido") { unified.nombre = fields.nombre; found.nombre = true; }
             if (!found.dni && fields.dni !== "___________") { unified.dni = fields.dni; found.dni = true; }
             if (!found.domicilio && fields.domicilio !== "___________") { unified.domicilio = fields.domicilio; found.domicilio = true; }
@@ -543,33 +267,23 @@
       });
     }
 
-    // Lógica para procesar el Documento Word
+    // Lógica para procesar el Documento Word (UNIFICADA)
     document.getElementById('word-upload').addEventListener('change', function (event) {
       if (!event.target.files || event.target.files.length === 0) return;
-
       var file = event.target.files[0];
       var statusDiv = document.getElementById('upload-status');
       statusDiv.textContent = 'Procesando ' + file.name + '...';
       t.sizeTo(document.body).done();
 
-      // Obtenemos los datos UNIFICADOS de la lista
       getUnifiedFields(t).then(function (data) {
         var fields = data.fields;
-
-        // Leemos el archivo físico
         var reader = new FileReader();
         reader.onload = function (e) {
           try {
-            // Cargar el ZIP en memoria
             var zip = new PizZip(e.target.result);
-
-            // Acceder al XML principal del documento Word
             var contentXml = zip.file("word/document.xml").asText();
-            if (!contentXml) {
-              throw new Error("No se encontró word/document.xml dentro del archivo docx.");
-            }
+            if (!contentXml) throw new Error("No se encontró word/document.xml");
 
-            // --- SUPER REEMPLAZO A PRUEBA DE MICROSOFT WORD ---
             function reemplazarEtiquetaRota(xml, etiqueta, valor) {
               var letras = etiqueta.split('');
               var patron = letras.join('(?:<[^>]+>)*');
@@ -597,63 +311,37 @@
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Parrafada}}", parrafadaDocx);
 
             zip.file("word/document.xml", contentXml);
-
-            var outContent = zip.generate({
-              type: "blob",
-              mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            });
-
+            var outContent = zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
             var nombreFinal = "CARTA_" + fields.nombre.replace(/\s+/g, '_') + ".docx";
 
             statusDiv.textContent = 'Autenticando con Trello API...';
-
-            t.getRestApi()
-              .getToken()
-              .then(function (token) {
-                if (!token) {
-                  return t.getRestApi().authorize({
-                    scope: 'read,write',
-                    expiration: 'never',
-                    return_url: window.location.href
-                  });
-                }
-                return token;
-              })
-              .then(function (token) {
-                statusDiv.textContent = 'Subiendo documento directamente a Trello...';
-
-                var formData = new FormData();
-                formData.append("key", t.getRestApi().appKey);
-                formData.append("token", token);
-                formData.append("file", outContent, nombreFinal);
-                formData.append("name", nombreFinal);
-
-                var cardId = t.getContext().card;
-                var urlParams = new URLSearchParams();
-                urlParams.append('key', t.getRestApi().appKey);
-                urlParams.append('token', token);
-
-                return fetch(`https://api.trello.com/1/cards/${cardId}/attachments?${urlParams.toString()}`, {
-                  method: 'POST',
-                  body: formData
-                });
-              })
-              .then(function (response) {
-                if (!response.ok) {
-                  throw new Error('La subida de Trello devolvió un error HTTP ' + response.status);
-                }
-                statusDiv.textContent = '¡Documento modificado y adjuntado en la tarjeta con éxito!';
-                event.target.value = ''; 
-                t.sizeTo(document.body).done();
-              })
-              .catch(function (err) {
-                console.error("Fallo de subida API:", err);
-                statusDiv.textContent = 'Fallo en la subida. ' + (err.message || 'Comprueba los logs.');
-                t.sizeTo(document.body).done();
-              });
-
+            t.getRestApi().getToken().then(function (token) {
+              if (!token) return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
+              return token;
+            }).then(function (token) {
+              statusDiv.textContent = 'Subiendo documento directamente a Trello...';
+              var formData = new FormData();
+              formData.append("key", t.getRestApi().appKey);
+              formData.append("token", token);
+              formData.append("file", outContent, nombreFinal);
+              formData.append("name", nombreFinal);
+              var cardId = t.getContext().card;
+              var urlParams = new URLSearchParams();
+              urlParams.append('key', t.getRestApi().appKey);
+              urlParams.append('token', token);
+              return fetch(`https://api.trello.com/1/cards/${cardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData });
+            }).then(function (response) {
+              if (!response.ok) throw new Error('Error HTTP ' + response.status);
+              statusDiv.textContent = '¡Documento modificado y adjuntado con éxito!';
+              event.target.value = '';
+              t.sizeTo(document.body).done();
+            }).catch(function (err) {
+              console.error(err);
+              statusDiv.textContent = 'Fallo en la subida.';
+              t.sizeTo(document.body).done();
+            });
           } catch (error) {
-            console.error("Detalles del error PizZip:", error);
+            console.error(error);
             statusDiv.textContent = 'Error: ' + error.message;
             t.sizeTo(document.body).done();
           }
@@ -662,28 +350,24 @@
       });
     });
 
-    // Lógica para procesar el Documento Excel
+    // Lógica para procesar el Documento Excel (UNIFICADA)
     document.getElementById('excel-upload').addEventListener('change', function (event) {
       if (!event.target.files || event.target.files.length === 0) return;
-
       var file = event.target.files[0];
       var statusDiv = document.getElementById('upload-status');
       statusDiv.textContent = 'Procesando ' + file.name + '...';
       t.sizeTo(document.body).done();
 
-      // Datos UNIFICADOS
       getUnifiedFields(t).then(function (data) {
         var fields = data.fields;
-
         var reader = new FileReader();
         reader.onload = async function (e) {
           try {
             var workbook = new ExcelJS.Workbook();
             await workbook.xlsx.load(e.target.result);
-
-            workbook.eachSheet(function (worksheet, sheetId) {
-              worksheet.eachRow(function (row, rowNumber) {
-                row.eachCell(function (cell, colNumber) {
+            workbook.eachSheet(function (worksheet) {
+              worksheet.eachRow(function (row) {
+                row.eachCell(function (cell) {
                   if (cell.value) {
                     if (cell.value.richText) {
                       cell.value.richText.forEach(function (rt) {
@@ -707,14 +391,14 @@
                         }
                       });
                     } else if (typeof cell.value === 'string') {
-                        cell.value = cell.value.replace(/\{\{Nombre\}\}/gi, fields.nombre)
-                            .replace(/\{\{DNI\}\}/gi, fields.dni)
-                            .replace(/\{\{Domicilio\}\}/gi, fields.domicilio)
-                            .replace(/\{\{Teléfono\}\}/gi, fields.telefono)
-                            .replace(/\{\{Telefono\}\}/gi, fields.telefono)
-                            .replace(/\{\{Profesión\}\}/gi, fields.profesion)
-                            .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
-                            .replace(/\{\{Fecha del siniestro\}\}/gi, fields.fecha)
+                      cell.value = cell.value.replace(/\{\{Nombre\}\}/gi, fields.nombre)
+                        .replace(/\{\{DNI\}\}/gi, fields.dni)
+                        .replace(/\{\{Domicilio\}\}/gi, fields.domicilio)
+                        .replace(/\{\{Teléfono\}\}/gi, fields.telefono)
+                        .replace(/\{\{Telefono\}\}/gi, fields.telefono)
+                        .replace(/\{\{Profesión\}\}/gi, fields.profesion)
+                        .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
+                        .replace(/\{\{Fecha del siniestro\}\}/gi, fields.fecha)
                         .replace(/\{\{Hora\}\}/gi, fields.hora)
                         .replace(/\{\{Lugar\}\}/gi, fields.lugar)
                         .replace(/\{\{Ciudad\}\}/gi, fields.ciudad)
@@ -723,10 +407,7 @@
                         .replace(/\{\{Matrícula2\}\}/gi, fields.matricula2)
                         .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2)
                         .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
-                      
-                      if (fields.parrafada.includes('\n')) {
-                        cell.alignment = { wrapText: true };
-                      }
+                      if (fields.parrafada.includes('\n')) cell.alignment = { wrapText: true };
                     }
                   }
                 });
@@ -738,54 +419,33 @@
             var nombreFinal = "PRESUPUESTO_" + fields.nombre.replace(/\s+/g, '_') + ".xlsx";
 
             statusDiv.textContent = 'Autenticando con Trello API...';
-
-            t.getRestApi()
-              .getToken()
-              .then(function (token) {
-                if (!token) {
-                  return t.getRestApi().authorize({
-                    scope: 'read,write',
-                    expiration: 'never',
-                    return_url: window.location.href
-                  });
-                }
-                return token;
-              })
-              .then(function (token) {
-                statusDiv.textContent = 'Subiendo Excel directamente a Trello...';
-
-                var formData = new FormData();
-                formData.append("key", t.getRestApi().appKey);
-                formData.append("token", token);
-                formData.append("file", outContent, nombreFinal);
-                formData.append("name", nombreFinal);
-
-                var cardId = t.getContext().card;
-                var urlParams = new URLSearchParams();
-                urlParams.append('key', t.getRestApi().appKey);
-                urlParams.append('token', token);
-
-                return fetch(`https://api.trello.com/1/cards/${cardId}/attachments?${urlParams.toString()}`, {
-                  method: 'POST',
-                  body: formData
-                });
-              })
-              .then(function (response) {
-                if (!response.ok) {
-                  throw new Error('La subida de Trello devolvió un error HTTP ' + response.status);
-                }
-                statusDiv.textContent = '¡Excel modificado y adjuntado con éxito!';
-                event.target.value = ''; 
-                t.sizeTo(document.body).done();
-              })
-              .catch(function (err) {
-                console.error("Fallo de subida API:", err);
-                statusDiv.textContent = 'Fallo en la subida.';
-                t.sizeTo(document.body).done();
-              });
-
+            t.getRestApi().getToken().then(function (token) {
+              if (!token) return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
+              return token;
+            }).then(function (token) {
+              statusDiv.textContent = 'Subiendo Excel directamente a Trello...';
+              var formData = new FormData();
+              formData.append("key", t.getRestApi().appKey);
+              formData.append("token", token);
+              formData.append("file", outContent, nombreFinal);
+              formData.append("name", nombreFinal);
+              var cardId = t.getContext().card;
+              var urlParams = new URLSearchParams();
+              urlParams.append('key', t.getRestApi().appKey);
+              urlParams.append('token', token);
+              return fetch(`https://api.trello.com/1/cards/${cardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData });
+            }).then(function (response) {
+              if (!response.ok) throw new Error('Error HTTP ' + response.status);
+              statusDiv.textContent = '¡Excel modificado y adjuntado con éxito!';
+              event.target.value = '';
+              t.sizeTo(document.body).done();
+            }).catch(function (err) {
+              console.error(err);
+              statusDiv.textContent = 'Fallo en la subida.';
+              t.sizeTo(document.body).done();
+            });
           } catch (error) {
-            console.error("Error procesando Excel:", error);
+            console.error(error);
             statusDiv.textContent = 'Error: ' + error.message;
             t.sizeTo(document.body).done();
           }
@@ -794,13 +454,13 @@
       });
     });
 
-    // Botón para visualizar la extracción unificada
+    // Botón para visualizar la extracción unificada en pantalla
     document.getElementById('boton-desc').addEventListener('click', function () {
       getUnifiedFields(t).then(function (data) {
         var fields = data.fields;
         var container = document.getElementById('descripcion-container');
         
-        var html = "<strong>Ficha unificada del Cliente (datos de " + data.count + " tarjetas):</strong><br><br>";
+        var html = "<strong>Ficha unificada (datos de " + data.count + " tarjetas):</strong><br><br>";
         html += "• Nombre: " + fields.nombre + "<br>" +
                 "• DNI: " + fields.dni + "<br>" +
                 "• Teléfono: " + fields.telefono + "<br>" +
@@ -809,18 +469,14 @@
                 "• Fecha del siniestro: " + fields.fecha + "<br>" +
                 "• Hora: " + fields.hora + "<br>" +
                 "• Lugar: " + fields.lugar + "<br>" +
-                "• Ciudad: " + fields.ciudad + "<br>" +
-                "<div style='margin: 10px 0; padding: 8px; background: #e2f0d9; border-radius: 5px; border: 1px solid #c5e0b4;'>" +
-                "  <strong>🚗 Vehículo Propio:</strong><br>" +
-                "  <span style='margin-left: 15px;'>• Matrícula: " + fields.matricula1 + "</span><br>" +
-                "  <span style='margin-left: 15px;'>• Aseguradora: " + fields.aseguradora1 + "</span><br><br>" +
-                "  <strong>🚘 Vehículo Contrario:</strong><br>" +
-                "  <span style='margin-left: 15px;'>• Matrícula: " + fields.matricula2 + "</span><br>" +
-                "  <span style='margin-left: 15px;'>• Aseguradora: " + fields.aseguradora2 + "</span>" +
-                "</div>" +
-                "• Observaciones: " + fields.observaciones + "<br>" +
-                "• Parrafada acumulada: <pre style='margin: 5px 0; background: #fafafa; padding: 10px; font-size: 11px; white-space: pre-wrap;'>" + (fields.parrafada || "Sin datos") + "</pre>";
-
+                "• Ciudad: " + fields.ciudad + "<br><br>" +
+                "• Matrícula 1 (Propio): " + fields.matricula1 + "<br>" +
+                "• Aseguradora 1: " + fields.aseguradora1 + "<br>" +
+                "• Matrícula 2 (Contrario): " + fields.matricula2 + "<br>" +
+                "• Aseguradora 2: " + fields.aseguradora2 + "<br><br>" +
+                "<strong>Descripción Acumulada:</strong><br>" + 
+                "<div style='margin-top: 5px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; white-space: pre-wrap; font-family: monospace;'>" + (fields.parrafada || "(Sin descripción)") + "</div>";
+        
         container.innerHTML = html;
         container.style.display = 'block';
         t.sizeTo(document.body).done();
