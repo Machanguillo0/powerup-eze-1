@@ -343,6 +343,8 @@
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Aseguradora1}}", fields.aseguradora1);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Matrícula2}}", fields.matricula2);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Aseguradora2}}", fields.aseguradora2);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha del sistema}}", fields.fecha_sistema);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha última actuación}}", fields.fecha_ultima);
 
             var parrafadaDocx = fields.parrafada.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Parrafada}}", parrafadaDocx);
