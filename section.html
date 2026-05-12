@@ -144,7 +144,21 @@
 
       var m;
       // Regex para campos de una sola línea
-      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:NOMBRE Y APELLIDOS|NOMBRE|CLIENTE|ASEGURADO)[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
+      // Regex para campos de una sola línea (Priorizamos Nombre y Apellidos completo)
+      var namePatterns = [
+        /(?:^|\n)[ \t]*[*_~`#]*\s*NOMBRE Y APELLIDOS[ \t]*[:\s-]+\s*([^\n\r]{2,70})/i,
+        /(?:^|\n)[ \t]*[*_~`#]*\s*(?:NOMBRE|CLIENTE|ASEGURADO)[ \t]*[:\s-]+\s*([^\n\r]{2,50})/i
+      ];
+      for (var i = 0; i < namePatterns.length; i++) {
+        if (m = desc.match(namePatterns[i])) {
+          var val = m[1].replace(/[*_~`]/g, '').trim();
+          // Si parece una frase larga con puntos, probablemente es descripción, no un nombre
+          if (val.length > 5 && !val.includes('.') && val.split(' ').length <= 8) {
+            fields.nombre = val;
+            break;
+          }
+        }
+      }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DNI[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DOMICILIO[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
