@@ -566,6 +566,10 @@
         return fetch(`https://api.trello.com/1/lists/${idList}/cards?key=${appKey}&token=${token}`)
           .then(res => res.json())
           .then(cards => {
+            // Buscamos la tarjeta de datos personales para saber su posición
+            var personalCard = cards.find(c => c.name.toLowerCase().includes("datos personales"));
+            var targetPos = personalCard ? personalCard.pos + 0.1 : "bottom";
+
             // Buscamos por el nombre nuevo o el antiguo
             var historyCard = cards.find(c => 
               c.name.toLowerCase().includes("historial de procesos") || 
@@ -577,11 +581,9 @@
 
             if (historyCard) {
               var desc = historyCard.desc || "";
-              // Si no existe fecha del sistema, la añadimos (con negritas)
               if (!desc.includes("Fecha del sistema")) {
                 desc = systemKey + " " + today + "\n" + desc;
               }
-              // Actualizar o añadir la fecha de última actuación (con negritas)
               var lastActionStr = lastActionKey + " " + today;
               var regex = new RegExp("\\*\\*Fecha última actuación sobre el expediente:\\*\\*[^\\n]*|Fecha última actuación sobre el expediente:[^\\n]*", "i");
               
@@ -595,14 +597,15 @@
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                  name: "Historial de procesos.", // Aseguramos el nombre nuevo
-                  desc: desc 
+                  name: "Historial de procesos.",
+                  desc: desc,
+                  pos: targetPos // Mantenemos la posición a continuación de datos personales
                 })
               });
             } else {
               var newDesc = systemKey + " " + today + "\n" + 
                             lastActionKey + " " + today;
-              return fetch(`https://api.trello.com/1/cards?idList=${idList}&name=${encodeURIComponent("Historial de procesos.")}&desc=${encodeURIComponent(newDesc)}&key=${appKey}&token=${token}`, { 
+              return fetch(`https://api.trello.com/1/cards?idList=${idList}&name=${encodeURIComponent("Historial de procesos.")}&desc=${encodeURIComponent(newDesc)}&pos=${targetPos}&key=${appKey}&token=${token}`, { 
                 method: 'POST' 
               });
             }
