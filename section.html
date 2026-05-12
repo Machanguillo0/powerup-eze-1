@@ -242,7 +242,10 @@
             aseguradora2: "___________",
             parrafada: "",
             fecha_sistema: new Date().toLocaleDateString('es-ES'),
-            fecha_ultima: new Date().toLocaleDateString('es-ES')
+            fecha_ultima: new Date().toLocaleDateString('es-ES'),
+            dds: "___",
+            mess: "_________",
+            aaaas: "____"
           };
 
           var found = { nombre: false, dni: false, domicilio: false, telefono: false, profesion: false, observaciones: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false, fecha_sistema: false, fecha_ultima: false };
@@ -284,6 +287,16 @@
             if (!found.aseguradora2 && fields.aseguradora2 !== "___________") { unified.aseguradora2 = fields.aseguradora2; found.aseguradora2 = true; }
             if (!found.fecha_sistema && fields.fecha_sistema !== "___________") { unified.fecha_sistema = fields.fecha_sistema; found.fecha_sistema = true; }
             if (!found.fecha_ultima && fields.fecha_ultima !== "___________") { unified.fecha_ultima = fields.fecha_ultima; found.fecha_ultima = true; }
+
+            // Procesamos el desglose de Fecha del sistema (DDs, Mess, AAAAs)
+            var parts = unified.fecha_sistema.split('/');
+            if (parts.length === 3) {
+              unified.dds = parts[0];
+              var monthNames = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+              var monthIndex = parseInt(parts[1], 10) - 1;
+              unified.mess = monthNames[monthIndex] || "_________";
+              unified.aaaas = parts[2];
+            }
 
             if (fields.parrafada) {
               if (unified.parrafada) {
@@ -345,6 +358,9 @@
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Aseguradora2}}", fields.aseguradora2);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha del sistema}}", fields.fecha_sistema);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha última actuación}}", fields.fecha_ultima);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{DDs}}", fields.dds);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Mess}}", fields.mess);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{AAAAs}}", fields.aaaas);
 
             var parrafadaDocx = fields.parrafada.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Parrafada}}", parrafadaDocx);
@@ -431,6 +447,9 @@
                             .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2)
                             .replace(/\{\{Fecha del sistema\}\}/gi, fields.fecha_sistema)
                             .replace(/\{\{Fecha última actuación\}\}/gi, fields.fecha_ultima)
+                            .replace(/\{\{DDs\}\}/gi, fields.dds)
+                            .replace(/\{\{Mess\}\}/gi, fields.mess)
+                            .replace(/\{\{AAAAs\}\}/gi, fields.aaaas)
                             .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
                         }
                       });
@@ -450,6 +469,11 @@
                         .replace(/\{\{Aseguradora1\}\}/gi, fields.aseguradora1)
                         .replace(/\{\{Matrícula2\}\}/gi, fields.matricula2)
                         .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2)
+                        .replace(/\{\{Fecha del sistema\}\}/gi, fields.fecha_sistema)
+                        .replace(/\{\{Fecha última actuación\}\}/gi, fields.fecha_ultima)
+                        .replace(/\{\{DDs\}\}/gi, fields.dds)
+                        .replace(/\{\{Mess\}\}/gi, fields.mess)
+                        .replace(/\{\{AAAAs\}\}/gi, fields.aaaas)
                         .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
                       if (fields.parrafada.includes('\n')) cell.alignment = { wrapText: true };
                     }
