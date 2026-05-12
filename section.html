@@ -137,7 +137,9 @@
         aseguradora1: "___________",
         matricula2: "___________",
         aseguradora2: "___________",
-        parrafada: ""
+        parrafada: "",
+        fecha_sistema: "___________",
+        fecha_ultima: "___________"
       };
 
       if (!desc) return fields;
@@ -158,6 +160,8 @@
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:HORA)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.hora = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:LUGAR)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.lugar = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:CIUDAD)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.ciudad = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha del sistema\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_sistema = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha última actuación\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_ultima = m[1].replace(/[*_~`]/g, '').trim(); }
 
       // --- EXTRACCIÓN CONTEXTUAL DE VEHÍCULOS ---
       var vehicleLookahead = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
@@ -236,10 +240,12 @@
             aseguradora1: "___________",
             matricula2: "___________",
             aseguradora2: "___________",
-            parrafada: ""
+            parrafada: "",
+            fecha_sistema: new Date().toLocaleDateString('es-ES'),
+            fecha_ultima: new Date().toLocaleDateString('es-ES')
           };
 
-          var found = { nombre: false, dni: false, domicilio: false, telefono: false, profesion: false, observaciones: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false };
+          var found = { nombre: false, dni: false, domicilio: false, telefono: false, profesion: false, observaciones: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false, fecha_sistema: false, fecha_ultima: false };
           var targetCardId = null;
           var maxScore = -1;
 
@@ -276,6 +282,8 @@
             if (!found.aseguradora1 && fields.aseguradora1 !== "___________") { unified.aseguradora1 = fields.aseguradora1; found.aseguradora1 = true; }
             if (!found.matricula2 && fields.matricula2 !== "___________") { unified.matricula2 = fields.matricula2; found.matricula2 = true; }
             if (!found.aseguradora2 && fields.aseguradora2 !== "___________") { unified.aseguradora2 = fields.aseguradora2; found.aseguradora2 = true; }
+            if (!found.fecha_sistema && fields.fecha_sistema !== "___________") { unified.fecha_sistema = fields.fecha_sistema; found.fecha_sistema = true; }
+            if (!found.fecha_ultima && fields.fecha_ultima !== "___________") { unified.fecha_ultima = fields.fecha_ultima; found.fecha_ultima = true; }
 
             if (fields.parrafada) {
               if (unified.parrafada) {
@@ -289,7 +297,8 @@
           return { 
             fields: unified, 
             count: cardsInList.length,
-            targetCardId: targetCardId || currentCardId // Si no se encuentra, usamos la tarjeta actual
+            targetCardId: targetCardId || currentCardId,
+            idList: idList // Pasamos el idList para el historial
           };
         });
       });
@@ -364,6 +373,8 @@
               statusDiv.textContent = '¡Documento modificado y adjuntado con éxito!';
               event.target.value = '';
               t.sizeTo(document.body).done();
+              // Actualizar historial
+              updateHistoryCard(t, data.idList);
             }).catch(function (err) {
               console.error(err);
               statusDiv.textContent = 'Fallo en la subida.';
@@ -416,6 +427,8 @@
                             .replace(/\{\{Aseguradora1\}\}/gi, fields.aseguradora1)
                             .replace(/\{\{Matrícula2\}\}/gi, fields.matricula2)
                             .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2)
+                            .replace(/\{\{Fecha del sistema\}\}/gi, fields.fecha_sistema)
+                            .replace(/\{\{Fecha última actuación\}\}/gi, fields.fecha_ultima)
                             .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
                         }
                       });
@@ -469,6 +482,8 @@
               statusDiv.textContent = '¡Excel modificado y adjuntado con éxito!';
               event.target.value = '';
               t.sizeTo(document.body).done();
+              // Actualizar historial
+              updateHistoryCard(t, data.idList);
             }).catch(function (err) {
               console.error(err);
               statusDiv.textContent = 'Fallo en la subida.';
@@ -516,6 +531,36 @@
     t.render(function () {
       t.sizeTo(document.body).done();
     });
+
+    function updateHistoryCard(t, idList) {
+      return t.getRestApi().getToken().then(function (token) {
+        if (!token) return;
+        var appKey = t.getRestApi().appKey;
+        var today = new Date().toLocaleDateString('es-ES');
+        return fetch(`https://api.trello.com/1/lists/${idList}/cards?key=${appKey}&token=${token}`)
+          .then(res => res.json())
+          .then(cards => {
+            var historyCard = cards.find(c => c.name.toLowerCase().includes("historial de avisos"));
+            if (historyCard) {
+              var desc = historyCard.desc || "";
+              if (!desc.includes("Fecha del sistema:")) desc = "Fecha del sistema: " + today + "\n" + desc;
+              var lastActionKey = "Fecha última actuación sobre el expediente:";
+              var lastActionStr = lastActionKey + " " + today;
+              var regex = new RegExp(lastActionKey + "[^\\n]*", "i");
+              if (regex.test(desc)) desc = desc.replace(regex, lastActionStr);
+              else desc += "\n" + lastActionStr;
+              return fetch(`https://api.trello.com/1/cards/${historyCard.id}?key=${appKey}&token=${token}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ desc: desc })
+              });
+            } else {
+              var newDesc = "Fecha del sistema: " + today + "\n" + "Fecha última actuación sobre el expediente: " + today;
+              return fetch(`https://api.trello.com/1/cards?idList=${idList}&name=historial de avisos&desc=${encodeURIComponent(newDesc)}&key=${appKey}&token=${token}`, { method: 'POST' });
+            }
+          });
+      });
+    }
   </script>
 </body>
 
