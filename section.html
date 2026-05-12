@@ -144,7 +144,7 @@
 
       var m;
       // Regex para campos de una sola línea
-      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:NOMBRE Y APELLIDOS|NOMBRE|CLIENTE|ASEGURADO)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DNI[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DOMICILIO[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
@@ -237,14 +237,25 @@
 
           var found = { nombre: false, dni: false, domicilio: false, telefono: false, profesion: false, observaciones: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false };
           var targetCardId = null;
+          var maxScore = -1;
 
           cardsInList.forEach(function (card) {
             var fields = extractFields(card.desc);
-            if (!found.nombre && fields.nombre !== "Cliente Desconocido") { 
-              unified.nombre = fields.nombre; 
-              found.nombre = true; 
-              targetCardId = card.id; // Identificamos la tarjeta de datos personales
+            
+            // Sistema de puntuación para identificar la tarjeta principal de datos personales
+            var score = 0;
+            if (fields.nombre !== "Cliente Desconocido" && fields.nombre.replace(/[_\s]+/g, '').length > 2) score += 10;
+            if (fields.dni !== "___________" && fields.dni.replace(/[_\s]+/g, '').length > 2) score += 5;
+            if (fields.telefono !== "___________" && fields.telefono.replace(/[_\s]+/g, '').length > 2) score += 3;
+            if (fields.domicilio !== "___________") score += 1;
+            if (fields.profesion !== "___________") score += 1;
+
+            if (score > maxScore) {
+              maxScore = score;
+              targetCardId = card.id;
             }
+
+            if (!found.nombre && fields.nombre !== "Cliente Desconocido") { unified.nombre = fields.nombre; found.nombre = true; }
             if (!found.dni && fields.dni !== "___________") { unified.dni = fields.dni; found.dni = true; }
             if (!found.domicilio && fields.domicilio !== "___________") { unified.domicilio = fields.domicilio; found.domicilio = true; }
             if (!found.telefono && fields.telefono !== "___________") { unified.telefono = fields.telefono; found.telefono = true; }
