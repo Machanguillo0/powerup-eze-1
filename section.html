@@ -139,7 +139,14 @@
         aseguradora2: "___________",
         parrafada: "",
         fecha_sistema: "___________",
-        fecha_ultima: "___________"
+        fecha_ultima: "___________",
+        fecha_cierre: "___________",
+        fecha_facturacion: "___________",
+        fecha_resolucion: "___________",
+        fecha_designa: "___________",
+        fecha_reclamacion: "___________",
+        fecha_apertura: "___________",
+        fecha_siniestro: "___________"
       };
 
       if (!desc) return fields;
@@ -162,6 +169,13 @@
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:CIUDAD)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.ciudad = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha del sistema\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_sistema = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha última actuación\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_ultima = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha cierre expediente\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_cierre = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha(?: de)? facturación\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_facturacion = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha de resolución\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_resolucion = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha de comunicación designa(?:ción)?\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_designa = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha(?: de)? reclamación previa\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_reclamacion = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha (?:apertura|creación) de? expediente\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_apertura = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha siniestro\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_siniestro = m[1].replace(/[*_~`]/g, '').trim(); }
 
       // --- EXTRACCIÓN CONTEXTUAL DE VEHÍCULOS ---
       var vehicleLookahead = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
@@ -243,12 +257,19 @@
             parrafada: "",
             fecha_sistema: new Date().toLocaleDateString('es-ES'),
             fecha_ultima: new Date().toLocaleDateString('es-ES'),
+            fecha_cierre: "___________",
+            fecha_facturacion: "___________",
+            fecha_resolucion: "___________",
+            fecha_designa: "___________",
+            fecha_reclamacion: "___________",
+            fecha_apertura: "___________",
+            fecha_siniestro: "___________",
             dds: "___",
             mess: "_________",
             aaaas: "____"
           };
 
-          var found = { nombre: false, dni: false, domicilio: false, telefono: false, profesion: false, observaciones: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false, fecha_sistema: false, fecha_ultima: false };
+          var found = { nombre: false, dni: false, domicilio: false, telefono: false, profesion: false, observaciones: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false, fecha_sistema: false, fecha_ultima: false, fecha_cierre: false, fecha_facturacion: false, fecha_resolucion: false, fecha_designa: false, fecha_reclamacion: false, fecha_apertura: false, fecha_siniestro: false };
           var targetCardId = null;
           var maxScore = -1;
 
@@ -287,6 +308,13 @@
             if (!found.aseguradora2 && fields.aseguradora2 !== "___________") { unified.aseguradora2 = fields.aseguradora2; found.aseguradora2 = true; }
             if (!found.fecha_sistema && fields.fecha_sistema !== "___________") { unified.fecha_sistema = fields.fecha_sistema; found.fecha_sistema = true; }
             if (!found.fecha_ultima && fields.fecha_ultima !== "___________") { unified.fecha_ultima = fields.fecha_ultima; found.fecha_ultima = true; }
+            if (!found.fecha_cierre && fields.fecha_cierre !== "___________") { unified.fecha_cierre = fields.fecha_cierre; found.fecha_cierre = true; }
+            if (!found.fecha_facturacion && fields.fecha_facturacion !== "___________") { unified.fecha_facturacion = fields.fecha_facturacion; found.fecha_facturacion = true; }
+            if (!found.fecha_resolucion && fields.fecha_resolucion !== "___________") { unified.fecha_resolucion = fields.fecha_resolucion; found.fecha_resolucion = true; }
+            if (!found.fecha_designa && fields.fecha_designa !== "___________") { unified.fecha_designa = fields.fecha_designa; found.fecha_designa = true; }
+            if (!found.fecha_reclamacion && fields.fecha_reclamacion !== "___________") { unified.fecha_reclamacion = fields.fecha_reclamacion; found.fecha_reclamacion = true; }
+            if (!found.fecha_apertura && fields.fecha_apertura !== "___________") { unified.fecha_apertura = fields.fecha_apertura; found.fecha_apertura = true; }
+            if (!found.fecha_siniestro && fields.fecha_siniestro !== "___________") { unified.fecha_siniestro = fields.fecha_siniestro; found.fecha_siniestro = true; }
 
             // Procesamos el desglose de Fecha del sistema (DDs, Mess, AAAAs)
             var parts = unified.fecha_sistema.split('/');
@@ -358,6 +386,13 @@
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Aseguradora2}}", fields.aseguradora2);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha del sistema}}", fields.fecha_sistema);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha última actuación}}", fields.fecha_ultima);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha cierre expediente}}", fields.fecha_cierre);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha facturación}}", fields.fecha_facturacion);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha de resolución}}", fields.fecha_resolucion);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha comunicación designa}}", fields.fecha_designa);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha reclamación previa}}", fields.fecha_reclamacion);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha apertura expediente}}", fields.fecha_apertura);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha siniestro}}", fields.fecha_siniestro);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{DDs}}", fields.dds);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Mess}}", fields.mess);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{AAAAs}}", fields.aaaas);
@@ -447,6 +482,13 @@
                             .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2)
                             .replace(/\{\{Fecha del sistema\}\}/gi, fields.fecha_sistema)
                             .replace(/\{\{Fecha última actuación\}\}/gi, fields.fecha_ultima)
+                            .replace(/\{\{Fecha cierre expediente\}\}/gi, fields.fecha_cierre)
+                            .replace(/\{\{Fecha facturación\}\}/gi, fields.fecha_facturacion)
+                            .replace(/\{\{Fecha de resolución\}\}/gi, fields.fecha_resolucion)
+                            .replace(/\{\{Fecha comunicación designa\}\}/gi, fields.fecha_designa)
+                            .replace(/\{\{Fecha reclamación previa\}\}/gi, fields.fecha_reclamacion)
+                            .replace(/\{\{Fecha apertura expediente\}\}/gi, fields.fecha_apertura)
+                            .replace(/\{\{Fecha siniestro\}\}/gi, fields.fecha_siniestro)
                             .replace(/\{\{DDs\}\}/gi, fields.dds)
                             .replace(/\{\{Mess\}\}/gi, fields.mess)
                             .replace(/\{\{AAAAs\}\}/gi, fields.aaaas)
@@ -471,6 +513,13 @@
                         .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2)
                         .replace(/\{\{Fecha del sistema\}\}/gi, fields.fecha_sistema)
                         .replace(/\{\{Fecha última actuación\}\}/gi, fields.fecha_ultima)
+                        .replace(/\{\{Fecha cierre expediente\}\}/gi, fields.fecha_cierre)
+                        .replace(/\{\{Fecha facturación\}\}/gi, fields.fecha_facturacion)
+                        .replace(/\{\{Fecha de resolución\}\}/gi, fields.fecha_resolucion)
+                        .replace(/\{\{Fecha comunicación designa\}\}/gi, fields.fecha_designa)
+                        .replace(/\{\{Fecha reclamación previa\}\}/gi, fields.fecha_reclamacion)
+                        .replace(/\{\{Fecha apertura expediente\}\}/gi, fields.fecha_apertura)
+                        .replace(/\{\{Fecha siniestro\}\}/gi, fields.fecha_siniestro)
                         .replace(/\{\{DDs\}\}/gi, fields.dds)
                         .replace(/\{\{Mess\}\}/gi, fields.mess)
                         .replace(/\{\{AAAAs\}\}/gi, fields.aaaas)
@@ -580,57 +629,81 @@
               c.name.toLowerCase().includes("historial de avisos")
             );
             
-            var systemKey = "**Fecha del sistema:**";
-            var lastActionKey = "**Fecha última actuación sobre el expediente:**";
+            var historyKeys = [
+              { label: "**Fecha del sistema:**", prop: "fecha_sistema" },
+              { label: "**Fecha última actuación sobre el expediente:**", prop: "fecha_ultima" },
+              { label: "**Fecha cierre expediente:**", prop: "fecha_cierre" },
+              { label: "**Fecha de facturación:**", prop: "fecha_facturacion" },
+              { label: "**Fecha de resolución:**", prop: "fecha_resolucion" },
+              { label: "**Fecha de comunicación designación**", prop: "fecha_designa" },
+              { label: "**Fecha de reclamación previa:**", prop: "fecha_reclamacion" },
+              { label: "**Fecha creación de expediente**", prop: "fecha_apertura" },
+              { label: "**Fecha del siniestro**", prop: "fecha" }
+            ];
 
             if (historyCard) {
               var desc = historyCard.desc || "";
+              var lines = desc.split('\n');
+              var values = {};
+
+              // Extraer valores actuales
+              historyKeys.forEach(function(item) {
+                var regex = new RegExp(item.label.replace(/\*/g, '\\*') + "\\s*([^\\n]*)", "i");
+                var match = desc.match(regex);
+                values[item.prop] = match ? match[1].trim() : "___________";
+              });
+
               var needsUpdate = false;
 
-              // 1. Actualizar Fecha del sistema (siempre que se consulta o hay acción)
-              var systemRegex = new RegExp("(\\*\\*Fecha del sistema:\\*\\*|Fecha del sistema:)\\s*([^\\n]*)", "i");
-              var matchSystem = desc.match(systemRegex);
-              if (matchSystem) {
-                if (matchSystem[2].trim() !== today) {
-                  desc = desc.replace(systemRegex, "$1 " + today);
-                  needsUpdate = true;
-                }
-              } else {
-                desc = systemKey + " " + today + "\n" + desc;
+              // 1. Actualizar Fecha del sistema
+              if (values.fecha_sistema !== today) {
+                values.fecha_sistema = today;
                 needsUpdate = true;
               }
 
-              // 2. Actualizar Fecha última actuación (solo si es una acción de generación)
-              if (isAction) {
-                var lastActionStr = lastActionKey + " " + today;
-                var actionRegex = new RegExp("(\\*\\*Fecha última actuación sobre el expediente:\\*\\*|Fecha última actuación sobre el expediente:)\\s*([^\\n]*)", "i");
-                if (actionRegex.test(desc)) {
-                  var currentActionDate = desc.match(actionRegex)[2].trim();
-                  if (currentActionDate !== today) {
-                    desc = desc.replace(actionRegex, lastActionStr);
-                    needsUpdate = true;
-                  }
-                } else {
-                  desc += "\n" + lastActionStr;
-                  needsUpdate = true;
-                }
+              // 2. Actualizar Fecha última actuación (solo si es acción)
+              if (isAction && values.fecha_ultima !== today) {
+                values.fecha_ultima = today;
+                needsUpdate = true;
               }
 
-              if (needsUpdate) {
+              // Reconstruir descripción manteniendo el orden
+              var newDescLines = [];
+              historyKeys.forEach(function(item) {
+                newDescLines.push(item.label + " " + values[item.prop]);
+              });
+
+              // Añadir el resto de la descripción original que no sean nuestras claves
+              lines.forEach(function(line) {
+                var isKeyLine = historyKeys.some(function(item) {
+                  return line.toLowerCase().includes(item.label.toLowerCase().replace(/\*/g, ''));
+                });
+                if (!isKeyLine && line.trim() !== "") {
+                  newDescLines.push(line);
+                }
+              });
+
+              var finalDesc = newDescLines.join('\n');
+
+              if (needsUpdate || finalDesc !== desc) {
                 return fetch(`https://api.trello.com/1/cards/${historyCard.id}?key=${appKey}&token=${token}`, {
                   method: 'PUT',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ 
                     name: "Historial de procesos.",
-                    desc: desc,
+                    desc: finalDesc,
                     pos: targetPos
                   })
                 });
               }
             } else {
-              // Si no existe, se crea con ambas fechas actuales
-              var newDesc = systemKey + " " + today + "\n" + 
-                            lastActionKey + " " + today;
+              // Si no existe, se crea con el orden solicitado
+              var newDesc = historyKeys.map(function(item) {
+                var val = "___________";
+                if (item.prop === 'fecha_sistema' || item.prop === 'fecha_ultima') val = today;
+                return item.label + " " + val;
+              }).join('\n');
+
               return fetch(`https://api.trello.com/1/cards?idList=${idList}&name=${encodeURIComponent("Historial de procesos.")}&desc=${encodeURIComponent(newDesc)}&pos=${targetPos}&key=${appKey}&token=${token}`, { 
                 method: 'POST' 
               });
