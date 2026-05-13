@@ -392,7 +392,7 @@
               event.target.value = '';
               t.sizeTo(document.body).done();
               // Actualizar historial
-              updateHistoryCard(t, data.idList);
+              updateHistoryCard(t, data.idList, true);
             }).catch(function (err) {
               console.error(err);
               statusDiv.textContent = 'Fallo en la subida.';
@@ -509,7 +509,7 @@
               event.target.value = '';
               t.sizeTo(document.body).done();
               // Actualizar historial
-              updateHistoryCard(t, data.idList);
+              updateHistoryCard(t, data.idList, true);
             }).catch(function (err) {
               console.error(err);
               statusDiv.textContent = 'Fallo en la subida.';
@@ -555,10 +555,16 @@
     });
 
     t.render(function () {
+      t.card('name', 'idList').then(function(card) {
+        // Si entramos a la tarjeta de historial, nos aseguramos de que la fecha de sistema sea la de hoy
+        if (card.name.toLowerCase().includes("historial de procesos") || card.name.toLowerCase().includes("historial de avisos")) {
+          updateHistoryCard(t, card.idList, false);
+        }
+      });
       t.sizeTo(document.body).done();
     });
 
-    function updateHistoryCard(t, idList) {
+    function updateHistoryCard(t, idList, isAction) {
       return t.getRestApi().getToken().then(function (token) {
         if (!token) return;
         var appKey = t.getRestApi().appKey;
@@ -566,11 +572,9 @@
         return fetch(`https://api.trello.com/1/lists/${idList}/cards?key=${appKey}&token=${token}`)
           .then(res => res.json())
           .then(cards => {
-            // Buscamos la tarjeta de datos personales para saber su posición
             var personalCard = cards.find(c => c.name.toLowerCase().includes("datos personales"));
             var targetPos = personalCard ? personalCard.pos + 0.1 : "bottom";
 
-            // Buscamos por el nombre nuevo o el antiguo
             var historyCard = cards.find(c => 
               c.name.toLowerCase().includes("historial de procesos") || 
               c.name.toLowerCase().includes("historial de avisos")
@@ -581,28 +585,50 @@
 
             if (historyCard) {
               var desc = historyCard.desc || "";
-              if (!desc.includes("Fecha del sistema")) {
-                desc = systemKey + " " + today + "\n" + desc;
-              }
-              var lastActionStr = lastActionKey + " " + today;
-              var regex = new RegExp("\\*\\*Fecha última actuación sobre el expediente:\\*\\*[^\\n]*|Fecha última actuación sobre el expediente:[^\\n]*", "i");
-              
-              if (regex.test(desc)) {
-                desc = desc.replace(regex, lastActionStr);
+              var needsUpdate = false;
+
+              // 1. Actualizar Fecha del sistema (siempre que se consulta o hay acción)
+              var systemRegex = new RegExp("(\\*\\*Fecha del sistema:\\*\\*|Fecha del sistema:)\\s*([^\\n]*)", "i");
+              var matchSystem = desc.match(systemRegex);
+              if (matchSystem) {
+                if (matchSystem[2].trim() !== today) {
+                  desc = desc.replace(systemRegex, "$1 " + today);
+                  needsUpdate = true;
+                }
               } else {
-                desc += "\n" + lastActionStr;
+                desc = systemKey + " " + today + "\n" + desc;
+                needsUpdate = true;
               }
 
-              return fetch(`https://api.trello.com/1/cards/${historyCard.id}?key=${appKey}&token=${token}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                  name: "Historial de procesos.",
-                  desc: desc,
-                  pos: targetPos // Mantenemos la posición a continuación de datos personales
-                })
-              });
+              // 2. Actualizar Fecha última actuación (solo si es una acción de generación)
+              if (isAction) {
+                var lastActionStr = lastActionKey + " " + today;
+                var actionRegex = new RegExp("(\\*\\*Fecha última actuación sobre el expediente:\\*\\*|Fecha última actuación sobre el expediente:)\\s*([^\\n]*)", "i");
+                if (actionRegex.test(desc)) {
+                  var currentActionDate = desc.match(actionRegex)[2].trim();
+                  if (currentActionDate !== today) {
+                    desc = desc.replace(actionRegex, lastActionStr);
+                    needsUpdate = true;
+                  }
+                } else {
+                  desc += "\n" + lastActionStr;
+                  needsUpdate = true;
+                }
+              }
+
+              if (needsUpdate) {
+                return fetch(`https://api.trello.com/1/cards/${historyCard.id}?key=${appKey}&token=${token}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                    name: "Historial de procesos.",
+                    desc: desc,
+                    pos: targetPos
+                  })
+                });
+              }
             } else {
+              // Si no existe, se crea con ambas fechas actuales
               var newDesc = systemKey + " " + today + "\n" + 
                             lastActionKey + " " + today;
               return fetch(`https://api.trello.com/1/cards?idList=${idList}&name=${encodeURIComponent("Historial de procesos.")}&desc=${encodeURIComponent(newDesc)}&pos=${targetPos}&key=${appKey}&token=${token}`, { 
