@@ -426,13 +426,14 @@
               statusDiv.textContent = '¡Documento modificado y adjuntado con éxito!';
               event.target.value = '';
               t.sizeTo(document.body).done();
-              // Actualizar historial
-              var forced = {};
-              var upperName = file.name.toUpperCase();
-              if (upperName.includes("RECLAMACIÓN PREVIA")) forced.fecha_reclamacion = today;
-              if (upperName.includes("COMUNICACIÓN DESIGNA")) forced.fecha_designa = today;
-              
-              updateHistoryCard(t, data.idList, true, forced);
+               // Actualizar historial
+               var forced = {};
+               var upperName = file.name.toUpperCase();
+               var today = new Date().toLocaleDateString('es-ES');
+               if (upperName.indexOf("RECLAMACIÓN PREVIA") === 0) forced.fecha_reclamacion = today;
+               if (upperName.indexOf("COMUNICACIÓN DESIGNA") === 0) forced.fecha_designa = today;
+               
+               updateHistoryCard(t, data.idList, true, forced);
             }).catch(function (err) {
               console.error(err);
               statusDiv.textContent = 'Fallo en la subida.';
@@ -562,13 +563,14 @@
               statusDiv.textContent = '¡Excel modificado y adjuntado con éxito!';
               event.target.value = '';
               t.sizeTo(document.body).done();
-              // Actualizar historial
-              var forced = {};
-              var upperName = file.name.toUpperCase();
-              if (upperName.includes("RECLAMACIÓN PREVIA")) forced.fecha_reclamacion = today;
-              if (upperName.includes("COMUNICACIÓN DESIGNA")) forced.fecha_designa = today;
+               // Actualizar historial
+               var forced = {};
+               var upperName = file.name.toUpperCase();
+               var today = new Date().toLocaleDateString('es-ES');
+               if (upperName.indexOf("RECLAMACIÓN PREVIA") === 0) forced.fecha_reclamacion = today;
+               if (upperName.indexOf("COMUNICACIÓN DESIGNA") === 0) forced.fecha_designa = today;
 
-              updateHistoryCard(t, data.idList, true, forced);
+               updateHistoryCard(t, data.idList, true, forced);
             }).catch(function (err) {
               console.error(err);
               statusDiv.textContent = 'Fallo en la subida.';
