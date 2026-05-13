@@ -686,12 +686,24 @@
                   newDescLines.push(item.label + " " + values[item.prop]);
                 });
 
-                // Añadir el resto de la descripción original que no sean nuestras claves
+                // Añadir el resto de la descripción original que no sean nuestras claves (limpieza de duplicados)
                 lines.forEach(function (line) {
+                  var lineLower = line.trim().toLowerCase();
                   var isKeyLine = historyKeys.some(function (item) {
-                    var cleanLabel = item.label.toLowerCase().replace(/\*/g, '');
-                    return line.toLowerCase().includes(cleanLabel);
+                    // Etiqueta base sin negritas ni dos puntos finales para comparar
+                    var baseLabel = item.label.replace(/\*/g, '').replace(/:$/, '').trim().toLowerCase();
+                    
+                    // Definimos variaciones conocidas para evitar que se queden líneas antiguas pegadas
+                    var variations = [baseLabel];
+                    if (baseLabel.includes("creación de expediente")) variations.push("fecha apertura expediente");
+                    if (baseLabel.includes("comunicación designación")) variations.push("fecha comunicación designa");
+                    if (baseLabel.includes("siniestro")) variations.push("fecha siniestro"); // versión corta
+                    
+                    return variations.some(function(v) {
+                      return lineLower.indexOf(v) === 0 || lineLower.includes(v);
+                    });
                   });
+                  
                   if (!isKeyLine && line.trim() !== "") {
                     newDescLines.push(line);
                   }
