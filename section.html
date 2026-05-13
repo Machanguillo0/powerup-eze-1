@@ -427,7 +427,12 @@
               event.target.value = '';
               t.sizeTo(document.body).done();
               // Actualizar historial
-              updateHistoryCard(t, data.idList, true);
+              var forced = {};
+              var upperName = file.name.toUpperCase();
+              if (upperName.includes("RECLAMACIÓN PREVIA")) forced.fecha_reclamacion = today;
+              if (upperName.includes("COMUNICACIÓN DESIGNA")) forced.fecha_designa = today;
+              
+              updateHistoryCard(t, data.idList, true, forced);
             }).catch(function (err) {
               console.error(err);
               statusDiv.textContent = 'Fallo en la subida.';
@@ -558,7 +563,12 @@
               event.target.value = '';
               t.sizeTo(document.body).done();
               // Actualizar historial
-              updateHistoryCard(t, data.idList, true);
+              var forced = {};
+              var upperName = file.name.toUpperCase();
+              if (upperName.includes("RECLAMACIÓN PREVIA")) forced.fecha_reclamacion = today;
+              if (upperName.includes("COMUNICACIÓN DESIGNA")) forced.fecha_designa = today;
+
+              updateHistoryCard(t, data.idList, true, forced);
             }).catch(function (err) {
               console.error(err);
               statusDiv.textContent = 'Fallo en la subida.';
@@ -613,7 +623,7 @@
       t.sizeTo(document.body).done();
     });
 
-    function updateHistoryCard(t, idList, isAction) {
+    function updateHistoryCard(t, idList, isAction, forcedFields) {
       return getUnifiedFields(t).then(function (data) {
         var unified = data.fields;
         return t.getRestApi().getToken().then(function (token) {
@@ -654,9 +664,14 @@
                   var match = desc.match(regex);
                   values[item.prop] = match ? match[1].trim() : "___________";
 
-                  // Sincronizar si está vacío en la tarjeta pero tenemos el dato unificado de otra tarjeta
+                  // Sincronizar si está vacío en la tarjeta pero tenemos el dato unificado
                   if (values[item.prop] === "___________" && unified[item.prop] && unified[item.prop] !== "___________") {
                     values[item.prop] = unified[item.prop];
+                  }
+                  
+                  // Aplicar campos forzados (triggers de documentos)
+                  if (forcedFields && forcedFields[item.prop]) {
+                    values[item.prop] = forcedFields[item.prop];
                   }
                 });
 
@@ -668,45 +683,49 @@
                   needsUpdate = true;
                 }
 
-                // 2. Actualizar Fecha última actuación (solo si es acción de generar doc)
+                // 2. Actualizar Fecha última actuación (solo si es acción)
                 if (isAction && values.fecha_ultima !== today) {
                   values.fecha_ultima = today;
                   needsUpdate = true;
                 }
 
-                // 3. Sincronizar siempre Fecha del siniestro si ha cambiado en los datos unificados
+                // 3. Sincronizar siempre Fecha del siniestro
                 if (unified.fecha !== "___________" && values.fecha !== unified.fecha) {
                   values.fecha = unified.fecha;
                   needsUpdate = true;
                 }
+                
+                // 4. Sincronizar siempre Fecha creación de expediente desde el ID de la tarjeta personal
+                if (personalCard && values.fecha_apertura === "___________") {
+                  var creationDate = new Date(1000 * parseInt(personalCard.id.substring(0, 8), 16)).toLocaleDateString('es-ES');
+                  values.fecha_apertura = creationDate;
+                  needsUpdate = true;
+                }
+                
+                // 5. Verificar si algún campo forzado ha provocado cambio
+                if (forcedFields) {
+                    for (var key in forcedFields) {
+                        if (values[key] === forcedFields[key]) needsUpdate = true;
+                    }
+                }
 
-                // Reconstruir descripción manteniendo el orden
+                // Reconstruir descripción
                 var newDescLines = [];
                 historyKeys.forEach(function (item) {
                   newDescLines.push(item.label + " " + values[item.prop]);
                 });
 
-                // Añadir el resto de la descripción original que no sean nuestras claves (limpieza de duplicados)
                 lines.forEach(function (line) {
                   var lineLower = line.trim().toLowerCase();
                   var isKeyLine = historyKeys.some(function (item) {
-                    // Etiqueta base sin negritas ni dos puntos finales para comparar
                     var baseLabel = item.label.replace(/\*/g, '').replace(/:$/, '').trim().toLowerCase();
-                    
-                    // Definimos variaciones conocidas para evitar que se queden líneas antiguas pegadas
                     var variations = [baseLabel];
                     if (baseLabel.includes("creación de expediente")) variations.push("fecha apertura expediente");
                     if (baseLabel.includes("comunicación designación")) variations.push("fecha comunicación designa");
-                    if (baseLabel.includes("siniestro")) variations.push("fecha siniestro"); // versión corta
-                    
-                    return variations.some(function(v) {
-                      return lineLower.indexOf(v) === 0 || lineLower.includes(v);
-                    });
+                    if (baseLabel.includes("siniestro")) variations.push("fecha siniestro");
+                    return variations.some(function(v) { return lineLower.indexOf(v) === 0 || lineLower.includes(v); });
                   });
-                  
-                  if (!isKeyLine && line.trim() !== "") {
-                    newDescLines.push(line);
-                  }
+                  if (!isKeyLine && line.trim() !== "") newDescLines.push(line);
                 });
 
                 var finalDesc = newDescLines.join('\n');
@@ -715,18 +734,18 @@
                   return fetch(`https://api.trello.com/1/cards/${historyCard.id}?key=${appKey}&token=${token}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      name: "Historial de procesos.",
-                      desc: finalDesc,
-                      pos: targetPos
-                    })
+                    body: JSON.stringify({ name: "Historial de procesos.", desc: finalDesc, pos: targetPos })
                   });
                 }
               } else {
-                // Si no existe, se crea con el orden solicitado y los datos ya recopilados
+                // Crear nueva con datos iniciales (incluyendo fecha creación desde ID)
                 var newDesc = historyKeys.map(function (item) {
                   var val = unified[item.prop] || "___________";
                   if (item.prop === 'fecha_sistema' || item.prop === 'fecha_ultima') val = today;
+                  if (item.prop === 'fecha_apertura' && personalCard) {
+                      val = new Date(1000 * parseInt(personalCard.id.substring(0, 8), 16)).toLocaleDateString('es-ES');
+                  }
+                  if (forcedFields && forcedFields[item.prop]) val = forcedFields[item.prop];
                   return item.label + " " + val;
                 }).join('\n');
 
