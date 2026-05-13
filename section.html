@@ -614,101 +614,116 @@
     });
 
     function updateHistoryCard(t, idList, isAction) {
-      return t.getRestApi().getToken().then(function (token) {
-        if (!token) return;
-        var appKey = t.getRestApi().appKey;
-        var today = new Date().toLocaleDateString('es-ES');
-        return fetch(`https://api.trello.com/1/lists/${idList}/cards?key=${appKey}&token=${token}`)
-          .then(res => res.json())
-          .then(cards => {
-            var personalCard = cards.find(c => c.name.toLowerCase().includes("datos personales"));
-            var targetPos = personalCard ? personalCard.pos + 0.1 : "bottom";
+      return getUnifiedFields(t).then(function (data) {
+        var unified = data.fields;
+        return t.getRestApi().getToken().then(function (token) {
+          if (!token) return;
+          var appKey = t.getRestApi().appKey;
+          var today = new Date().toLocaleDateString('es-ES');
+          return fetch(`https://api.trello.com/1/lists/${idList}/cards?key=${appKey}&token=${token}`)
+            .then(res => res.json())
+            .then(cards => {
+              var personalCard = cards.find(c => c.name.toLowerCase().includes("datos personales"));
+              var targetPos = personalCard ? personalCard.pos + 0.1 : "bottom";
 
-            var historyCard = cards.find(c => 
-              c.name.toLowerCase().includes("historial de procesos") || 
-              c.name.toLowerCase().includes("historial de avisos")
-            );
-            
-            var historyKeys = [
-              { label: "**Fecha del sistema:**", prop: "fecha_sistema" },
-              { label: "**Fecha última actuación sobre el expediente:**", prop: "fecha_ultima" },
-              { label: "**Fecha cierre expediente:**", prop: "fecha_cierre" },
-              { label: "**Fecha de facturación:**", prop: "fecha_facturacion" },
-              { label: "**Fecha de resolución:**", prop: "fecha_resolucion" },
-              { label: "**Fecha de comunicación designación**", prop: "fecha_designa" },
-              { label: "**Fecha de reclamación previa:**", prop: "fecha_reclamacion" },
-              { label: "**Fecha creación de expediente**", prop: "fecha_apertura" },
-              { label: "**Fecha del siniestro**", prop: "fecha" }
-            ];
+              var historyCard = cards.find(c =>
+                c.name.toLowerCase().includes("historial de procesos") ||
+                c.name.toLowerCase().includes("historial de avisos")
+              );
 
-            if (historyCard) {
-              var desc = historyCard.desc || "";
-              var lines = desc.split('\n');
-              var values = {};
+              var historyKeys = [
+                { label: "**Fecha del sistema:**", prop: "fecha_sistema" },
+                { label: "**Fecha última actuación sobre el expediente:**", prop: "fecha_ultima" },
+                { label: "**Fecha cierre expediente:**", prop: "fecha_cierre" },
+                { label: "**Fecha de facturación:**", prop: "fecha_facturacion" },
+                { label: "**Fecha de resolución:**", prop: "fecha_resolucion" },
+                { label: "**Fecha de comunicación designación:**", prop: "fecha_designa" },
+                { label: "**Fecha de reclamación previa:**", prop: "fecha_reclamacion" },
+                { label: "**Fecha creación de expediente:**", prop: "fecha_apertura" },
+                { label: "**Fecha del siniestro:**", prop: "fecha" }
+              ];
 
-              // Extraer valores actuales
-              historyKeys.forEach(function(item) {
-                var regex = new RegExp(item.label.replace(/\*/g, '\\*') + "\\s*([^\\n]*)", "i");
-                var match = desc.match(regex);
-                values[item.prop] = match ? match[1].trim() : "___________";
-              });
+              if (historyCard) {
+                var desc = historyCard.desc || "";
+                var lines = desc.split('\n');
+                var values = {};
 
-              var needsUpdate = false;
+                // Extraer valores actuales
+                historyKeys.forEach(function (item) {
+                  var regex = new RegExp(item.label.replace(/\*/g, '\\*') + "\\s*([^\\n]*)", "i");
+                  var match = desc.match(regex);
+                  values[item.prop] = match ? match[1].trim() : "___________";
 
-              // 1. Actualizar Fecha del sistema
-              if (values.fecha_sistema !== today) {
-                values.fecha_sistema = today;
-                needsUpdate = true;
-              }
-
-              // 2. Actualizar Fecha última actuación (solo si es acción)
-              if (isAction && values.fecha_ultima !== today) {
-                values.fecha_ultima = today;
-                needsUpdate = true;
-              }
-
-              // Reconstruir descripción manteniendo el orden
-              var newDescLines = [];
-              historyKeys.forEach(function(item) {
-                newDescLines.push(item.label + " " + values[item.prop]);
-              });
-
-              // Añadir el resto de la descripción original que no sean nuestras claves
-              lines.forEach(function(line) {
-                var isKeyLine = historyKeys.some(function(item) {
-                  return line.toLowerCase().includes(item.label.toLowerCase().replace(/\*/g, ''));
+                  // Sincronizar si está vacío en la tarjeta pero tenemos el dato unificado de otra tarjeta
+                  if (values[item.prop] === "___________" && unified[item.prop] && unified[item.prop] !== "___________") {
+                    values[item.prop] = unified[item.prop];
+                  }
                 });
-                if (!isKeyLine && line.trim() !== "") {
-                  newDescLines.push(line);
+
+                var needsUpdate = false;
+
+                // 1. Actualizar Fecha del sistema (siempre hoy)
+                if (values.fecha_sistema !== today) {
+                  values.fecha_sistema = today;
+                  needsUpdate = true;
                 }
-              });
 
-              var finalDesc = newDescLines.join('\n');
+                // 2. Actualizar Fecha última actuación (solo si es acción de generar doc)
+                if (isAction && values.fecha_ultima !== today) {
+                  values.fecha_ultima = today;
+                  needsUpdate = true;
+                }
 
-              if (needsUpdate || finalDesc !== desc) {
-                return fetch(`https://api.trello.com/1/cards/${historyCard.id}?key=${appKey}&token=${token}`, {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ 
-                    name: "Historial de procesos.",
-                    desc: finalDesc,
-                    pos: targetPos
-                  })
+                // 3. Sincronizar siempre Fecha del siniestro si ha cambiado en los datos unificados
+                if (unified.fecha !== "___________" && values.fecha !== unified.fecha) {
+                  values.fecha = unified.fecha;
+                  needsUpdate = true;
+                }
+
+                // Reconstruir descripción manteniendo el orden
+                var newDescLines = [];
+                historyKeys.forEach(function (item) {
+                  newDescLines.push(item.label + " " + values[item.prop]);
+                });
+
+                // Añadir el resto de la descripción original que no sean nuestras claves
+                lines.forEach(function (line) {
+                  var isKeyLine = historyKeys.some(function (item) {
+                    var cleanLabel = item.label.toLowerCase().replace(/\*/g, '');
+                    return line.toLowerCase().includes(cleanLabel);
+                  });
+                  if (!isKeyLine && line.trim() !== "") {
+                    newDescLines.push(line);
+                  }
+                });
+
+                var finalDesc = newDescLines.join('\n');
+
+                if (needsUpdate || finalDesc !== desc) {
+                  return fetch(`https://api.trello.com/1/cards/${historyCard.id}?key=${appKey}&token=${token}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      name: "Historial de procesos.",
+                      desc: finalDesc,
+                      pos: targetPos
+                    })
+                  });
+                }
+              } else {
+                // Si no existe, se crea con el orden solicitado y los datos ya recopilados
+                var newDesc = historyKeys.map(function (item) {
+                  var val = unified[item.prop] || "___________";
+                  if (item.prop === 'fecha_sistema' || item.prop === 'fecha_ultima') val = today;
+                  return item.label + " " + val;
+                }).join('\n');
+
+                return fetch(`https://api.trello.com/1/cards?idList=${idList}&name=${encodeURIComponent("Historial de procesos.")}&desc=${encodeURIComponent(newDesc)}&pos=${targetPos}&key=${appKey}&token=${token}`, {
+                  method: 'POST'
                 });
               }
-            } else {
-              // Si no existe, se crea con el orden solicitado
-              var newDesc = historyKeys.map(function(item) {
-                var val = "___________";
-                if (item.prop === 'fecha_sistema' || item.prop === 'fecha_ultima') val = today;
-                return item.label + " " + val;
-              }).join('\n');
-
-              return fetch(`https://api.trello.com/1/cards?idList=${idList}&name=${encodeURIComponent("Historial de procesos.")}&desc=${encodeURIComponent(newDesc)}&pos=${targetPos}&key=${appKey}&token=${token}`, { 
-                method: 'POST' 
-              });
-            }
-          });
+            });
+        });
       });
     }
   </script>
