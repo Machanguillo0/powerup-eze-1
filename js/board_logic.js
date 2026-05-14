@@ -7,7 +7,8 @@ window.getBoardType = function(t) {
   return t.lists('id', 'name')
     .then(function(lists) {
       var paramList = lists.find(function(l) { 
-        return l.name.toUpperCase() === 'PARÁMETROS'; 
+        var n = l.name.toUpperCase();
+        return n === 'PARÁMETROS' || n === 'PARAMETROS'; 
       });
       
       if (!paramList) {
@@ -29,12 +30,17 @@ window.getBoardType = function(t) {
 
           // Extraemos el tipo del título de la tarjeta
           var name = typeCard.name.toUpperCase();
-          if (name.includes('CLIENTES')) return 'CLIENTES';
+          if (name.includes('CLIENTE')) return 'CLIENTES';
           if (name.includes('PLANNING')) return 'PLANNING';
-          if (name.includes('FACTURACIÓN')) return 'FACTURACIÓN';
+          if (name.includes('FACTURACIÓN') || name.includes('FACTURACION')) return 'FACTURACIÓN';
 
-          return 'UNKNOWN';
+          return 'CLIENTES'; // Default a CLIENTES si hay lista pero no se reconoce el tipo
         });
+    })
+    .then(function(type) {
+      // Si llegamos aquí con UNKNOWN (porque no había lista), devolvemos CLIENTES por defecto
+      // para no romper la experiencia de usuario inicial.
+      return type === 'UNKNOWN' ? 'CLIENTES' : type;
     })
     .catch(function(err) {
       console.error("Error al detectar el tipo de tablero:", err);
