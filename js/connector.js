@@ -12,7 +12,7 @@ window.TrelloPowerUp.initialize({
       // Icono que se mostrará junto al texto del botón
       icon: './icon.svg',
       // Texto que se mostrará en el botón
-      text: 'leer datos descripción',
+      text: 'Visualizar datos de interés',
       // Función que se ejecuta cuando el usuario hace clic en el botón
       callback: function (t) {
         return t.card('desc')
