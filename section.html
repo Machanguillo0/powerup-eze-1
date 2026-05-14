@@ -265,6 +265,20 @@
           var allLists = results[1];
           var currentList = allLists.find(function(l) { return l.id === idList; });
           var listName = currentList ? currentList.name : "___________";
+          
+          // Extraemos solo el número/formato del expediente del nombre de la lista
+          var numExpediente = "___________";
+          if (listName !== "___________") {
+            // Buscamos el literal después de exp, exped, expediente... que tenga números y barras
+            var match = listName.match(/(?:expediente|exped|exp)\.?\s*([\d\/\-\.]+)/i);
+            if (match) {
+              numExpediente = match[1].trim();
+            } else {
+              // Si no hay prefijo, buscamos cualquier patrón que parezca un expediente (números y barra)
+              var directMatch = listName.match(/(\d+[\/\-][\d\/\-\.]+)/);
+              numExpediente = directMatch ? directMatch[1] : listName;
+            }
+          }
 
           var cardsInList = allCards.filter(function (c) { return c.idList === idList; });
           var unified = {
@@ -292,7 +306,7 @@
             fecha_reclamacion: "___________",
             fecha_apertura: "___________",
             fecha_siniestro: "___________",
-            num_expediente: listName,
+            num_expediente: numExpediente,
             dds: "___",
             mess: "_________",
             aaaas: "____"
