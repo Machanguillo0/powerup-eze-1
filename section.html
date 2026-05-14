@@ -6,8 +6,6 @@
   <title>Antigravity Section</title>
   <!-- La librería de Trello es obligatoria en CADA iframe del Power-Up -->
   <script src="https://p.trellocdn.com/power-up.min.js"></script>
-  <!-- Lógica de detección de tablero -->
-  <script src="./js/board_logic.js"></script>
   <!-- Librería para manipular archivos ZIP/DOCX en el navegador -->
   <script src="https://unpkg.com/pizzip@3.1.4/dist/pizzip.js"></script>
   <!-- Librería para manipular archivos Excel en el navegador -->
@@ -93,7 +91,8 @@
 
 <body>
   <div id="main-content">
-    <div id="clientes-section" style="display: none;">
+    <!-- Seccion de CLIENTES: Visible por defecto -->
+    <div id="clientes-section" style="display: block;">
       <p>Aquí vamos a ir poniendo los botones:</p>
       <div>
     <button id="boton-desc" class="secondary">Visualizar datos de interés</button>
@@ -636,22 +635,61 @@
       });
     });
 
+    var getBoardTypeSafe = function(t) {
+      return t.lists('id', 'name')
+        .then(function(lists) {
+          var paramList = lists.find(function(l) { 
+            var n = l.name.toUpperCase();
+            return n === 'PARÁMETROS' || n === 'PARAMETROS'; 
+          });
+          if (!paramList) return 'CLIENTES';
+
+          return t.cards('id', 'name', 'idList')
+            .then(function(cards) {
+              var typeCard = cards.find(function(c) {
+                return c.idList === paramList.id && c.name.toLowerCase().startsWith('tipo tablero');
+              });
+              if (!typeCard) return 'CLIENTES';
+
+              var name = typeCard.name.toUpperCase();
+              if (name.includes('PLANNING')) return 'PLANNING';
+              if (name.includes('FACTURACIÓN') || name.includes('FACTURACION')) return 'FACTURACIÓN';
+              return 'CLIENTES';
+            });
+        })
+        .catch(function() {
+          return 'CLIENTES';
+        });
+    };
+
     t.render(function () {
-      // Detectamos el tipo de tablero y mostramos la sección correspondiente
-      window.getBoardType(t).then(function(type) {
-        document.getElementById('clientes-section').style.display = (type === 'CLIENTES') ? 'block' : 'none';
+      // Detectamos el tipo de tablero de forma asíncrona
+      getBoardTypeSafe(t).then(function(type) {
+        // Solo ocultamos CLIENTES si estamos seguros de que es otro tipo específico
+        if (type === 'PLANNING' || type === 'FACTURACIÓN') {
+          document.getElementById('clientes-section').style.display = 'none';
+        } else {
+          document.getElementById('clientes-section').style.display = 'block';
+        }
+
         document.getElementById('planning-section').style.display = (type === 'PLANNING') ? 'block' : 'none';
         document.getElementById('facturacion-section').style.display = (type === 'FACTURACIÓN') ? 'block' : 'none';
-        document.getElementById('unknown-section').style.display = (type === 'UNKNOWN') ? 'block' : 'none';
+        
+        // El unknown-section solo se muestra si realmente queremos forzar la configuración
+        // Por ahora lo dejamos oculto para no confundir si falla la detección
+        document.getElementById('unknown-section').style.display = 'none'; 
 
         if (type === 'CLIENTES') {
           t.card('name', 'idList').then(function(card) {
-            // Si entramos a la tarjeta de historial, nos aseguramos de que la fecha de sistema sea la de hoy
             if (card.name.toLowerCase().includes("historial de procesos") || card.name.toLowerCase().includes("historial de avisos")) {
               updateHistoryCard(t, card.idList, false);
             }
           });
         }
+        t.sizeTo(document.body).done();
+      }).catch(function() {
+        // En caso de error crítico, nos aseguramos de que CLIENTES sea visible
+        document.getElementById('clientes-section').style.display = 'block';
         t.sizeTo(document.body).done();
       });
     });

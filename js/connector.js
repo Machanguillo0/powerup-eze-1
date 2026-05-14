@@ -4,10 +4,39 @@ console.log("Antigravity Power-Up Connector Cargado");
 var APP_KEY = '30767998cbb7b57a692e8bb50cfa9a9c';
 var APP_NAME = 'Antigravity';
 
+// Función de utilidad inyectada para detectar el tipo de tablero de forma segura
+var getBoardTypeSafe = function(t) {
+  return t.lists('id', 'name')
+    .then(function(lists) {
+      var paramList = lists.find(function(l) { 
+        var n = l.name.toUpperCase();
+        return n === 'PARÁMETROS' || n === 'PARAMETROS'; 
+      });
+      if (!paramList) return 'CLIENTES'; // Default si no hay lista
+
+      return t.cards('id', 'name', 'idList')
+        .then(function(cards) {
+          var typeCard = cards.find(function(c) {
+            return c.idList === paramList.id && c.name.toLowerCase().startsWith('tipo tablero');
+          });
+          if (!typeCard) return 'CLIENTES'; // Default si no hay tarjeta
+
+          var name = typeCard.name.toUpperCase();
+          if (name.includes('PLANNING')) return 'PLANNING';
+          if (name.includes('FACTURACIÓN') || name.includes('FACTURACION')) return 'FACTURACIÓN';
+          return 'CLIENTES';
+        });
+    })
+    .catch(function(err) {
+      console.error("Error detectando tablero, usando CLIENTES por defecto:", err);
+      return 'CLIENTES';
+    });
+};
+
 window.TrelloPowerUp.initialize({
   // Capability para añadir botones en el menú derecho de la tarjeta
   'card-buttons': function (t, options) {
-    return window.getBoardType(t).then(function(type) {
+    return getBoardTypeSafe(t).then(function(type) {
       if (type !== 'CLIENTES') return [];
       
       return [{
@@ -56,7 +85,7 @@ window.TrelloPowerUp.initialize({
   },
   // Capability para añadir un botón a nivel de tablero
   'board-buttons': function (t, options) {
-    return window.getBoardType(t).then(function(type) {
+    return getBoardTypeSafe(t).then(function(type) {
       if (type !== 'CLIENTES' && type !== 'FACTURACIÓN') return [];
 
       return [
