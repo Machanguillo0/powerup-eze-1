@@ -257,7 +257,15 @@
       return t.card('id', 'idList').then(function (currentCard) {
         var idList = currentCard.idList;
         var currentCardId = currentCard.id;
-        return t.cards('id', 'name', 'desc', 'idList').then(function (allCards) {
+        return Promise.all([
+          t.cards('id', 'name', 'desc', 'idList'),
+          t.lists('all')
+        ]).then(function (results) {
+          var allCards = results[0];
+          var allLists = results[1];
+          var currentList = allLists.find(function(l) { return l.id === idList; });
+          var listName = currentList ? currentList.name : "___________";
+
           var cardsInList = allCards.filter(function (c) { return c.idList === idList; });
           var unified = {
             nombre: "Cliente Desconocido",
@@ -284,6 +292,7 @@
             fecha_reclamacion: "___________",
             fecha_apertura: "___________",
             fecha_siniestro: "___________",
+            num_expediente: listName,
             dds: "___",
             mess: "_________",
             aaaas: "____"
@@ -416,6 +425,9 @@
             contentXml = reemplazarEtiquetaRota(contentXml, "{{DDs}}", fields.dds);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Mess}}", fields.mess);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{AAAAs}}", fields.aaaas);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Número de expediente:}}", fields.num_expediente);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Numero de expediente:}}", fields.num_expediente);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Número de expediente}}", fields.num_expediente);
 
             var parrafadaDocx = fields.parrafada.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Parrafada}}", parrafadaDocx);
@@ -518,6 +530,9 @@
                             .replace(/\{\{DDs\}\}/gi, fields.dds)
                             .replace(/\{\{Mess\}\}/gi, fields.mess)
                             .replace(/\{\{AAAAs\}\}/gi, fields.aaaas)
+                            .replace(/\{\{Número de expediente:\}\}/gi, fields.num_expediente)
+                            .replace(/\{\{Numero de expediente:\}\}/gi, fields.num_expediente)
+                            .replace(/\{\{Número de expediente\}\}/gi, fields.num_expediente)
                             .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
                         }
                       });
@@ -549,6 +564,9 @@
                         .replace(/\{\{DDs\}\}/gi, fields.dds)
                         .replace(/\{\{Mess\}\}/gi, fields.mess)
                         .replace(/\{\{AAAAs\}\}/gi, fields.aaaas)
+                        .replace(/\{\{Número de expediente:\}\}/gi, fields.num_expediente)
+                        .replace(/\{\{Numero de expediente:\}\}/gi, fields.num_expediente)
+                        .replace(/\{\{Número de expediente\}\}/gi, fields.num_expediente)
                         .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
                       if (fields.parrafada.includes('\n')) cell.alignment = { wrapText: true };
                     }
@@ -613,7 +631,8 @@
         var container = document.getElementById('descripcion-container');
         
         var html = "<strong>Ficha unificada (datos de " + data.count + " tarjetas):</strong><br><br>";
-        html += "• Nombre: " + fields.nombre + "<br>" +
+        html += "• Número de expediente: " + fields.num_expediente + "<br>" +
+                "• Nombre: " + fields.nombre + "<br>" +
                 "• DNI: " + fields.dni + "<br>" +
                 "• Teléfono: " + fields.telefono + "<br>" +
                 "• Profesión: " + fields.profesion + "<br>" +
