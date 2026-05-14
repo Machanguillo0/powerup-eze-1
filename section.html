@@ -6,6 +6,8 @@
   <title>Antigravity Section</title>
   <!-- La librería de Trello es obligatoria en CADA iframe del Power-Up -->
   <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <!-- Lógica de detección de tablero -->
+  <script src="./js/board_logic.js"></script>
   <!-- Librería para manipular archivos ZIP/DOCX en el navegador -->
   <script src="https://unpkg.com/pizzip@3.1.4/dist/pizzip.js"></script>
   <!-- Librería para manipular archivos Excel en el navegador -->
@@ -90,8 +92,10 @@
 </head>
 
 <body>
-  <p>Aquí vamos a ir poniendo los botones:</p>
-  <div>
+  <div id="main-content">
+    <div id="clientes-section" style="display: none;">
+      <p>Aquí vamos a ir poniendo los botones:</p>
+      <div>
     <button id="boton-desc" class="secondary">Visualizar datos de interés</button>
 
     <!-- Nuevo botón para procesar Word -->
@@ -100,18 +104,34 @@
       <input type="file" id="word-upload" accept=".docx" />
     </label>
 
-    <!-- Nuevo botón para procesar Excel -->
-    <label class="btn-upload" style="background-color: #1f845a;">
-      Generar excel desde plantilla
-      <input type="file" id="excel-upload" accept=".xlsx" />
-    </label>
   </div>
 
-  <div id="upload-status" class="status-msg"></div>
+    <div id="planning-section" style="display: none;">
+      <p>Panel de Planning (Próximamente)</p>
+    </div>
 
-  <!-- Aquí aparecerá el texto de la descripción -->
-  <div id="descripcion-container"></div>
+    <div id="facturacion-section" style="display: none;">
+      <p>Panel de Facturación:</p>
+      <div>
+        <label class="btn-upload" style="background-color: #1f845a;">
+          Generar excel desde plantilla
+          <input type="file" id="excel-upload" accept=".xlsx" />
+        </label>
+      </div>
+    </div>
+
+    <div id="unknown-section" style="display: none;">
+      <p style="color: #626f84; font-style: italic;">
+        Configura el tipo de tablero en la lista "PARÁMETROS" > tarjeta "Tipo tablero" (CLIENTES, PLANNING o FACTURACIÓN).
+      </p>
+    </div>
+
+    <div id="upload-status" class="status-msg"></div>
+
+    <!-- Aquí aparecerá el texto de la descripción -->
+    <div id="descripcion-container"></div>
   </div>
+</div>
 
   <script>
     // Inicializamos este iframe con Trello indicándole nuestra App Key para poder usar la API
@@ -616,13 +636,23 @@
     });
 
     t.render(function () {
-      t.card('name', 'idList').then(function(card) {
-        // Si entramos a la tarjeta de historial, nos aseguramos de que la fecha de sistema sea la de hoy
-        if (card.name.toLowerCase().includes("historial de procesos") || card.name.toLowerCase().includes("historial de avisos")) {
-          updateHistoryCard(t, card.idList, false);
+      // Detectamos el tipo de tablero y mostramos la sección correspondiente
+      window.getBoardType(t).then(function(type) {
+        document.getElementById('clientes-section').style.display = (type === 'CLIENTES') ? 'block' : 'none';
+        document.getElementById('planning-section').style.display = (type === 'PLANNING') ? 'block' : 'none';
+        document.getElementById('facturacion-section').style.display = (type === 'FACTURACIÓN') ? 'block' : 'none';
+        document.getElementById('unknown-section').style.display = (type === 'UNKNOWN') ? 'block' : 'none';
+
+        if (type === 'CLIENTES') {
+          t.card('name', 'idList').then(function(card) {
+            // Si entramos a la tarjeta de historial, nos aseguramos de que la fecha de sistema sea la de hoy
+            if (card.name.toLowerCase().includes("historial de procesos") || card.name.toLowerCase().includes("historial de avisos")) {
+              updateHistoryCard(t, card.idList, false);
+            }
+          });
         }
+        t.sizeTo(document.body).done();
       });
-      t.sizeTo(document.body).done();
     });
 
     function updateHistoryCard(t, idList, isAction, forcedFields) {
