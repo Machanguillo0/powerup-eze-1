@@ -6,7 +6,7 @@ var APP_NAME = 'Antigravity';
 
 // Función de utilidad inyectada para detectar el tipo de tablero de forma segura
 var getBoardTypeSafe = function(t) {
-  return t.lists('all', 'id', 'name')
+  return t.lists('all')
     .then(function(lists) {
       var paramList = lists.find(function(l) { 
         var n = l.name.toUpperCase();
