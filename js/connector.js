@@ -6,35 +6,31 @@ var APP_NAME = 'Antigravity';
 
 // Función de utilidad inyectada para detectar el tipo de tablero de forma segura
 var getBoardTypeSafe = function(t) {
-  return t.lists('all')
-    .then(function(lists) {
-      var paramList = lists.find(function(l) { 
-        var n = l.name.toUpperCase();
-        return n === 'PARÁMETROS' || n === 'PARAMETROS'; 
-      });
-      if (!paramList) return 'CLIENTES'; // Default si no hay lista
+  return t.lists('all').then(function(lists) {
+    var paramList = lists.find(function(l) { 
+      var n = l.name.toUpperCase();
+      return n === 'PARÁMETROS' || n === 'PARAMETROS'; 
+    });
+    if (!paramList) return 'CLIENTES';
 
-      // Buscamos tanto en tarjetas abiertas como cerradas (archivadas) de forma limpia
-      return Promise.all([
-        t.cards('all'),    // Tarjetas abiertas
-        t.cards('closed') // Tarjetas archivadas
-      ]).then(function(results) {
-        var cards = results[0].concat(results[1]);
-        var typeCard = cards.find(function(c) {
+    return t.cards('all').then(function(openCards) {
+      return t.cards('closed').then(function(closedCards) {
+        var allCards = openCards.concat(closedCards);
+        var typeCard = allCards.find(function(c) {
           return c.idList === paramList.id && c.name.toLowerCase().startsWith('tipo tablero');
         });
-        if (!typeCard) return 'CLIENTES'; // Default si no hay tarjeta
+        if (!typeCard) return 'CLIENTES';
 
-          var name = typeCard.name.toUpperCase();
-          if (name.includes('PLANNING')) return 'PLANNING';
-          if (name.includes('FACTURACIÓN') || name.includes('FACTURACION')) return 'FACTURACIÓN';
-          return 'CLIENTES';
-        });
-    })
-    .catch(function(err) {
-      console.error("Error detectando tablero, usando CLIENTES por defecto:", err);
-      return 'CLIENTES';
+        var name = typeCard.name.toUpperCase();
+        if (name.includes('PLANNING')) return 'PLANNING';
+        if (name.includes('FACTURACIÓN') || name.includes('FACTURACION')) return 'FACTURACIÓN';
+        return 'CLIENTES';
+      });
     });
+  }).catch(function(err) {
+    console.error("Error detectando tablero:", err);
+    return 'CLIENTES';
+  });
 };
 
 window.TrelloPowerUp.initialize({
