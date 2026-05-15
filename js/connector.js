@@ -14,10 +14,10 @@ var getBoardTypeSafe = function(t) {
       });
       if (!paramList) return 'CLIENTES'; // Default si no hay lista
 
-      // Buscamos tanto en tarjetas abiertas como cerradas (archivadas)
+      // Buscamos tanto en tarjetas abiertas como cerradas (archivadas) de forma limpia
       return Promise.all([
-        t.cards('all', 'id', 'name', 'idList'),
-        t.cards('closed', 'id', 'name', 'idList')
+        t.cards('all'),    // Tarjetas abiertas
+        t.cards('closed') // Tarjetas archivadas
       ]).then(function(results) {
         var cards = results[0].concat(results[1]);
         var typeCard = cards.find(function(c) {
