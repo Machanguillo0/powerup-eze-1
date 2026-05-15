@@ -131,6 +131,11 @@
     <!-- Aquí aparecerá el texto de la descripción -->
     <div id="descripcion-container"></div>
   </div>
+  
+  <!-- Modo Diagnóstico (Solo para depuración) -->
+  <div id="debug-info" style="margin-top: 20px; padding: 10px; background: #fff9db; border: 1px solid #fab005; font-size: 11px; display: none;">
+    <strong>Debug:</strong> <span id="debug-msg">Cargando...</span>
+  </div>
 </div>
 
   <script>
@@ -695,14 +700,21 @@
               return 'CLIENTES';
             });
         })
-        .catch(function() {
-          return 'CLIENTES';
+        .catch(function(err) {
+          console.error("Error en getBoardTypeSafe:", err);
+          return 'ERROR: ' + err.message;
         });
     };
 
     t.render(function () {
       // Detectamos el tipo de tablero de forma asíncrona
       getBoardTypeSafe(t).then(function(type) {
+        // --- LOGICA DE DIAGNÓSTICO ---
+        var debugMsg = "Detectado: " + type;
+        document.getElementById('debug-msg').textContent = debugMsg;
+        document.getElementById('debug-info').style.display = 'block';
+        // -----------------------------
+
         // Solo ocultamos CLIENTES si estamos seguros de que es otro tipo específico
         if (type === 'PLANNING' || type === 'FACTURACIÓN') {
           document.getElementById('clientes-section').style.display = 'none';
