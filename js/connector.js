@@ -6,7 +6,7 @@ var APP_NAME = 'Antigravity';
 
 // Función de utilidad inyectada para detectar el tipo de tablero de forma segura
 var getBoardTypeSafe = function(t) {
-  return t.lists('id', 'name')
+  return t.lists('all', 'id', 'name')
     .then(function(lists) {
       var paramList = lists.find(function(l) { 
         var n = l.name.toUpperCase();
@@ -14,7 +14,7 @@ var getBoardTypeSafe = function(t) {
       });
       if (!paramList) return 'CLIENTES'; // Default si no hay lista
 
-      return t.cards('id', 'name', 'idList')
+      return t.cards('all', 'id', 'name', 'idList')
         .then(function(cards) {
           var typeCard = cards.find(function(c) {
             return c.idList === paramList.id && c.name.toLowerCase().startsWith('tipo tablero');

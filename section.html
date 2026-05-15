@@ -670,7 +670,7 @@
     });
 
     var getBoardTypeSafe = function(t) {
-      return t.lists('id', 'name')
+      return t.lists('all', 'id', 'name')
         .then(function(lists) {
           var paramList = lists.find(function(l) { 
             var n = l.name.toUpperCase();
@@ -678,7 +678,7 @@
           });
           if (!paramList) return 'CLIENTES';
 
-          return t.cards('id', 'name', 'idList')
+          return t.cards('all', 'id', 'name', 'idList')
             .then(function(cards) {
               var typeCard = cards.find(function(c) {
                 return c.idList === paramList.id && c.name.toLowerCase().startsWith('tipo tablero');
