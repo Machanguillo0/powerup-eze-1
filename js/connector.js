@@ -14,12 +14,16 @@ var getBoardTypeSafe = function(t) {
       });
       if (!paramList) return 'CLIENTES'; // Default si no hay lista
 
-      return t.cards('all', 'id', 'name', 'idList')
-        .then(function(cards) {
-          var typeCard = cards.find(function(c) {
-            return c.idList === paramList.id && c.name.toLowerCase().startsWith('tipo tablero');
-          });
-          if (!typeCard) return 'CLIENTES'; // Default si no hay tarjeta
+      // Buscamos tanto en tarjetas abiertas como cerradas (archivadas)
+      return Promise.all([
+        t.cards('all', 'id', 'name', 'idList'),
+        t.cards('closed', 'id', 'name', 'idList')
+      ]).then(function(results) {
+        var cards = results[0].concat(results[1]);
+        var typeCard = cards.find(function(c) {
+          return c.idList === paramList.id && c.name.toLowerCase().startsWith('tipo tablero');
+        });
+        if (!typeCard) return 'CLIENTES'; // Default si no hay tarjeta
 
           var name = typeCard.name.toUpperCase();
           if (name.includes('PLANNING')) return 'PLANNING';
