@@ -131,12 +131,11 @@
     <!-- Aquí aparecerá el texto de la descripción -->
     <div id="descripcion-container"></div>
   </div>
-  
+
   <!-- Modo Diagnóstico (Solo para depuración) -->
   <div id="debug-info" style="margin-top: 20px; padding: 10px; background: #fff9db; border: 1px solid #fab005; font-size: 11px; display: none;">
-    <strong>Debug:</strong> <span id="debug-msg">Cargando...</span>
+    <strong>Debug:</strong> <span id="debug-msg">Esperando a Trello...</span>
   </div>
-</div>
 
   <script>
     // Inicializamos este iframe con Trello indicándole nuestra App Key para poder usar la API
@@ -675,61 +674,52 @@
     });
 
     var getBoardTypeSafe = function(t) {
-      return t.lists('all')
-        .then(function(lists) {
-          var paramList = lists.find(function(l) { 
-            var n = l.name.toUpperCase();
-            return n === 'PARÁMETROS' || n === 'PARAMETROS'; 
-          });
-          if (!paramList) return 'CLIENTES';
+      return t.lists('all').then(function(lists) {
+        var paramList = lists.find(function(l) { 
+          var n = l.name.toUpperCase();
+          return n === 'PARÁMETROS' || n === 'PARAMETROS'; 
+        });
+        if (!paramList) return 'CLIENTES';
 
-          // Buscamos tanto en tarjetas abiertas como cerradas (archivadas) de forma limpia
-          return Promise.all([
-            t.cards('all'),   // Tarjetas abiertas
-            t.cards('closed') // Tarjetas archivadas
-          ]).then(function(results) {
-            var cards = results[0].concat(results[1]);
-            var typeCard = cards.find(function(c) {
+        return t.cards('all').then(function(openCards) {
+          return t.cards('closed').then(function(closedCards) {
+            var allCards = openCards.concat(closedCards);
+            var typeCard = allCards.find(function(c) {
               return c.idList === paramList.id && c.name.toLowerCase().startsWith('tipo tablero');
             });
             if (!typeCard) return 'CLIENTES';
 
-              var name = typeCard.name.toUpperCase();
-              if (name.includes('PLANNING')) return 'PLANNING';
-              if (name.includes('FACTURACIÓN') || name.includes('FACTURACION')) return 'FACTURACIÓN';
-              return 'CLIENTES';
-            });
-        })
-        .catch(function(err) {
-          console.error("Error en getBoardTypeSafe:", err);
-          return 'ERROR: ' + err.message;
+            var name = typeCard.name.toUpperCase();
+            if (name.includes('PLANNING')) return 'PLANNING';
+            if (name.includes('FACTURACIÓN') || name.includes('FACTURACION')) return 'FACTURACIÓN';
+            return 'CLIENTES';
+          });
         });
+      }).catch(function(err) {
+        return 'ERROR: ' + (err.message || err);
+      });
     };
 
     t.render(function () {
-      // Detectamos el tipo de tablero de forma asíncrona
+      // Diagnóstico inicial
+      document.getElementById('debug-info').style.display = 'block';
+      document.getElementById('debug-msg').textContent = "Consultando tipo de tablero...";
+
       getBoardTypeSafe(t).then(function(type) {
-        // --- LOGICA DE DIAGNÓSTICO ---
-        var debugMsg = "Detectado: " + type;
-        document.getElementById('debug-msg').textContent = debugMsg;
-        document.getElementById('debug-info').style.display = 'block';
-        // -----------------------------
+        document.getElementById('debug-msg').textContent = "Detectado: " + type;
 
-        // Solo ocultamos CLIENTES si estamos seguros de que es otro tipo específico
-        if (type === 'PLANNING' || type === 'FACTURACIÓN') {
-          document.getElementById('clientes-section').style.display = 'none';
-        } else {
-          document.getElementById('clientes-section').style.display = 'block';
-        }
+        // VISIBILIDAD DE SECCIONES
+        var isFacturacion = (type === 'FACTURACIÓN');
+        var isPlanning = (type === 'PLANNING');
+        var isClientes = (type === 'CLIENTES' || (!isFacturacion && !isPlanning));
 
-        document.getElementById('planning-section').style.display = (type === 'PLANNING') ? 'block' : 'none';
-        document.getElementById('facturacion-section').style.display = (type === 'FACTURACIÓN') ? 'block' : 'none';
+        document.getElementById('clientes-section').style.display = isClientes ? 'block' : 'none';
+        document.getElementById('facturacion-section').style.display = isFacturacion ? 'block' : 'none';
+        document.getElementById('planning-section').style.display = isPlanning ? 'block' : 'none';
         
-        // El unknown-section solo se muestra si realmente queremos forzar la configuración
-        // Por ahora lo dejamos oculto para no confundir si falla la detección
         document.getElementById('unknown-section').style.display = 'none'; 
 
-        if (type === 'CLIENTES') {
+        if (isClientes) {
           t.card('name', 'idList').then(function(card) {
             if (card.name.toLowerCase().includes("historial de procesos") || card.name.toLowerCase().includes("historial de avisos")) {
               updateHistoryCard(t, card.idList, false);
@@ -737,8 +727,8 @@
           });
         }
         t.sizeTo(document.body).done();
-      }).catch(function() {
-        // En caso de error crítico, nos aseguramos de que CLIENTES sea visible
+      }).catch(function(err) {
+        document.getElementById('debug-msg').textContent = "Error crítico: " + err;
         document.getElementById('clientes-section').style.display = 'block';
         t.sizeTo(document.body).done();
       });
