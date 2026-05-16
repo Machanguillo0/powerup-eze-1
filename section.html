@@ -683,9 +683,9 @@
             return [facturacionCard];
           })
           .then(cards => {
-            if (cards.length === 0) throw new Error('No se encontró ningún tablero configurado como "FACTURACIÓN". Asegúrate de tener la tarjeta de tipo en el tablero de destino.');
+            if (cards.length === 0) throw new Error('No se encontró ningún tablero configurado como "FACTURACIÓN".');
             
-            var targetBoardId = facturacionCard.idBoard;
+            var targetBoardId = cards[0].idBoard;
 
             statusDiv.textContent = 'Verificando listas en Facturación...';
             // 2. Obtener listas del tablero de destino para evitar duplicados
