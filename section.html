@@ -699,7 +699,7 @@
 
                 statusDiv.textContent = 'Creando lista en el tablero de destino...';
                 // 3. Crear la lista si no existe
-                return fetch(`https://api.trello.com/1/boards/${targetBoardId}/lists?name=${encodeURIComponent(currentListName)}&key=${appKey}&token=${token}`, { method: 'POST' });
+                return fetch(`https://api.trello.com/1/boards/${targetBoardId}/lists?name=${encodeURIComponent(currentListName)}&pos=bottom&key=${appKey}&token=${token}`, { method: 'POST' });
               });
           })
           .then(res => res.json())
