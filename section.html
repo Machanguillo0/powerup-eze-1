@@ -665,18 +665,22 @@
         }
 
         // 1. Buscar el tablero que tenga la "firma" de FACTURACIÓN
-        // Buscamos la tarjeta específica en todos los tableros del usuario
-        fetch(`https://api.trello.com/1/search?query=name:"Tipo tablero FACTURACIÓN"&modelTypes=cards&card_fields=idBoard&key=${appKey}&token=${token}`)
+        // Ampliamos la búsqueda para ser menos estrictos con el formato exacto
+        var searchQuery = encodeURIComponent('name:"Tipo tablero"');
+        fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
           .then(res => res.json())
           .then(searchData => {
             var cards = searchData.cards || [];
-            if (cards.length === 0) {
-              // Intento secundario sin tilde por si acaso
-              return fetch(`https://api.trello.com/1/search?query=name:"Tipo tablero FACTURACION"&modelTypes=cards&card_fields=idBoard&key=${appKey}&token=${token}`)
-                .then(res => res.json())
-                .then(searchData2 => searchData2.cards || []);
+            // Filtramos manualmente para encontrar la que diga FACTURACIÓN o FACTURACION
+            var facturacionCard = cards.find(function(c) {
+              var n = c.name.toUpperCase();
+              return n.includes('TIPO TABLERO') && (n.includes('FACTURACIÓN') || n.includes('FACTURACION'));
+            });
+            
+            if (!facturacionCard) {
+              throw new Error('No se encontró ningún tablero configurado como "FACTURACIÓN". Revisa que tengas la tarjeta "Tipo tablero FACTURACIÓN" en una lista abierta del tablero de destino.');
             }
-            return cards;
+            return [facturacionCard];
           })
           .then(cards => {
             if (cards.length === 0) throw new Error('No se encontró ningún tablero configurado como "FACTURACIÓN". Asegúrate de tener la tarjeta de tipo en el tablero de destino.');
