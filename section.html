@@ -685,16 +685,27 @@
           .then(cards => {
             if (cards.length === 0) throw new Error('No se encontró ningún tablero configurado como "FACTURACIÓN". Asegúrate de tener la tarjeta de tipo en el tablero de destino.');
             
-            var targetBoardId = cards[0].idBoard;
+            var targetBoardId = facturacionCard.idBoard;
 
-            statusDiv.textContent = 'Creando lista en el tablero de destino...';
-            // 2. Crear la lista en el tablero identificado
-            return fetch(`https://api.trello.com/1/boards/${targetBoardId}/lists?name=${encodeURIComponent(currentListName)}&key=${appKey}&token=${token}`, { method: 'POST' });
+            statusDiv.textContent = 'Verificando listas en Facturación...';
+            // 2. Obtener listas del tablero de destino para evitar duplicados
+            return fetch(`https://api.trello.com/1/boards/${targetBoardId}/lists?key=${appKey}&token=${token}`)
+              .then(res => res.json())
+              .then(lists => {
+                var existingList = lists.find(l => l.name === currentListName);
+                if (existingList) {
+                  throw new Error('La lista "' + currentListName + '" ya existe en el tablero de Facturación.');
+                }
+
+                statusDiv.textContent = 'Creando lista en el tablero de destino...';
+                // 3. Crear la lista si no existe
+                return fetch(`https://api.trello.com/1/boards/${targetBoardId}/lists?name=${encodeURIComponent(currentListName)}&key=${appKey}&token=${token}`, { method: 'POST' });
+              });
           })
           .then(res => res.json())
           .then(newList => {
             statusDiv.textContent = 'Creando tarjeta del cliente...';
-            // 3. Crear la tarjeta con el nombre del cliente
+            // 4. Crear la tarjeta con el nombre del cliente
             var cardName = fields.nombre || "Cliente Desconocido";
             return fetch(`https://api.trello.com/1/cards?idList=${newList.id}&name=${encodeURIComponent(cardName)}&key=${appKey}&token=${token}`, { method: 'POST' });
           })
