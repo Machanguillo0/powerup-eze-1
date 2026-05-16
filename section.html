@@ -664,16 +664,28 @@
           return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
         }
 
-        // 1. Buscar el tablero de FACTURACIÓN
-        fetch(`https://api.trello.com/1/members/me/boards?key=${appKey}&token=${token}&filter=open`)
+        // 1. Buscar el tablero que tenga la "firma" de FACTURACIÓN
+        // Buscamos la tarjeta específica en todos los tableros del usuario
+        fetch(`https://api.trello.com/1/search?query=name:"Tipo tablero FACTURACIÓN"&modelTypes=cards&card_fields=idBoard&key=${appKey}&token=${token}`)
           .then(res => res.json())
-          .then(boards => {
-            var targetBoard = boards.find(b => b.name.toUpperCase() === 'FACTURACIÓN' || b.name.toUpperCase() === 'FACTURACION');
-            if (!targetBoard) throw new Error('No se encontró el tablero "FACTURACIÓN". Asegúrate de que el nombre sea exacto.');
+          .then(searchData => {
+            var cards = searchData.cards || [];
+            if (cards.length === 0) {
+              // Intento secundario sin tilde por si acaso
+              return fetch(`https://api.trello.com/1/search?query=name:"Tipo tablero FACTURACION"&modelTypes=cards&card_fields=idBoard&key=${appKey}&token=${token}`)
+                .then(res => res.json())
+                .then(searchData2 => searchData2.cards || []);
+            }
+            return cards;
+          })
+          .then(cards => {
+            if (cards.length === 0) throw new Error('No se encontró ningún tablero configurado como "FACTURACIÓN". Asegúrate de tener la tarjeta de tipo en el tablero de destino.');
+            
+            var targetBoardId = cards[0].idBoard;
 
-            statusDiv.textContent = 'Creando lista en Facturación...';
-            // 2. Crear la lista en el tablero de Facturación
-            return fetch(`https://api.trello.com/1/boards/${targetBoard.id}/lists?name=${encodeURIComponent(currentListName)}&key=${appKey}&token=${token}`, { method: 'POST' });
+            statusDiv.textContent = 'Creando lista en el tablero de destino...';
+            // 2. Crear la lista en el tablero identificado
+            return fetch(`https://api.trello.com/1/boards/${targetBoardId}/lists?name=${encodeURIComponent(currentListName)}&key=${appKey}&token=${token}`, { method: 'POST' });
           })
           .then(res => res.json())
           .then(newList => {
