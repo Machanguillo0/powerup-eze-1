@@ -103,6 +103,8 @@
       <input type="file" id="word-upload" accept=".docx" />
     </label>
 
+    <!-- Nuevo botón: Enviar a facturar -->
+    <button id="boton-facturar" class="secondary">Enviar a facturar</button>
     </div>
   </div>
 
@@ -639,6 +641,56 @@
           }
         };
         reader.readAsArrayBuffer(file);
+      });
+    });
+
+    // Lógica para el botón "Enviar a facturar"
+    document.getElementById('boton-facturar').addEventListener('click', function() {
+      var statusDiv = document.getElementById('upload-status');
+      statusDiv.textContent = 'Buscando tablero de FACTURACIÓN...';
+      
+      Promise.all([
+        getUnifiedFields(t),
+        t.getRestApi().getToken(),
+        t.list('name')
+      ]).then(function(results) {
+        var data = results[0];
+        var token = results[1];
+        var currentListName = results[2].name;
+        var fields = data.fields;
+        var appKey = t.getRestApi().appKey;
+
+        if (!token) {
+          return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
+        }
+
+        // 1. Buscar el tablero de FACTURACIÓN
+        fetch(`https://api.trello.com/1/members/me/boards?key=${appKey}&token=${token}&filter=open`)
+          .then(res => res.json())
+          .then(boards => {
+            var targetBoard = boards.find(b => b.name.toUpperCase() === 'FACTURACIÓN' || b.name.toUpperCase() === 'FACTURACION');
+            if (!targetBoard) throw new Error('No se encontró el tablero "FACTURACIÓN". Asegúrate de que el nombre sea exacto.');
+
+            statusDiv.textContent = 'Creando lista en Facturación...';
+            // 2. Crear la lista en el tablero de Facturación
+            return fetch(`https://api.trello.com/1/boards/${targetBoard.id}/lists?name=${encodeURIComponent(currentListName)}&key=${appKey}&token=${token}`, { method: 'POST' });
+          })
+          .then(res => res.json())
+          .then(newList => {
+            statusDiv.textContent = 'Creando tarjeta del cliente...';
+            // 3. Crear la tarjeta con el nombre del cliente
+            var cardName = fields.nombre || "Cliente Desconocido";
+            return fetch(`https://api.trello.com/1/cards?idList=${newList.id}&name=${encodeURIComponent(cardName)}&key=${appKey}&token=${token}`, { method: 'POST' });
+          })
+          .then(() => {
+            statusDiv.textContent = '¡Enviado a Facturación con éxito!';
+            t.alert({ message: 'Expediente enviado a Facturación.', duration: 5, display: 'success' });
+          })
+          .catch(err => {
+            console.error(err);
+            statusDiv.textContent = 'Error: ' + err.message;
+            t.alert({ message: 'Error: ' + err.message, duration: 6, display: 'error' });
+          });
       });
     });
 
