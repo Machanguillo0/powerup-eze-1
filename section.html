@@ -734,16 +734,22 @@
       });
     }
 
-    // Helper para obtener y unificar de forma asíncrona datos cruzados del Tablero de Clientes
+    // Helper para escapar caracteres especiales de expresiones regulares
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // Helper para obtener y unificar de forma asíncrona datos cruzados del Tablero de Clientes y la tarjeta local de Importes
     function getCrossBoardBillingData(t) {
       return Promise.all([
         getUnifiedFields(t),
         t.getRestApi().getToken(),
-        t.list('name')
+        t.list('name', 'id')
       ]).then(function (results) {
         var localData = results[0];
         var token = results[1];
         var currentListName = results[2].name;
+        var currentListId = results[2].id;
         var fields = localData.fields;
         var appKey = t.getRestApi().appKey;
 
@@ -751,85 +757,122 @@
           throw new Error('REQUIRED_AUTHORIZATION');
         }
 
-        var searchQuery = encodeURIComponent('name:"Tipo tablero"');
-        return fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
+        // 1. Obtener tarjetas de la lista local en el tablero de Facturación para extraer campos de "Importes"
+        return fetch(`https://api.trello.com/1/lists/${currentListId}/cards?fields=name,desc&key=${appKey}&token=${token}`)
           .then(function (res) { return res.json(); })
-          .then(function (searchData) {
-            var cards = searchData.cards || [];
-            var clientesCard = cards.find(function(c) {
-              var n = c.name.toUpperCase();
-              return n.includes('TIPO TABLERO') && n.includes('CLIENTES');
+          .then(function (localCards) {
+            var importesFields = {};
+            var importesCard = (localCards || []).find(function (c) {
+              return c.name.toLowerCase().includes("importes");
             });
-            
-            if (!clientesCard) {
-              throw new Error('No se encontró ningún tablero configurado como "CLIENTES". Asegúrate de tener la tarjeta "Tipo tablero CLIENTES" en el tablero correspondiente.');
+
+            if (importesCard && importesCard.desc) {
+              var lines = importesCard.desc.split('\n');
+              lines.forEach(function (line) {
+                var m = line.match(/(?:^|\n)[ \t]*[*_~`#]*\s*([^:\n]+?)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i);
+                if (m) {
+                  var k = m[1].replace(/[*_~`]/g, '').trim();
+                  var v = m[2].replace(/[*_~`]/g, '').trim();
+                  if (k && v) {
+                    importesFields[k.toLowerCase()] = v;
+                    importesFields[k] = v; // Mantener mayúsculas/minúsculas originales
+                  }
+                }
+              });
             }
-            return clientesCard.idBoard;
-          })
-          .then(function (idBoardClientes) {
-            return fetch(`https://api.trello.com/1/boards/${idBoardClientes}/lists?key=${appKey}&token=${token}`)
+
+            // 2. Buscar el tablero configurado como "CLIENTES"
+            var searchQuery = encodeURIComponent('name:"Tipo tablero"');
+            return fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
               .then(function (res) { return res.json(); })
-              .then(function (lists) {
-                var clientList = lists.find(function(l) {
-                  return l.name.trim().toLowerCase() === currentListName.trim().toLowerCase();
+              .then(function (searchData) {
+                var cards = searchData.cards || [];
+                var clientesCard = cards.find(function(c) {
+                  var n = c.name.toUpperCase();
+                  return n.includes('TIPO TABLERO') && n.includes('CLIENTES');
                 });
                 
-                if (!clientList) {
-                  throw new Error('No se encontró ninguna lista llamada "' + currentListName + '" en el tablero de Clientes.');
+                if (!clientesCard) {
+                  throw new Error('No se encontró ningún tablero configurado como "CLIENTES". Asegúrate de tener la tarjeta "Tipo tablero CLIENTES" en el tablero correspondiente.');
                 }
-                return clientList.id;
+                return clientesCard.idBoard;
+              })
+              .then(function (idBoardClientes) {
+                // 3. Obtener listas del tablero de Clientes
+                return fetch(`https://api.trello.com/1/boards/${idBoardClientes}/lists?key=${appKey}&token=${token}`)
+                  .then(function (res) { return res.json(); })
+                  .then(function (lists) {
+                    var clientList = lists.find(function(l) {
+                      return l.name.trim().toLowerCase() === currentListName.trim().toLowerCase();
+                    });
+                    
+                    if (!clientList) {
+                      throw new Error('No se encontró ninguna lista llamada "' + currentListName + '" en el tablero de Clientes.');
+                    }
+                    return clientList.id;
+                  });
+              })
+              .then(function (idListClientes) {
+                // 4. Obtener tarjetas de esa lista en Clientes
+                return fetch(`https://api.trello.com/1/lists/${idListClientes}/cards?fields=name,desc&key=${appKey}&token=${token}`)
+                  .then(function (res) { return res.json(); });
+              })
+              .then(function (clientCards) {
+                // 5. Extraer y unificar los datos personales desde las tarjetas de Clientes
+                var clientFields = {
+                  nombre: "___________",
+                  dni: "___________",
+                  domicilio: "___________",
+                  fecha_apertura: "___________"
+                };
+                var found = { nombre: false, dni: false, domicilio: false, fecha_apertura: false };
+                
+                var cards = clientCards || [];
+                cards.sort(function(a, b) {
+                  var aScore = a.name.toLowerCase().includes("datos personales") ? 100 : 0;
+                  var bScore = b.name.toLowerCase().includes("datos personales") ? 100 : 0;
+                  return bScore - aScore;
+                });
+                
+                cards.forEach(function(card) {
+                  var parsed = extractFields(card.desc);
+                  if (!found.nombre && parsed.nombre !== "Cliente Desconocido") { clientFields.nombre = parsed.nombre; found.nombre = true; }
+                  if (!found.dni && parsed.dni !== "___________") { clientFields.dni = parsed.dni; found.dni = true; }
+                  if (!found.domicilio && parsed.domicilio !== "___________") { clientFields.domicilio = parsed.domicilio; found.domicilio = true; }
+                  if (!found.fecha_apertura && parsed.fecha_apertura !== "___________") { clientFields.fecha_apertura = parsed.fecha_apertura; found.fecha_apertura = true; }
+                });
+
+                // 6. Fusionar datos
+                var combinedFields = {};
+                for (var key in fields) { combinedFields[key] = fields[key]; }
+                combinedFields.nombre = clientFields.nombre;
+                combinedFields.dni = clientFields.dni;
+                combinedFields.domicilio = clientFields.domicilio;
+                combinedFields.fecha_apertura = clientFields.fecha_apertura;
+
+                // Combinar los campos extraídos dinámicamente de Importes
+                for (var k in importesFields) {
+                  combinedFields[k] = importesFields[k];
+                }
+
+                return {
+                  fields: combinedFields,
+                  count: localData.count,
+                  targetCardId: localData.targetCardId,
+                  idList: localData.idList,
+                  token: token
+                };
               });
-          })
-          .then(function (idListClientes) {
-            return fetch(`https://api.trello.com/1/lists/${idListClientes}/cards?fields=name,desc&key=${appKey}&token=${token}`)
-              .then(function (res) { return res.json(); });
-          })
-          .then(function (clientCards) {
-            var clientFields = {
-              nombre: "___________",
-              dni: "___________",
-              domicilio: "___________",
-              fecha_apertura: "___________"
-            };
-            var found = { nombre: false, dni: false, domicilio: false, fecha_apertura: false };
-            
-            var cards = clientCards || [];
-            cards.sort(function(a, b) {
-              var aScore = a.name.toLowerCase().includes("datos personales") ? 100 : 0;
-              var bScore = b.name.toLowerCase().includes("datos personales") ? 100 : 0;
-              return bScore - aScore;
-            });
-            
-            cards.forEach(function(card) {
-              var parsed = extractFields(card.desc);
-              if (!found.nombre && parsed.nombre !== "Cliente Desconocido") { clientFields.nombre = parsed.nombre; found.nombre = true; }
-              if (!found.dni && parsed.dni !== "___________") { clientFields.dni = parsed.dni; found.dni = true; }
-              if (!found.domicilio && parsed.domicilio !== "___________") { clientFields.domicilio = parsed.domicilio; found.domicilio = true; }
-              if (!found.fecha_apertura && parsed.fecha_apertura !== "___________") { clientFields.fecha_apertura = parsed.fecha_apertura; found.fecha_apertura = true; }
-            });
-
-            var combinedFields = {};
-            for (var key in fields) { combinedFields[key] = fields[key]; }
-            combinedFields.nombre = clientFields.nombre;
-            combinedFields.dni = clientFields.dni;
-            combinedFields.domicilio = clientFields.domicilio;
-            combinedFields.fecha_apertura = clientFields.fecha_apertura;
-
-            return {
-              fields: combinedFields,
-              count: localData.count,
-              targetCardId: localData.targetCardId,
-              idList: localData.idList,
-              token: token
-            };
           });
       });
     }
 
-    // Helper para centralizar la sustitución de marcadores de posición en Excel
+    // Helper para centralizar la sustitución de marcadores de posición en Excel (fijos y dinámicos)
     function replaceExcelPlaceholders(text, fields) {
       if (!text || typeof text !== 'string') return text;
-      return text.replace(/\{\{Nombre\}\}/gi, fields.nombre)
+      
+      // 1. Reemplazo de marcadores estructurados fijos
+      var res = text.replace(/\{\{Nombre\}\}/gi, fields.nombre)
         .replace(/\{\{DNI\}\}/gi, fields.dni)
         .replace(/\{\{Domicilio\}\}/gi, fields.domicilio)
         .replace(/\{\{Teléfono\}\}/gi, fields.telefono || "___________")
@@ -862,6 +905,16 @@
         .replace(/\{\{Numero de expediente:\}\}/gi, fields.num_expediente || "___________")
         .replace(/\{\{Número de expediente\}\}/gi, fields.num_expediente || "___________")
         .replace(/\{\{Parrafada\}\}/gi, fields.parrafada || "");
+
+      // 2. Reemplazo dinámico para cualquier otro marcador adicional (Honorarios, Gastos, Total, etc)
+      for (var key in fields) {
+        if (fields.hasOwnProperty(key)) {
+          var regex = new RegExp("\\{\\{" + escapeRegExp(key) + "\\}\\}", "gi");
+          res = res.replace(regex, fields[key] || "");
+        }
+      }
+      
+      return res;
     }
 
     // Botón para visualizar la extracción unificada en el panel de Facturación
@@ -882,6 +935,18 @@
                 "• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>" +
                 "• Fecha de facturación: " + fields.fecha_facturacion + "<br>";
         
+        // Renderizar campos dinámicos adicionales (como Honorarios, Gastos, etc. provenientes de la tarjeta Importes)
+        var standardKeys = ["nombre", "dni", "domicilio", "telefono", "profesion", "observaciones", "fecha", "hora", "lugar", "ciudad", "matricula1", "aseguradora1", "matricula2", "aseguradora2", "parrafada", "fecha_sistema", "fecha_ultima", "fecha_cierre", "fecha_facturacion", "fecha_resolucion", "fecha_designa", "fecha_reclamacion", "fecha_apertura", "fecha_siniestro", "factura", "num_expediente", "secuencial"];
+        var dynamicHtml = "";
+        for (var k in fields) {
+          if (fields.hasOwnProperty(k) && standardKeys.indexOf(k.toLowerCase()) === -1) {
+            dynamicHtml += "• " + k + ": <strong>" + fields[k] + "</strong><br>";
+          }
+        }
+        if (dynamicHtml) {
+          html += "<br><strong>Datos adicionales (Tarjeta de Importes):</strong><br>" + dynamicHtml;
+        }
+
         container.innerHTML = html;
         t.sizeTo(document.body).done();
       }).catch(function (err) {
