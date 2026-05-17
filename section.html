@@ -792,21 +792,121 @@
 
     // Botón para visualizar la extracción unificada en el panel de Facturación
     document.getElementById('boton-desc-facturacion').addEventListener('click', function () {
-      getUnifiedFields(t).then(function (data) {
-        var fields = data.fields;
-        var container = document.getElementById('descripcion-container');
-        
-        var html = "<strong>Ficha de Facturación (datos de " + data.count + " tarjetas):</strong><br><br>";
-        html += "• Número de expediente: " + fields.num_expediente + "<br>" +
-                "• Nombre: " + fields.nombre + "<br>" +
-                "• DNI: " + fields.dni + "<br>" +
-                "• Domicilio del cliente: " + fields.domicilio + "<br>" +
-                "• Número de factura: <strong>" + fields.factura + "</strong><br><br>" +
-                "• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>" +
-                "• Fecha de facturación: " + fields.fecha_facturacion + "<br>";
-        
-        container.innerHTML = html;
-        container.style.display = 'block';
+      var container = document.getElementById('descripcion-container');
+      container.innerHTML = "<em>Cargando y unificando datos desde el tablero de Clientes...</em>";
+      container.style.display = 'block';
+      t.sizeTo(document.body).done();
+
+      Promise.all([
+        getUnifiedFields(t),
+        t.getRestApi().getToken(),
+        t.list('name')
+      ]).then(function (results) {
+        var localData = results[0];
+        var token = results[1];
+        var currentListName = results[2].name;
+        var fields = localData.fields;
+        var appKey = t.getRestApi().appKey;
+
+        if (!token) {
+          container.innerHTML = "<em>Por favor, autoriza la API para cargar datos del tablero de Clientes...</em>";
+          return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
+        }
+
+        // 1. Buscar el tablero que tenga la firma de CLIENTES
+        var searchQuery = encodeURIComponent('name:"Tipo tablero"');
+        fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
+          .then(res => res.json())
+          .then(searchData => {
+            var cards = searchData.cards || [];
+            var clientesCard = cards.find(function(c) {
+              var n = c.name.toUpperCase();
+              return n.includes('TIPO TABLERO') && n.includes('CLIENTES');
+            });
+            
+            if (!clientesCard) {
+              throw new Error('No se encontró ningún tablero configurado como "CLIENTES". Asegúrate de tener la tarjeta "Tipo tablero CLIENTES" en el tablero correspondiente.');
+            }
+            return clientesCard.idBoard;
+          })
+          .then(idBoardClientes => {
+            // 2. Obtener listas del tablero de Clientes
+            return fetch(`https://api.trello.com/1/boards/${idBoardClientes}/lists?key=${appKey}&token=${token}`)
+              .then(res => res.json())
+              .then(lists => {
+                var clientList = lists.find(function(l) {
+                  return l.name.trim().toLowerCase() === currentListName.trim().toLowerCase();
+                });
+                
+                if (!clientList) {
+                  throw new Error('No se encontró ninguna lista llamada "' + currentListName + '" en el tablero de Clientes.');
+                }
+                return clientList.id;
+              });
+          })
+          .then(idListClientes => {
+            // 3. Obtener tarjetas de esa lista en Clientes
+            return fetch(`https://api.trello.com/1/lists/${idListClientes}/cards?fields=name,desc&key=${appKey}&token=${token}`)
+              .then(res => res.json());
+          })
+          .then(clientCards => {
+            // 4. Extraer y unificar los datos personales desde las tarjetas de Clientes
+            var clientFields = {
+              nombre: "___________",
+              dni: "___________",
+              domicilio: "___________",
+              fecha_apertura: "___________"
+            };
+            var found = { nombre: false, dni: false, domicilio: false, fecha_apertura: false };
+            
+            var cards = clientCards || [];
+            // Ordenar para dar prioridad a la tarjeta de "datos personales"
+            cards.sort(function(a, b) {
+              var aScore = a.name.toLowerCase().includes("datos personales") ? 100 : 0;
+              var bScore = b.name.toLowerCase().includes("datos personales") ? 100 : 0;
+              return bScore - aScore;
+            });
+            
+            cards.forEach(function(card) {
+              var parsed = extractFields(card.desc);
+              if (!found.nombre && parsed.nombre !== "Cliente Desconocido") { clientFields.nombre = parsed.nombre; found.nombre = true; }
+              if (!found.dni && parsed.dni !== "___________") { clientFields.dni = parsed.dni; found.dni = true; }
+              if (!found.domicilio && parsed.domicilio !== "___________") { clientFields.domicilio = parsed.domicilio; found.domicilio = true; }
+              if (!found.fecha_apertura && parsed.fecha_apertura !== "___________") { clientFields.fecha_apertura = parsed.fecha_apertura; found.fecha_apertura = true; }
+            });
+
+            // 5. Renderizar la ficha unificada
+            var html = "<strong>Ficha de Facturación (datos cruzados con Clientes):</strong><br><br>";
+            html += "• Número de expediente: " + fields.num_expediente + "<br>" +
+                    "• Nombre: " + clientFields.nombre + "<br>" +
+                    "• DNI: " + clientFields.dni + "<br>" +
+                    "• Domicilio del cliente: " + clientFields.domicilio + "<br>" +
+                    "• Número de factura: <strong>" + fields.factura + "</strong><br><br>" +
+                    "• Fecha de creación (apertura): " + clientFields.fecha_apertura + "<br>" +
+                    "• Fecha de facturación: " + fields.fecha_facturacion + "<br>";
+            
+            container.innerHTML = html;
+            t.sizeTo(document.body).done();
+          })
+          .catch(err => {
+            console.error(err);
+            // Mostrar los datos locales con un aviso del error al traer datos de Clientes
+            var html = "<strong style='color: #c93b2b;'>Error al unificar con Clientes:</strong> " + err.message + "<br><br>";
+            html += "<strong>Ficha de Facturación (solo datos locales):</strong><br><br>";
+            html += "• Número de expediente: " + fields.num_expediente + "<br>" +
+                    "• Nombre: " + fields.nombre + "<br>" +
+                    "• DNI: " + fields.dni + "<br>" +
+                    "• Domicilio del cliente: " + fields.domicilio + "<br>" +
+                    "• Número de factura: <strong>" + fields.factura + "</strong><br><br>" +
+                    "• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>" +
+                    "• Fecha de facturación: " + fields.fecha_facturacion + "<br>";
+            
+            container.innerHTML = html;
+            t.sizeTo(document.body).done();
+          });
+      }).catch(err => {
+        console.error(err);
+        container.innerHTML = "<strong style='color: #c93b2b;'>Error del Power-Up:</strong> " + err.message;
         t.sizeTo(document.body).done();
       });
     });
