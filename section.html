@@ -120,6 +120,10 @@
           Generar excel desde plantilla
           <input type="file" id="excel-upload" accept=".xlsx" />
         </label>
+        <label class="btn-upload" style="background-color: #1f845a;">
+          Generar Proforma
+          <input type="file" id="proforma-upload" accept=".xlsx" />
+        </label>
       </div>
     </div>
 
@@ -520,7 +524,7 @@
         var reader = new FileReader();
         reader.onload = async function (e) {
           try {
-            var workbook = new ExcelJS.Workbook();
+                      var workbook = new ExcelJS.Workbook();
             await workbook.xlsx.load(e.target.result);
             workbook.eachSheet(function (worksheet) {
               worksheet.eachRow(function (row) {
@@ -529,72 +533,12 @@
                     if (cell.value.richText) {
                       cell.value.richText.forEach(function (rt) {
                         if (rt.text) {
-                          rt.text = rt.text.replace(/\{\{Nombre\}\}/gi, fields.nombre)
-                            .replace(/\{\{DNI\}\}/gi, fields.dni)
-                            .replace(/\{\{Domicilio\}\}/gi, fields.domicilio)
-                            .replace(/\{\{Teléfono\}\}/gi, fields.telefono)
-                            .replace(/\{\{Telefono\}\}/gi, fields.telefono)
-                            .replace(/\{\{Profesión\}\}/gi, fields.profesion)
-                            .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
-                            .replace(/\{\{Fecha del siniestro\}\}/gi, fields.fecha)
-                            .replace(/\{\{Hora\}\}/gi, fields.hora)
-                            .replace(/\{\{Lugar\}\}/gi, fields.lugar)
-                            .replace(/\{\{Ciudad\}\}/gi, fields.ciudad)
-                            .replace(/\{\{Matrícula1\}\}/gi, fields.matricula1)
-                            .replace(/\{\{Aseguradora1\}\}/gi, fields.aseguradora1)
-                            .replace(/\{\{Matrícula2\}\}/gi, fields.matricula2)
-                            .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2)
-                            .replace(/\{\{Fecha del sistema\}\}/gi, fields.fecha_sistema)
-                            .replace(/\{\{Fecha última actuación\}\}/gi, fields.fecha_ultima)
-                            .replace(/\{\{Fecha cierre expediente\}\}/gi, fields.fecha_cierre)
-                            .replace(/\{\{Fecha facturación\}\}/gi, fields.fecha_facturacion)
-                            .replace(/\{\{Fecha de resolución\}\}/gi, fields.fecha_resolucion)
-                            .replace(/\{\{Fecha comunicación designa\}\}/gi, fields.fecha_designa)
-                            .replace(/\{\{Fecha reclamación previa\}\}/gi, fields.fecha_reclamacion)
-                            .replace(/\{\{Fecha apertura expediente\}\}/gi, fields.fecha_apertura)
-                            .replace(/\{\{Fecha siniestro\}\}/gi, fields.fecha_siniestro)
-                            .replace(/\{\{DDs\}\}/gi, fields.dds)
-                            .replace(/\{\{Mess\}\}/gi, fields.mess)
-                            .replace(/\{\{AAAAs\}\}/gi, fields.aaaas)
-                            .replace(/\{\{Número de expediente:\}\}/gi, fields.num_expediente)
-                            .replace(/\{\{Numero de expediente:\}\}/gi, fields.num_expediente)
-                            .replace(/\{\{Número de expediente\}\}/gi, fields.num_expediente)
-                            .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
+                          rt.text = replaceExcelPlaceholders(rt.text, fields);
                         }
                       });
                     } else if (typeof cell.value === 'string') {
-                      cell.value = cell.value.replace(/\{\{Nombre\}\}/gi, fields.nombre)
-                        .replace(/\{\{DNI\}\}/gi, fields.dni)
-                        .replace(/\{\{Domicilio\}\}/gi, fields.domicilio)
-                        .replace(/\{\{Teléfono\}\}/gi, fields.telefono)
-                        .replace(/\{\{Telefono\}\}/gi, fields.telefono)
-                        .replace(/\{\{Profesión\}\}/gi, fields.profesion)
-                        .replace(/\{\{Observaciones\}\}/gi, fields.observaciones)
-                        .replace(/\{\{Fecha del siniestro\}\}/gi, fields.fecha)
-                        .replace(/\{\{Hora\}\}/gi, fields.hora)
-                        .replace(/\{\{Lugar\}\}/gi, fields.lugar)
-                        .replace(/\{\{Ciudad\}\}/gi, fields.ciudad)
-                        .replace(/\{\{Matrícula1\}\}/gi, fields.matricula1)
-                        .replace(/\{\{Aseguradora1\}\}/gi, fields.aseguradora1)
-                        .replace(/\{\{Matrícula2\}\}/gi, fields.matricula2)
-                        .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2)
-                        .replace(/\{\{Fecha del sistema\}\}/gi, fields.fecha_sistema)
-                        .replace(/\{\{Fecha última actuación\}\}/gi, fields.fecha_ultima)
-                        .replace(/\{\{Fecha cierre expediente\}\}/gi, fields.fecha_cierre)
-                        .replace(/\{\{Fecha facturación\}\}/gi, fields.fecha_facturacion)
-                        .replace(/\{\{Fecha de resolución\}\}/gi, fields.fecha_resolucion)
-                        .replace(/\{\{Fecha comunicación designa\}\}/gi, fields.fecha_designa)
-                        .replace(/\{\{Fecha reclamación previa\}\}/gi, fields.fecha_reclamacion)
-                        .replace(/\{\{Fecha apertura expediente\}\}/gi, fields.fecha_apertura)
-                        .replace(/\{\{Fecha siniestro\}\}/gi, fields.fecha_siniestro)
-                        .replace(/\{\{DDs\}\}/gi, fields.dds)
-                        .replace(/\{\{Mess\}\}/gi, fields.mess)
-                        .replace(/\{\{AAAAs\}\}/gi, fields.aaaas)
-                        .replace(/\{\{Número de expediente:\}\}/gi, fields.num_expediente)
-                        .replace(/\{\{Numero de expediente:\}\}/gi, fields.num_expediente)
-                        .replace(/\{\{Número de expediente\}\}/gi, fields.num_expediente)
-                        .replace(/\{\{Parrafada\}\}/gi, fields.parrafada);
-                      if (fields.parrafada.includes('\n')) cell.alignment = { wrapText: true };
+                      cell.value = replaceExcelPlaceholders(cell.value, fields);
+                      if (fields.parrafada && fields.parrafada.includes('\n')) cell.alignment = { wrapText: true };
                     }
                   }
                 });
@@ -790,14 +734,9 @@
       });
     }
 
-    // Botón para visualizar la extracción unificada en el panel de Facturación
-    document.getElementById('boton-desc-facturacion').addEventListener('click', function () {
-      var container = document.getElementById('descripcion-container');
-      container.innerHTML = "<em>Cargando y unificando datos desde el tablero de Clientes...</em>";
-      container.style.display = 'block';
-      t.sizeTo(document.body).done();
-
-      Promise.all([
+    // Helper para obtener y unificar de forma asíncrona datos cruzados del Tablero de Clientes
+    function getCrossBoardBillingData(t) {
+      return Promise.all([
         getUnifiedFields(t),
         t.getRestApi().getToken(),
         t.list('name')
@@ -809,15 +748,13 @@
         var appKey = t.getRestApi().appKey;
 
         if (!token) {
-          container.innerHTML = "<em>Por favor, autoriza la API para cargar datos del tablero de Clientes...</em>";
-          return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
+          throw new Error('REQUIRED_AUTHORIZATION');
         }
 
-        // 1. Buscar el tablero que tenga la firma de CLIENTES
         var searchQuery = encodeURIComponent('name:"Tipo tablero"');
-        fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
-          .then(res => res.json())
-          .then(searchData => {
+        return fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
+          .then(function (res) { return res.json(); })
+          .then(function (searchData) {
             var cards = searchData.cards || [];
             var clientesCard = cards.find(function(c) {
               var n = c.name.toUpperCase();
@@ -829,11 +766,10 @@
             }
             return clientesCard.idBoard;
           })
-          .then(idBoardClientes => {
-            // 2. Obtener listas del tablero de Clientes
+          .then(function (idBoardClientes) {
             return fetch(`https://api.trello.com/1/boards/${idBoardClientes}/lists?key=${appKey}&token=${token}`)
-              .then(res => res.json())
-              .then(lists => {
+              .then(function (res) { return res.json(); })
+              .then(function (lists) {
                 var clientList = lists.find(function(l) {
                   return l.name.trim().toLowerCase() === currentListName.trim().toLowerCase();
                 });
@@ -844,13 +780,11 @@
                 return clientList.id;
               });
           })
-          .then(idListClientes => {
-            // 3. Obtener tarjetas de esa lista en Clientes
+          .then(function (idListClientes) {
             return fetch(`https://api.trello.com/1/lists/${idListClientes}/cards?fields=name,desc&key=${appKey}&token=${token}`)
-              .then(res => res.json());
+              .then(function (res) { return res.json(); });
           })
-          .then(clientCards => {
-            // 4. Extraer y unificar los datos personales desde las tarjetas de Clientes
+          .then(function (clientCards) {
             var clientFields = {
               nombre: "___________",
               dni: "___________",
@@ -860,7 +794,6 @@
             var found = { nombre: false, dni: false, domicilio: false, fecha_apertura: false };
             
             var cards = clientCards || [];
-            // Ordenar para dar prioridad a la tarjeta de "datos personales"
             cards.sort(function(a, b) {
               var aScore = a.name.toLowerCase().includes("datos personales") ? 100 : 0;
               var bScore = b.name.toLowerCase().includes("datos personales") ? 100 : 0;
@@ -875,38 +808,191 @@
               if (!found.fecha_apertura && parsed.fecha_apertura !== "___________") { clientFields.fecha_apertura = parsed.fecha_apertura; found.fecha_apertura = true; }
             });
 
-            // 5. Renderizar la ficha unificada
-            var html = "<strong>Ficha de Facturación (datos cruzados con Clientes):</strong><br><br>";
-            html += "• Número de expediente: " + fields.num_expediente + "<br>" +
-                    "• Nombre: " + clientFields.nombre + "<br>" +
-                    "• DNI: " + clientFields.dni + "<br>" +
-                    "• Domicilio del cliente: " + clientFields.domicilio + "<br>" +
-                    "• Número de factura: <strong>" + fields.factura + "</strong><br><br>" +
-                    "• Fecha de creación (apertura): " + clientFields.fecha_apertura + "<br>" +
-                    "• Fecha de facturación: " + fields.fecha_facturacion + "<br>";
-            
-            container.innerHTML = html;
-            t.sizeTo(document.body).done();
-          })
-          .catch(err => {
-            console.error(err);
-            // Mostrar los datos locales con un aviso del error al traer datos de Clientes
-            var html = "<strong style='color: #c93b2b;'>Error al unificar con Clientes:</strong> " + err.message + "<br><br>";
-            html += "<strong>Ficha de Facturación (solo datos locales):</strong><br><br>";
-            html += "• Número de expediente: " + fields.num_expediente + "<br>" +
-                    "• Nombre: " + fields.nombre + "<br>" +
-                    "• DNI: " + fields.dni + "<br>" +
-                    "• Domicilio del cliente: " + fields.domicilio + "<br>" +
-                    "• Número de factura: <strong>" + fields.factura + "</strong><br><br>" +
-                    "• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>" +
-                    "• Fecha de facturación: " + fields.fecha_facturacion + "<br>";
-            
-            container.innerHTML = html;
-            t.sizeTo(document.body).done();
+            var combinedFields = {};
+            for (var key in fields) { combinedFields[key] = fields[key]; }
+            combinedFields.nombre = clientFields.nombre;
+            combinedFields.dni = clientFields.dni;
+            combinedFields.domicilio = clientFields.domicilio;
+            combinedFields.fecha_apertura = clientFields.fecha_apertura;
+
+            return {
+              fields: combinedFields,
+              count: localData.count,
+              targetCardId: localData.targetCardId,
+              idList: localData.idList,
+              token: token
+            };
           });
-      }).catch(err => {
+      });
+    }
+
+    // Helper para centralizar la sustitución de marcadores de posición en Excel
+    function replaceExcelPlaceholders(text, fields) {
+      if (!text || typeof text !== 'string') return text;
+      return text.replace(/\{\{Nombre\}\}/gi, fields.nombre)
+        .replace(/\{\{DNI\}\}/gi, fields.dni)
+        .replace(/\{\{Domicilio\}\}/gi, fields.domicilio)
+        .replace(/\{\{Teléfono\}\}/gi, fields.telefono || "___________")
+        .replace(/\{\{Telefono\}\}/gi, fields.telefono || "___________")
+        .replace(/\{\{Profesión\}\}/gi, fields.profesion || "___________")
+        .replace(/\{\{Observaciones\}\}/gi, fields.observaciones || "___________")
+        .replace(/\{\{Fecha del siniestro\}\}/gi, fields.fecha || "___________")
+        .replace(/\{\{Hora\}\}/gi, fields.hora || "___________")
+        .replace(/\{\{Lugar\}\}/gi, fields.lugar || "___________")
+        .replace(/\{\{Ciudad\}\}/gi, fields.ciudad || "___________")
+        .replace(/\{\{Matrícula1\}\}/gi, fields.matricula1 || "___________")
+        .replace(/\{\{Aseguradora1\}\}/gi, fields.aseguradora1 || "___________")
+        .replace(/\{\{Matrícula2\}\}/gi, fields.matricula2 || "___________")
+        .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2 || "___________")
+        .replace(/\{\{Fecha del sistema\}\}/gi, fields.fecha_sistema || "___________")
+        .replace(/\{\{Fecha última actuación\}\}/gi, fields.fecha_ultima || "___________")
+        .replace(/\{\{Fecha cierre expediente\}\}/gi, fields.fecha_cierre || "___________")
+        .replace(/\{\{Fecha facturación\}\}/gi, fields.fecha_facturacion || "___________")
+        .replace(/\{\{Fecha de resolución\}\}/gi, fields.fecha_resolucion || "___________")
+        .replace(/\{\{Fecha comunicación designa\}\}/gi, fields.fecha_designa || "___________")
+        .replace(/\{\{Fecha reclamación previa\}\}/gi, fields.fecha_reclamacion || "___________")
+        .replace(/\{\{Fecha apertura expediente\}\}/gi, fields.fecha_apertura || "___________")
+        .replace(/\{\{Fecha siniestro\}\}/gi, fields.fecha_siniestro || "___________")
+        .replace(/\{\{Número de factura\}\}/gi, fields.factura || "___________")
+        .replace(/\{\{Numero de factura\}\}/gi, fields.factura || "___________")
+        .replace(/\{\{DDs\}\}/gi, fields.dds || "___________")
+        .replace(/\{\{Mess\}\}/gi, fields.mess || "___________")
+        .replace(/\{\{AAAAs\}\}/gi, fields.aaaas || "___________")
+        .replace(/\{\{Número de expediente:\}\}/gi, fields.num_expediente || "___________")
+        .replace(/\{\{Numero de expediente:\}\}/gi, fields.num_expediente || "___________")
+        .replace(/\{\{Número de expediente\}\}/gi, fields.num_expediente || "___________")
+        .replace(/\{\{Parrafada\}\}/gi, fields.parrafada || "");
+    }
+
+    // Botón para visualizar la extracción unificada en el panel de Facturación
+    document.getElementById('boton-desc-facturacion').addEventListener('click', function () {
+      var container = document.getElementById('descripcion-container');
+      container.innerHTML = "<em>Cargando y unificando datos desde el tablero de Clientes...</em>";
+      container.style.display = 'block';
+      t.sizeTo(document.body).done();
+
+      getCrossBoardBillingData(t).then(function (data) {
+        var fields = data.fields;
+        var html = "<strong>Ficha de Facturación (datos cruzados con Clientes):</strong><br><br>";
+        html += "• Número de expediente: " + fields.num_expediente + "<br>" +
+                "• Nombre: " + fields.nombre + "<br>" +
+                "• DNI: " + fields.dni + "<br>" +
+                "• Domicilio del cliente: " + fields.domicilio + "<br>" +
+                "• Número de factura: <strong>" + fields.factura + "</strong><br><br>" +
+                "• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>" +
+                "• Fecha de facturación: " + fields.fecha_facturacion + "<br>";
+        
+        container.innerHTML = html;
+        t.sizeTo(document.body).done();
+      }).catch(function (err) {
         console.error(err);
-        container.innerHTML = "<strong style='color: #c93b2b;'>Error del Power-Up:</strong> " + err.message;
+        if (err.message === 'REQUIRED_AUTHORIZATION') {
+          container.innerHTML = "<em>Por favor, autoriza la API para cargar datos del tablero de Clientes...</em>";
+          t.sizeTo(document.body).done();
+          return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
+        }
+        
+        // Fallback a datos locales si hay otro error
+        getUnifiedFields(t).then(function (localData) {
+          var fields = localData.fields;
+          var html = "<strong style='color: #c93b2b;'>Error al unificar con Clientes:</strong> " + err.message + "<br><br>";
+          html += "<strong>Ficha de Facturación (solo datos locales):</strong><br><br>";
+          html += "• Número de expediente: " + fields.num_expediente + "<br>" +
+                  "• Nombre: " + fields.nombre + "<br>" +
+                  "• DNI: " + fields.dni + "<br>" +
+                  "• Domicilio del cliente: " + fields.domicilio + "<br>" +
+                  "• Número de factura: <strong>" + fields.factura + "</strong><br><br>" +
+                  "• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>" +
+                  "• Fecha de facturación: " + fields.fecha_facturacion + "<br>";
+          
+          container.innerHTML = html;
+          t.sizeTo(document.body).done();
+        });
+      });
+    });
+
+    // Nuevo event listener para Generar Proforma en Facturación (datos cruzados + plantilla Excel)
+    document.getElementById('proforma-upload').addEventListener('change', function (event) {
+      if (!event.target.files || event.target.files.length === 0) return;
+      var file = event.target.files[0];
+      var statusDiv = document.getElementById('upload-status');
+      statusDiv.textContent = 'Cargando datos cruzados desde el tablero de Clientes...';
+      t.sizeTo(document.body).done();
+
+      getCrossBoardBillingData(t).then(function (data) {
+        var fields = data.fields;
+        var token = data.token;
+        statusDiv.textContent = 'Procesando proforma ' + file.name + '...';
+        t.sizeTo(document.body).done();
+
+        var reader = new FileReader();
+        reader.onload = async function (e) {
+          try {
+            var workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.load(e.target.result);
+            workbook.eachSheet(function (worksheet) {
+              worksheet.eachRow(function (row) {
+                row.eachCell(function (cell) {
+                  if (cell.value) {
+                    if (cell.value.richText) {
+                      cell.value.richText.forEach(function (rt) {
+                        if (rt.text) {
+                          rt.text = replaceExcelPlaceholders(rt.text, fields);
+                        }
+                      });
+                    } else if (typeof cell.value === 'string') {
+                      cell.value = replaceExcelPlaceholders(cell.value, fields);
+                      if (fields.parrafada && fields.parrafada.includes('\n')) cell.alignment = { wrapText: true };
+                    }
+                  }
+                });
+              });
+            });
+
+            var buffer = await workbook.xlsx.writeBuffer();
+            var outContent = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            var baseTemplateName = file.name.substring(0, file.name.lastIndexOf('.'));
+            var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + ".xlsx";
+
+            statusDiv.textContent = 'Subiendo Proforma directamente a Trello...';
+            var formData = new FormData();
+            formData.append("key", t.getRestApi().appKey);
+            formData.append("token", token);
+            formData.append("file", outContent, nombreFinal);
+            formData.append("name", nombreFinal);
+            
+            var cardId = data.targetCardId;
+            var urlParams = new URLSearchParams();
+            urlParams.append('key', t.getRestApi().appKey);
+            urlParams.append('token', token);
+
+            fetch(`https://api.trello.com/1/cards/${cardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData })
+              .then(function (response) {
+                if (!response.ok) throw new Error('Error HTTP ' + response.status);
+                statusDiv.textContent = '¡Proforma modificada y adjuntada con éxito!';
+                event.target.value = '';
+                t.sizeTo(document.body).done();
+              }).catch(function (err) {
+                console.error(err);
+                statusDiv.textContent = 'Fallo en la subida.';
+                t.sizeTo(document.body).done();
+              });
+
+          } catch (error) {
+            console.error(error);
+            statusDiv.textContent = 'Error: ' + error.message;
+            t.sizeTo(document.body).done();
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }).catch(function (err) {
+        console.error(err);
+        if (err.message === 'REQUIRED_AUTHORIZATION') {
+          statusDiv.textContent = 'Autenticando con Trello API...';
+          t.sizeTo(document.body).done();
+          return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
+        }
+        statusDiv.textContent = 'Error al obtener datos cruzados: ' + err.message;
         t.sizeTo(document.body).done();
       });
     });
