@@ -115,6 +115,7 @@
     <div id="facturacion-section" style="display: none;">
       <p>Panel de Facturación:</p>
       <div>
+        <button id="boton-desc-facturacion" class="secondary">Visualizar datos de facturación</button>
         <label class="btn-upload" style="background-color: #1f845a;">
           Generar excel desde plantilla
           <input type="file" id="excel-upload" accept=".xlsx" />
@@ -752,6 +753,26 @@
                 "• Aseguradora 2: " + fields.aseguradora2 + "<br><br>" +
                 "<strong>Descripción Acumulada:</strong><br>" + 
                 "<div style='margin-top: 5px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; white-space: pre-wrap; font-family: monospace;'>" + (fields.parrafada || "(Sin descripción)") + "</div>";
+        
+        container.innerHTML = html;
+        container.style.display = 'block';
+        t.sizeTo(document.body).done();
+      });
+    });
+
+    // Botón para visualizar la extracción unificada en el panel de Facturación
+    document.getElementById('boton-desc-facturacion').addEventListener('click', function () {
+      getUnifiedFields(t).then(function (data) {
+        var fields = data.fields;
+        var container = document.getElementById('descripcion-container');
+        
+        var html = "<strong>Ficha de Facturación (datos de " + data.count + " tarjetas):</strong><br><br>";
+        html += "• Número de expediente: " + fields.num_expediente + "<br>" +
+                "• Nombre: " + fields.nombre + "<br>" +
+                "• DNI: " + fields.dni + "<br>" +
+                "• Domicilio del cliente: " + fields.domicilio + "<br><br>" +
+                "• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>" +
+                "• Fecha de facturación: " + fields.fecha_facturacion + "<br>";
         
         container.innerHTML = html;
         container.style.display = 'block';
