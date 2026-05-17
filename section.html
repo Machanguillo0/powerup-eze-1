@@ -898,6 +898,7 @@
         .replace(/\{\{Fecha siniestro\}\}/gi, fields.fecha_siniestro || "___________")
         .replace(/\{\{Número de factura\}\}/gi, fields.factura || "___________")
         .replace(/\{\{Numero de factura\}\}/gi, fields.factura || "___________")
+        .replace(/\{\{Importe final\}\}/gi, fields["importe final"] || fields["Importe final"] || "___________")
         .replace(/\{\{DDs\}\}/gi, fields.dds || "___________")
         .replace(/\{\{Mess\}\}/gi, fields.mess || "___________")
         .replace(/\{\{AAAAs\}\}/gi, fields.aaaas || "___________")
@@ -931,12 +932,13 @@
                 "• Nombre: " + fields.nombre + "<br>" +
                 "• DNI: " + fields.dni + "<br>" +
                 "• Domicilio del cliente: " + fields.domicilio + "<br>" +
-                "• Número de factura: <strong>" + fields.factura + "</strong><br><br>" +
+                "• Número de factura: <strong>" + fields.factura + "</strong><br>" +
+                "• Importe final: <strong>" + (fields["importe final"] || fields["Importe final"] || "___________") + "</strong><br><br>" +
                 "• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>" +
                 "• Fecha de facturación: " + fields.fecha_facturacion + "<br>";
         
         // Renderizar campos dinámicos adicionales (como Honorarios, Gastos, etc. provenientes de la tarjeta Importes)
-        var standardKeys = ["nombre", "dni", "domicilio", "telefono", "profesion", "observaciones", "fecha", "hora", "lugar", "ciudad", "matricula1", "aseguradora1", "matricula2", "aseguradora2", "parrafada", "fecha_sistema", "fecha_ultima", "fecha_cierre", "fecha_facturacion", "fecha_resolucion", "fecha_designa", "fecha_reclamacion", "fecha_apertura", "fecha_siniestro", "factura", "num_expediente", "secuencial"];
+        var standardKeys = ["nombre", "dni", "domicilio", "telefono", "profesion", "observaciones", "fecha", "hora", "lugar", "ciudad", "matricula1", "aseguradora1", "matricula2", "aseguradora2", "parrafada", "fecha_sistema", "fecha_ultima", "fecha_cierre", "fecha_facturacion", "fecha_resolucion", "fecha_designa", "fecha_reclamacion", "fecha_apertura", "fecha_siniestro", "factura", "num_expediente", "secuencial", "importe final"];
         var dynamicHtml = "";
         for (var k in fields) {
           if (fields.hasOwnProperty(k) && standardKeys.indexOf(k.toLowerCase()) === -1) {
@@ -966,7 +968,8 @@
                   "• Nombre: " + fields.nombre + "<br>" +
                   "• DNI: " + fields.dni + "<br>" +
                   "• Domicilio del cliente: " + fields.domicilio + "<br>" +
-                  "• Número de factura: <strong>" + fields.factura + "</strong><br><br>" +
+                  "• Número de factura: <strong>" + fields.factura + "</strong><br>" +
+                  "• Importe final: <strong>___________</strong><br><br>" +
                   "• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>" +
                   "• Fecha de facturación: " + fields.fecha_facturacion + "<br>";
           
