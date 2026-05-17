@@ -94,16 +94,20 @@
     <!-- Seccion de CLIENTES: Visible por defecto -->
     <div id="clientes-section" style="display: block;">
       <p>Aquí vamos a ir poniendo los botones:</p>
-      <div>
-        <button id="boton-desc" class="secondary">Visualizar datos de interés</button>
-        <button id="boton-facturar" class="secondary">Enviar a facturar</button>
-        <button id="boton-demanda">Generar demanda Nexo causal</button>
-
-        <!-- Nuevo botón para procesar Word -->
-        <label class="btn-upload">
-          Generar word desde plantilla
-          <input type="file" id="word-upload" accept=".docx" />
-        </label>
+      <div style="display: flex; align-items: flex-start; gap: 5px; flex-wrap: wrap;">
+        <!-- Columna Izquierda: Botones Grises -->
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <button id="boton-desc" class="secondary" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px;">Visualizar datos de interés</button>
+          <button id="boton-facturar" class="secondary" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px;">Enviar a facturar</button>
+        </div>
+        <!-- Columna Derecha: Botones Azules -->
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <button id="boton-demanda" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; text-align: center;">Generar demanda Nexo causal</button>
+          <label class="btn-upload" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; text-align: center;">
+            Generar word desde plantilla
+            <input type="file" id="word-upload" accept=".docx" />
+          </label>
+        </div>
       </div>
     </div>
 
