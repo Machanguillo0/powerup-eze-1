@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Generar Demanda Nexo Causal</title>
+  <!-- Cargamos el estilo estándar de Trello para iframe modal -->
+  <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Noto Sans", "Ubuntu", "Droid Sans", "Helvetica Neue", sans-serif;
+      color: #172b4d;
+      background-color: #f4f5f7;
+      padding: 15px;
+      margin: 0;
+    }
+    
+    .form-group {
+      margin-bottom: 12px;
+    }
+    
+    label {
+      display: block;
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 5px;
+      color: #5e6c84;
+    }
+    
+    textarea {
+      width: 100%;
+      height: 70px;
+      padding: 8px;
+      box-sizing: border-box;
+      border: 1px solid #ced4da;
+      border-radius: 3px;
+      background-color: #fff;
+      color: #172b4d;
+      font-size: 13px;
+      resize: none;
+    }
+    
+    textarea:focus {
+      outline: none;
+      border-color: #0079bf;
+      box-shadow: 0 0 0 2px rgba(0, 121, 191, 0.2);
+    }
+    
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 5px;
+      margin-bottom: 15px;
+    }
+    
+    .checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: normal;
+      cursor: pointer;
+    }
+    
+    .checkbox-item input[type="checkbox"] {
+      cursor: pointer;
+      width: 15px;
+      height: 15px;
+      margin: 0;
+    }
+    
+    select {
+      width: 100%;
+      padding: 6px 10px;
+      border: 1px solid #ced4da;
+      border-radius: 3px;
+      background-color: #fff;
+      color: #172b4d;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    
+    select:focus {
+      outline: none;
+      border-color: #0079bf;
+    }
+    
+    .actions {
+      margin-top: 20px;
+      text-align: right;
+    }
+    
+    button {
+      background-color: #1f845a;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 13px;
+    }
+    
+    button:hover {
+      background-color: #145e3d;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="form-group">
+    <label for="texto-informativo">Texto Informativo</label>
+    <textarea id="texto-informativo" placeholder="Escribe el texto informativo aquí..."></textarea>
+  </div>
+
+  <div class="checkbox-group">
+    <label class="checkbox-item">
+      <input type="checkbox" id="parrafada-a">
+      <span>Incluir parrafada A</span>
+    </label>
+    <label class="checkbox-item">
+      <input type="checkbox" id="parrafada-b">
+      <span>Incluir parrafada B</span>
+    </label>
+  </div>
+
+  <div class="form-group">
+    <label for="clausula-quinta">Cláusula Quinta</label>
+    <select id="clausula-quinta">
+      <option value="corta">Corta</option>
+      <option value="media" selected>Media</option>
+      <option value="larga">Larga</option>
+    </select>
+  </div>
+
+  <div class="actions">
+    <button id="btn-generar">Generar demanda</button>
+  </div>
+
+  <!-- Cargamos el script oficial de Trello Power-Up -->
+  <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <script>
+    var t = window.TrelloPowerUp.iframe();
+
+    // Cuando el modal se haya cargado, rellenamos con valores anteriores si los hay
+    t.render(function() {
+      return t.get('card', 'shared', 'demanda_options')
+        .then(function(savedData) {
+          if (savedData) {
+            document.getElementById('texto-informativo').value = savedData.texto || "";
+            document.getElementById('parrafada-a').checked = !!savedData.parrafadaA;
+            document.getElementById('parrafada-b').checked = !!savedData.parrafadaB;
+            if (savedData.clausula) {
+              document.getElementById('clausula-quinta').value = savedData.clausula;
+            }
+          }
+          t.sizeTo(document.body).done();
+        });
+    });
+
+    // Acción al hacer clic en Generar demanda
+    document.getElementById('btn-generar').addEventListener('click', function() {
+      var data = {
+        texto: document.getElementById('texto-informativo').value,
+        parrafadaA: document.getElementById('parrafada-a').checked,
+        parrafadaB: document.getElementById('parrafada-b').checked,
+        clausula: document.getElementById('clausula-quinta').value
+      };
+
+      // Guardamos en la memoria compartida de la tarjeta
+      t.set('card', 'shared', 'demanda_options', data)
+        .then(function() {
+          // Cerramos el modal
+          t.closeModal();
+        });
+    });
+  </script>
+</body>
+</html>

@@ -95,18 +95,19 @@
     <div id="clientes-section" style="display: block;">
       <p>Aquí vamos a ir poniendo los botones:</p>
       <div>
-    <button id="boton-desc" class="secondary">Visualizar datos de interés</button>
+        <button id="boton-desc" class="secondary">Visualizar datos de interés</button>
+        <button id="boton-demanda">Generar demanda Nexo causal</button>
 
-    <!-- Nuevo botón para procesar Word -->
-    <label class="btn-upload">
-      Generar word desde plantilla
-      <input type="file" id="word-upload" accept=".docx" />
-    </label>
+        <!-- Nuevo botón para procesar Word -->
+        <label class="btn-upload">
+          Generar word desde plantilla
+          <input type="file" id="word-upload" accept=".docx" />
+        </label>
 
-    <!-- Nuevo botón: Enviar a facturar -->
-    <button id="boton-facturar" class="secondary">Enviar a facturar</button>
+        <!-- Nuevo botón: Enviar a facturar -->
+        <button id="boton-facturar" class="secondary">Enviar a facturar</button>
+      </div>
     </div>
-  </div>
 
     <div id="planning-section" style="display: none;">
       <p>Panel de Planning (Próximamente)</p>
@@ -755,6 +756,16 @@
       });
     });
 
+    // Botón para abrir el modal de Generar demanda Nexo causal
+    document.getElementById('boton-demanda').addEventListener('click', function () {
+      t.modal({
+        url: './demanda.html',
+        height: 330,
+        title: 'Generar Demanda Nexo Causal',
+        accentColor: '#0079bf'
+      });
+    });
+
     // Función auxiliar para obtener la descripción de la tarjeta "Gestión de facturas"
     function getInvoiceConfig(t) {
       return t.lists('all').then(function(lists) {
@@ -1139,6 +1150,22 @@
           t.card('name', 'idList').then(function(card) {
             if (card.name.toLowerCase().includes("historial de procesos") || card.name.toLowerCase().includes("historial de avisos")) {
               updateHistoryCard(t, card.idList, false);
+            }
+          });
+
+          // Cargar y mostrar opciones de la demanda en texto plano si existen
+          t.get('card', 'shared', 'demanda_options').then(function(savedData) {
+            if (savedData) {
+              var container = document.getElementById('descripcion-container');
+              var html = "<strong>Opciones seleccionadas para la Demanda Nexo Causal:</strong><br><br>";
+              html += "• Texto informativo: " + (savedData.texto || "(Vacío)") + "<br>" +
+                      "• Incluir parrafada A: " + (savedData.parrafadaA ? "Sí" : "No") + "<br>" +
+                      "• Incluir parrafada B: " + (savedData.parrafadaB ? "Sí" : "No") + "<br>" +
+                      "• Cláusula quinta: " + (savedData.clausula || "media") + "<br>";
+              
+              container.innerHTML = html;
+              container.style.display = 'block';
+              t.sizeTo(document.body).done();
             }
           });
         }
