@@ -698,8 +698,15 @@
                 }
 
                 statusDiv.textContent = 'Creando lista en el tablero de destino...';
+
+                // Calcular posición para que sea la 3ra lista (índice 2)
+                var newPos = 'bottom';
+                if (lists.length > 2) {
+                  newPos = (lists[1].pos + lists[2].pos) / 2;
+                }
+
                 // 3. Crear la lista si no existe
-                return fetch(`https://api.trello.com/1/boards/${targetBoardId}/lists?name=${encodeURIComponent(currentListName)}&pos=bottom&key=${appKey}&token=${token}`, { method: 'POST' });
+                return fetch(`https://api.trello.com/1/boards/${targetBoardId}/lists?name=${encodeURIComponent(currentListName)}&pos=${newPos}&key=${appKey}&token=${token}`, { method: 'POST' });
               });
           })
           .then(res => res.json())
