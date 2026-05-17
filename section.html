@@ -114,16 +114,20 @@
 
     <div id="facturacion-section" style="display: none;">
       <p>Panel de Facturación:</p>
-      <div>
-        <button id="boton-desc-facturacion" class="secondary">Visualizar datos de facturación</button>
-        <label class="btn-upload" style="background-color: #1f845a;">
-          Generar excel desde plantilla
-          <input type="file" id="excel-upload" accept=".xlsx" />
-        </label>
-        <label class="btn-upload" style="background-color: #1f845a;">
-          Generar Proforma
-          <input type="file" id="proforma-upload" accept=".xlsx" />
-        </label>
+      <div style="display: flex; align-items: flex-start; gap: 5px; flex-wrap: wrap;">
+        <div>
+          <button id="boton-desc-facturacion" class="secondary" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px;">Visualizar datos de facturación</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <label class="btn-upload" style="background-color: #1f845a; margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; text-align: center;">
+            Generar Proforma
+            <input type="file" id="proforma-upload" accept=".xlsx" />
+          </label>
+          <label class="btn-upload" style="background-color: #1f845a; margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; text-align: center;">
+            Generar excel desde plantilla
+            <input type="file" id="excel-upload" accept=".xlsx" />
+          </label>
+        </div>
       </div>
     </div>
 
