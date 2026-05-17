@@ -173,7 +173,8 @@
         fecha_designa: "___________",
         fecha_reclamacion: "___________",
         fecha_apertura: "___________",
-        fecha_siniestro: "___________"
+        fecha_siniestro: "___________",
+        factura: ""
       };
 
       if (!desc) return fields;
@@ -203,6 +204,8 @@
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha(?: de)? reclamación previa\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_reclamacion = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha (?:apertura|creación) de? expediente\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_apertura = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha siniestro\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_siniestro = m[1].replace(/[*_~`]/g, '').trim(); }
+
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:NÚMERO DE FACTURA|Numero de factura|Nº Factura|Nº de Factura)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.factura = m[1].replace(/[*_~`]/g, '').trim(); }
 
       // --- EXTRACCIÓN CONTEXTUAL DE VEHÍCULOS ---
       var vehicleLookahead = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
@@ -316,10 +319,11 @@
             num_expediente: numExpediente,
             dds: "___",
             mess: "_________",
-            aaaas: "____"
+            aaaas: "____",
+            factura: ""
           };
 
-          var found = { nombre: false, dni: false, domicilio: false, telefono: false, profesion: false, observaciones: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false, fecha_sistema: false, fecha_ultima: false, fecha_cierre: false, fecha_facturacion: false, fecha_resolucion: false, fecha_designa: false, fecha_reclamacion: false, fecha_apertura: false, fecha_siniestro: false };
+          var found = { nombre: false, dni: false, domicilio: false, telefono: false, profesion: false, observaciones: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false, fecha_sistema: false, fecha_ultima: false, fecha_cierre: false, fecha_facturacion: false, fecha_resolucion: false, fecha_designa: false, fecha_reclamacion: false, fecha_apertura: false, fecha_siniestro: false, factura: false };
           var targetCardId = null;
           var maxScore = -1;
 
@@ -365,6 +369,7 @@
             if (!found.fecha_reclamacion && fields.fecha_reclamacion !== "___________") { unified.fecha_reclamacion = fields.fecha_reclamacion; found.fecha_reclamacion = true; }
             if (!found.fecha_apertura && fields.fecha_apertura !== "___________") { unified.fecha_apertura = fields.fecha_apertura; found.fecha_apertura = true; }
             if (!found.fecha_siniestro && fields.fecha_siniestro !== "___________") { unified.fecha_siniestro = fields.fecha_siniestro; found.fecha_siniestro = true; }
+            if (!found.factura && fields.factura !== "") { unified.factura = fields.factura; found.factura = true; }
 
             // Procesamos el desglose de Fecha del sistema (DDs, Mess, AAAAs)
             var parts = unified.fecha_sistema.split('/');
@@ -760,6 +765,31 @@
       });
     });
 
+    // Función auxiliar para obtener la descripción de la tarjeta "Gestión de facturas"
+    function getInvoiceConfig(t) {
+      return t.lists('all').then(function(lists) {
+        var paramList = lists.find(function(l) { 
+          var n = l.name.toUpperCase();
+          return n === 'PARÁMETROS' || n === 'PARAMETROS'; 
+        });
+        if (!paramList) return null;
+
+        return t.cards('all').then(function(openCards) {
+          return t.cards('closed').then(function(closedCards) {
+            var allCards = openCards.concat(closedCards);
+            var configCard = allCards.find(function(c) {
+              var n = c.name.toLowerCase();
+              return c.idList === paramList.id && (n.includes('gestión de facturas') || n.includes('gestion de facturas'));
+            });
+            return configCard ? configCard.desc : null;
+          });
+        });
+      }).catch(function(err) {
+        console.error("Error al obtener la configuración de facturas:", err);
+        return null;
+      });
+    }
+
     // Botón para visualizar la extracción unificada en el panel de Facturación
     document.getElementById('boton-desc-facturacion').addEventListener('click', function () {
       getUnifiedFields(t).then(function (data) {
@@ -770,7 +800,8 @@
         html += "• Número de expediente: " + fields.num_expediente + "<br>" +
                 "• Nombre: " + fields.nombre + "<br>" +
                 "• DNI: " + fields.dni + "<br>" +
-                "• Domicilio del cliente: " + fields.domicilio + "<br><br>" +
+                "• Domicilio del cliente: " + fields.domicilio + "<br>" +
+                "• Número de factura: <strong>" + fields.factura + "</strong><br><br>" +
                 "• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>" +
                 "• Fecha de facturación: " + fields.fecha_facturacion + "<br>";
         
