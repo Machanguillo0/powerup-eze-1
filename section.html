@@ -174,7 +174,7 @@
         fecha_reclamacion: "___________",
         fecha_apertura: "___________",
         fecha_siniestro: "___________",
-        factura: ""
+        factura: "___________"
       };
 
       if (!desc) return fields;
@@ -320,7 +320,7 @@
             dds: "___",
             mess: "_________",
             aaaas: "____",
-            factura: ""
+            factura: "___________"
           };
 
           var found = { nombre: false, dni: false, domicilio: false, telefono: false, profesion: false, observaciones: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false, fecha_sistema: false, fecha_ultima: false, fecha_cierre: false, fecha_facturacion: false, fecha_resolucion: false, fecha_designa: false, fecha_reclamacion: false, fecha_apertura: false, fecha_siniestro: false, factura: false };
@@ -369,7 +369,7 @@
             if (!found.fecha_reclamacion && fields.fecha_reclamacion !== "___________") { unified.fecha_reclamacion = fields.fecha_reclamacion; found.fecha_reclamacion = true; }
             if (!found.fecha_apertura && fields.fecha_apertura !== "___________") { unified.fecha_apertura = fields.fecha_apertura; found.fecha_apertura = true; }
             if (!found.fecha_siniestro && fields.fecha_siniestro !== "___________") { unified.fecha_siniestro = fields.fecha_siniestro; found.fecha_siniestro = true; }
-            if (!found.factura && fields.factura !== "") { unified.factura = fields.factura; found.factura = true; }
+            if (!found.factura && fields.factura !== "___________") { unified.factura = fields.factura; found.factura = true; }
 
             // Procesamos el desglose de Fecha del sistema (DDs, Mess, AAAAs)
             var parts = unified.fecha_sistema.split('/');
