@@ -769,6 +769,28 @@
       });
     });
 
+    // Botón para visualizar los datos de facturación unificados en pantalla
+    document.getElementById('boton-desc-facturacion').addEventListener('click', function () {
+      getUnifiedFields(t).then(function (data) {
+        var fields = data.fields;
+        var container = document.getElementById('descripcion-container');
+        
+        var html = "<strong>Datos de facturación unificados (datos de " + data.count + " tarjetas):</strong><br><br>";
+        html += "• Nombre: " + fields.nombre + "<br>" +
+                "• DNI: " + fields.dni + "<br>" +
+                "• Número de expediente: " + fields.num_expediente + "<br>" +
+                "• Fecha de facturación: " + fields.fecha_facturacion + "<br>" +
+                "• Número de factura: " + fields.factura + "<br>" +
+                "• Importe final: " + (fields["importe final"] || fields["Importe final"] || "___________") + "<br><br>" +
+                "<strong>Descripción Acumulada:</strong><br>" + 
+                "<div style='margin-top: 5px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; white-space: pre-wrap; font-family: monospace;'>" + (fields.parrafada || "(Sin descripción)") + "</div>";
+        
+        container.innerHTML = html;
+        container.style.display = 'block';
+        t.sizeTo(document.body).done();
+      });
+    });
+
     // Botón para abrir el modal de Generar demanda Nexo causal
     document.getElementById('boton-demanda').addEventListener('click', function () {
       t.modal({
@@ -1315,6 +1337,14 @@
                   statusDiv.textContent = '¡Factura ' + numFactura + ' modificada y adjuntada a Facturas con éxito!';
                   event.target.value = '';
                   t.sizeTo(document.body).done();
+
+                  // Actualizar historial con fecha de facturación y número de factura autogenerado
+                  var today = new Date().toLocaleDateString('es-ES');
+                  var forced = {
+                    fecha_facturacion: today,
+                    factura: numFactura
+                  };
+                  updateHistoryCard(t, data.idList, true, forced);
                 }).catch(function (err) {
                   console.error(err);
                   statusDiv.textContent = 'Fallo en la subida.';
@@ -1441,6 +1471,7 @@
                 { label: "**Fecha última actuación sobre el expediente:**", prop: "fecha_ultima" },
                 { label: "**Fecha cierre expediente:**", prop: "fecha_cierre" },
                 { label: "**Fecha de facturación:**", prop: "fecha_facturacion" },
+                { label: "**Número de factura:**", prop: "factura" },
                 { label: "**Fecha de resolución:**", prop: "fecha_resolucion" },
                 { label: "**Fecha de comunicación designación:**", prop: "fecha_designa" },
                 { label: "**Fecha de reclamación previa:**", prop: "fecha_reclamacion" },
