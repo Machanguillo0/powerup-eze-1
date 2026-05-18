@@ -604,20 +604,27 @@
               if (!token) return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
               return token;
             }).then(function (token) {
-              statusDiv.textContent = 'Subiendo Excel directamente a Trello...';
-              var formData = new FormData();
-              formData.append("key", t.getRestApi().appKey);
-              formData.append("token", token);
-              formData.append("file", outContent, nombreFinal);
-              formData.append("name", nombreFinal);
-              var cardId = data.targetCardId;
-              var urlParams = new URLSearchParams();
-              urlParams.append('key', t.getRestApi().appKey);
-              urlParams.append('token', token);
-              return fetch(`https://api.trello.com/1/cards/${cardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData });
+              statusDiv.textContent = 'Obteniendo tarjeta de Facturas...';
+              t.sizeTo(document.body).done();
+              
+              return getOrCreateFacturasCard(t, data.idList, token).then(function(targetCardId) {
+                statusDiv.textContent = 'Subiendo Excel a la tarjeta Facturas...';
+                t.sizeTo(document.body).done();
+                
+                var formData = new FormData();
+                formData.append("key", t.getRestApi().appKey);
+                formData.append("token", token);
+                formData.append("file", outContent, nombreFinal);
+                formData.append("name", nombreFinal);
+                
+                var urlParams = new URLSearchParams();
+                urlParams.append('key', t.getRestApi().appKey);
+                urlParams.append('token', token);
+                return fetch(`https://api.trello.com/1/cards/${targetCardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData });
+              });
             }).then(function (response) {
               if (!response.ok) throw new Error('Error HTTP ' + response.status);
-              statusDiv.textContent = '¡Excel modificado y adjuntado con éxito!';
+              statusDiv.textContent = '¡Excel modificado y adjuntado a Facturas con éxito!';
               event.target.value = '';
               t.sizeTo(document.body).done();
                // Actualizar historial
@@ -767,6 +774,43 @@
         accentColor: '#0079bf'
       });
     });
+
+    // Función auxiliar para obtener o crear la tarjeta "Facturas" en la segunda posición de la lista
+    function getOrCreateFacturasCard(t, idList, token) {
+      var appKey = t.getRestApi().appKey;
+      return fetch(`https://api.trello.com/1/lists/${idList}/cards?key=${appKey}&token=${token}`)
+        .then(function(res) {
+          if (!res.ok) throw new Error("Error al consultar las tarjetas de la lista.");
+          return res.json();
+        })
+        .then(function(cards) {
+          // 1. Buscar si ya existe la tarjeta "Facturas"
+          var facturasCard = cards.find(function(c) {
+            return c.name.trim().toLowerCase() === "facturas";
+          });
+          if (facturasCard) return facturasCard.id;
+          
+          // 2. Si no existe, calculamos la posición para que sea la SEGUNDA tarjeta de la lista
+          var newPos = 'top';
+          if (cards.length > 1) {
+            newPos = (cards[0].pos + cards[1].pos) / 2;
+          } else if (cards.length === 1) {
+            newPos = cards[0].pos + 16384;
+          }
+          
+          // 3. Crear la tarjeta "Facturas" con la posición calculada
+          return fetch(`https://api.trello.com/1/cards?idList=${idList}&name=Facturas&pos=${newPos}&key=${appKey}&token=${token}`, {
+            method: 'POST'
+          })
+          .then(function(createRes) {
+            if (!createRes.ok) throw new Error("Error al crear la tarjeta Facturas.");
+            return createRes.json();
+          })
+          .then(function(newCard) {
+            return newCard.id;
+          });
+        });
+    }
 
     // Función auxiliar para obtener la descripción de la tarjeta "Gestión de facturas"
     function getInvoiceConfig(t) {
@@ -1059,22 +1103,29 @@
             var baseTemplateName = file.name.substring(0, file.name.lastIndexOf('.'));
             var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + ".xlsx";
 
-            statusDiv.textContent = 'Subiendo Proforma directamente a Trello...';
-            var formData = new FormData();
-            formData.append("key", t.getRestApi().appKey);
-            formData.append("token", token);
-            formData.append("file", outContent, nombreFinal);
-            formData.append("name", nombreFinal);
-            
-            var cardId = data.targetCardId;
-            var urlParams = new URLSearchParams();
-            urlParams.append('key', t.getRestApi().appKey);
-            urlParams.append('token', token);
+            statusDiv.textContent = 'Obteniendo tarjeta de Facturas...';
+            t.sizeTo(document.body).done();
 
-            fetch(`https://api.trello.com/1/cards/${cardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData })
+            getOrCreateFacturasCard(t, data.idList, token)
+              .then(function(targetCardId) {
+                statusDiv.textContent = 'Subiendo Proforma a la tarjeta Facturas...';
+                t.sizeTo(document.body).done();
+
+                var formData = new FormData();
+                formData.append("key", t.getRestApi().appKey);
+                formData.append("token", token);
+                formData.append("file", outContent, nombreFinal);
+                formData.append("name", nombreFinal);
+
+                var urlParams = new URLSearchParams();
+                urlParams.append('key', t.getRestApi().appKey);
+                urlParams.append('token', token);
+
+                return fetch(`https://api.trello.com/1/cards/${targetCardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData });
+              })
               .then(function (response) {
                 if (!response.ok) throw new Error('Error HTTP ' + response.status);
-                statusDiv.textContent = '¡Proforma modificada y adjuntada con éxito!';
+                statusDiv.textContent = '¡Proforma modificada y adjuntada a Facturas con éxito!';
                 event.target.value = '';
                 t.sizeTo(document.body).done();
               }).catch(function (err) {
