@@ -1104,8 +1104,8 @@
         .replace(/\{\{Número de factura\}\}/gi, facturaVal)
         .replace(/\{\{Numero de factura\}\}/gi, facturaVal)
         .replace(/\{\{Importe final\}\}/gi, fields["importe final"] || fields["Importe final"] || "___________")
-        .replace(/\{\{Importe facturado\}\}/gi, fields.importe_facturado || fields.importe_facturacion || fields["importe final"] || fields["Importe final"] || "___________")
-        .replace(/\{\{Importe facturacion\}\}/gi, fields.importe_facturado || fields.importe_facturacion || fields["importe final"] || fields["Importe final"] || "___________")
+        .replace(/\{\{Importe facturado\}\}/gi, fields.importe_facturado || fields.importe_facturacion || fields["importe a facturar"] || fields["Importe a facturar"] || fields["importe final"] || fields["Importe final"] || "___________")
+        .replace(/\{\{Importe facturacion\}\}/gi, fields.importe_facturado || fields.importe_facturacion || fields["importe a facturar"] || fields["Importe a facturar"] || fields["importe final"] || fields["Importe final"] || "___________")
         .replace(/\{\{DDs\}\}/gi, fields.dds || "___________")
         .replace(/\{\{Mess\}\}/gi, fields.mess || "___________")
         .replace(/\{\{AAAAs\}\}/gi, fields.aaaas || "___________")
@@ -1366,11 +1366,13 @@
           }
 
           var today = new Date().toLocaleDateString('es-ES');
-          var currentAmount = fields["importe final"] || fields["Importe final"] || "___________";
+          var currentAmount = fields["importe a facturar"] || fields["Importe a facturar"] || fields["importe final"] || fields["Importe final"] || "___________";
 
           // Sincronizar en los campos actuales para la compilación del Excel actual
           fields.factura = numFactura;
           fields.fecha_facturacion = today;
+          fields.importe_facturado = currentAmount;
+          fields.importe_facturacion = currentAmount;
 
           statusDiv.textContent = 'Procesando factura ' + file.name + ' (' + numFactura + ')...';
           t.sizeTo(document.body).done();
