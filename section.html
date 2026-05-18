@@ -172,7 +172,6 @@
     .calc-btn.equal {
       background-color: #61bd4f;
       color: white;
-      grid-column: span 2;
     }
 
     .calc-btn.equal:hover {
@@ -252,6 +251,7 @@
       
       <button class="calc-btn num" data-val="0">0</button>
       <button class="calc-btn num" data-val=".">.</button>
+      <button class="calc-btn op" data-val="%">%</button>
       <button class="calc-btn equal" data-val="=">=</button>
     </div>
     <button id="calc-copy" class="calc-copy-btn">
@@ -358,9 +358,10 @@
       }
       
       // 4. Verificar si es una expresión matemática válida
-      if (/^[0-9\s\+\-\*\/\.\(\)]+$/.test(trimmed)) {
+      if (/^[0-9\s\+\-\*\/\.\(\)\%]+$/.test(trimmed)) {
         try {
-          var result = new Function('return ' + trimmed)();
+          var expr = trimmed.replace(/%/g, '/100');
+          var result = new Function('return ' + expr)();
           if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
             // Redondear a 2 decimales para importes
             return String(Math.round(result * 100) / 100);
@@ -1940,10 +1941,11 @@
       }
 
       function safeEval(str) {
-        var clean = str.replace(/[^0-9\+\-\*\/\.\(\)]/g, '');
+        var clean = str.replace(/[^0-9\+\-\*\/\.\(\)\%]/g, '');
         if (!clean) return 0;
         try {
-          var result = new Function('return ' + clean)();
+          var expr = clean.replace(/%/g, '/100');
+          var result = new Function('return ' + expr)();
           if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
             return Math.round(result * 10000) / 10000;
           }
