@@ -816,6 +816,67 @@
         });
     }
 
+    // Función auxiliar para obtener, incrementar y guardar el número secuencial de factura
+    function getAndUpdateInvoiceNumber(t, token) {
+      var appKey = t.getRestApi().appKey;
+      return t.lists('all').then(function(lists) {
+        var paramList = lists.find(function(l) { 
+          var n = l.name.toUpperCase();
+          return n === 'PARÁMETROS' || n === 'PARAMETROS'; 
+        });
+        if (!paramList) {
+          throw new Error("No se encontró la lista 'PARÁMETROS' en el tablero.");
+        }
+
+        return t.cards('all').then(function(openCards) {
+          return t.cards('closed').then(function(closedCards) {
+            var allCards = openCards.concat(closedCards);
+            var configCard = allCards.find(function(c) {
+              var n = c.name.toLowerCase();
+              return c.idList === paramList.id && (n.includes('gestión de facturas') || n.includes('gestion de facturas'));
+            });
+            
+            if (!configCard) {
+              throw new Error("No se encontró la tarjeta 'Gestión de facturas' en la lista 'PARÁMETROS'.");
+            }
+            
+            var desc = configCard.desc || "";
+            var yearMatch = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Año de factura\s*[*_~`#]*[ \t]*[:\s-]+\s*([0-9]+)/i);
+            var seqMatch = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Secuencial de factura\s*[*_~`#]*[ \t]*[:\s-]+\s*([0-9]+)/i);
+            
+            var year = yearMatch ? yearMatch[1] : new Date().getFullYear().toString();
+            var seq = seqMatch ? parseInt(seqMatch[1], 10) : 0;
+            var nextSeq = seq + 1;
+            
+            var numFactura = year + "/" + nextSeq;
+            
+            // Reemplazar secuencial en la descripción
+            var newDesc = desc;
+            if (seqMatch) {
+              newDesc = desc.replace(/(Secuencial de factura\s*[*_~`#]*[ \t]*[:\s-]+\s*)([0-9]+)/i, "$1" + nextSeq);
+            } else {
+              newDesc += "\nSecuencial de factura: " + nextSeq;
+            }
+            
+            if (!yearMatch) {
+              newDesc += "\nAño de factura: " + year;
+            }
+
+            // Actualizar la tarjeta en Trello
+            return fetch(`https://api.trello.com/1/cards/${configCard.id}?key=${appKey}&token=${token}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ desc: newDesc })
+            })
+            .then(function(res) {
+              if (!res.ok) throw new Error("Error al actualizar la tarjeta de Gestión de facturas.");
+              return numFactura;
+            });
+          });
+        });
+      });
+    }
+
     // Función auxiliar para obtener la descripción de la tarjeta "Gestión de facturas"
     function getInvoiceConfig(t) {
       return t.lists('all').then(function(lists) {
@@ -1170,76 +1231,84 @@
       getCrossBoardBillingData(t).then(function (data) {
         var fields = data.fields;
         var token = data.token;
-        statusDiv.textContent = 'Procesando factura ' + file.name + '...';
+        
+        statusDiv.textContent = 'Autogenerando número de factura correlativo...';
         t.sizeTo(document.body).done();
 
-        var reader = new FileReader();
-        reader.onload = async function (e) {
-          try {
-            var workbook = new ExcelJS.Workbook();
-            await workbook.xlsx.load(e.target.result);
-            workbook.eachSheet(function (worksheet) {
-              worksheet.eachRow(function (row) {
-                row.eachCell(function (cell) {
-                  if (cell.value) {
-                    if (cell.value.richText) {
-                      cell.value.richText.forEach(function (rt) {
-                        if (rt.text) {
-                          rt.text = replaceExcelPlaceholders(rt.text, fields, false);
-                        }
-                      });
-                    } else if (typeof cell.value === 'string') {
-                      cell.value = replaceExcelPlaceholders(cell.value, fields, false);
-                      if (fields.parrafada && fields.parrafada.includes('\n')) cell.alignment = { wrapText: true };
+        return getAndUpdateInvoiceNumber(t, token).then(function(numFactura) {
+          fields.factura = numFactura;
+
+          statusDiv.textContent = 'Procesando factura ' + file.name + ' (' + numFactura + ')...';
+          t.sizeTo(document.body).done();
+
+          var reader = new FileReader();
+          reader.onload = async function (e) {
+            try {
+              var workbook = new ExcelJS.Workbook();
+              await workbook.xlsx.load(e.target.result);
+              workbook.eachSheet(function (worksheet) {
+                worksheet.eachRow(function (row) {
+                  row.eachCell(function (cell) {
+                    if (cell.value) {
+                      if (cell.value.richText) {
+                        cell.value.richText.forEach(function (rt) {
+                          if (rt.text) {
+                            rt.text = replaceExcelPlaceholders(rt.text, fields, false);
+                          }
+                        });
+                      } else if (typeof cell.value === 'string') {
+                        cell.value = replaceExcelPlaceholders(cell.value, fields, false);
+                        if (fields.parrafada && fields.parrafada.includes('\n')) cell.alignment = { wrapText: true };
+                      }
                     }
-                  }
+                  });
                 });
               });
-            });
 
-            var buffer = await workbook.xlsx.writeBuffer();
-            var outContent = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-            var baseTemplateName = file.name.substring(0, file.name.lastIndexOf('.'));
-            var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + ".xlsx";
+              var buffer = await workbook.xlsx.writeBuffer();
+              var outContent = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+              var baseTemplateName = file.name.substring(0, file.name.lastIndexOf('.'));
+              var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + ".xlsx";
 
-            statusDiv.textContent = 'Obteniendo tarjeta de Facturas...';
-            t.sizeTo(document.body).done();
+              statusDiv.textContent = 'Obteniendo tarjeta de Facturas...';
+              t.sizeTo(document.body).done();
 
-            getOrCreateFacturasCard(t, data.idList, token)
-              .then(function(targetCardId) {
-                statusDiv.textContent = 'Subiendo Factura a la tarjeta Facturas...';
-                t.sizeTo(document.body).done();
+              getOrCreateFacturasCard(t, data.idList, token)
+                .then(function(targetCardId) {
+                  statusDiv.textContent = 'Subiendo Factura a la tarjeta Facturas...';
+                  t.sizeTo(document.body).done();
 
-                var formData = new FormData();
-                formData.append("key", t.getRestApi().appKey);
-                formData.append("token", token);
-                formData.append("file", outContent, nombreFinal);
-                formData.append("name", nombreFinal);
+                  var formData = new FormData();
+                  formData.append("key", t.getRestApi().appKey);
+                  formData.append("token", token);
+                  formData.append("file", outContent, nombreFinal);
+                  formData.append("name", nombreFinal);
 
-                var urlParams = new URLSearchParams();
-                urlParams.append('key', t.getRestApi().appKey);
-                urlParams.append('token', token);
+                  var urlParams = new URLSearchParams();
+                  urlParams.append('key', t.getRestApi().appKey);
+                  urlParams.append('token', token);
 
-                return fetch(`https://api.trello.com/1/cards/${targetCardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData });
-              })
-              .then(function (response) {
-                if (!response.ok) throw new Error('Error HTTP ' + response.status);
-                statusDiv.textContent = '¡Factura modificada y adjuntada a Facturas con éxito!';
-                event.target.value = '';
-                t.sizeTo(document.body).done();
-              }).catch(function (err) {
-                console.error(err);
-                statusDiv.textContent = 'Fallo en la subida.';
-                t.sizeTo(document.body).done();
-              });
+                  return fetch(`https://api.trello.com/1/cards/${targetCardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData });
+                })
+                .then(function (response) {
+                  if (!response.ok) throw new Error('Error HTTP ' + response.status);
+                  statusDiv.textContent = '¡Factura ' + numFactura + ' modificada y adjuntada a Facturas con éxito!';
+                  event.target.value = '';
+                  t.sizeTo(document.body).done();
+                }).catch(function (err) {
+                  console.error(err);
+                  statusDiv.textContent = 'Fallo en la subida.';
+                  t.sizeTo(document.body).done();
+                });
 
-          } catch (error) {
-            console.error(error);
-            statusDiv.textContent = 'Error: ' + error.message;
-            t.sizeTo(document.body).done();
-          }
-        };
-        reader.readAsArrayBuffer(file);
+            } catch (error) {
+              console.error(error);
+              statusDiv.textContent = 'Error: ' + error.message;
+              t.sizeTo(document.body).done();
+            }
+          };
+          reader.readAsArrayBuffer(file);
+        });
       }).catch(function (err) {
         console.error(err);
         if (err.message === 'REQUIRED_AUTHORIZATION') {
