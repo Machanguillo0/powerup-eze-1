@@ -86,11 +86,184 @@
       font-size: 13px;
       color: #5e6c84;
     }
+
+    /* Estilos de la calculadora */
+    #calculator-panel {
+      position: absolute;
+      top: 45px;
+      left: 10px;
+      width: 220px;
+      background-color: white;
+      border: 1px solid #dfe1e6;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      padding: 10px;
+      z-index: 1001;
+      display: none;
+      box-sizing: border-box;
+    }
+
+    .calc-screen {
+      width: 100%;
+      height: 40px;
+      background-color: #f4f5f7;
+      border: 1px solid #dfe1e6;
+      border-radius: 4px;
+      margin-bottom: 10px;
+      text-align: right;
+      padding: 8px;
+      font-size: 18px;
+      box-sizing: border-box;
+      font-family: monospace;
+      color: #172b4d;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .calc-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+    }
+
+    .calc-btn {
+      height: 35px;
+      margin: 0 !important;
+      padding: 0 !important;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+
+    .calc-btn.num {
+      background-color: #f4f5f7;
+      color: #172b4d;
+    }
+
+    .calc-btn.num:hover {
+      background-color: #ebecf0;
+    }
+
+    .calc-btn.op {
+      background-color: #0079bf;
+      color: white;
+    }
+
+    .calc-btn.op:hover {
+      background-color: #026aa7;
+    }
+
+    .calc-btn.action {
+      background-color: #eb5a46;
+      color: white;
+    }
+
+    .calc-btn.action:hover {
+      background-color: #cf513d;
+    }
+
+    .calc-btn.equal {
+      background-color: #61bd4f;
+      color: white;
+      grid-column: span 2;
+    }
+
+    .calc-btn.equal:hover {
+      background-color: #51a846;
+    }
+
+    .calc-copy-btn {
+      width: 100%;
+      margin-top: 8px;
+      background-color: #091e420f;
+      color: #172b4d;
+      border: none;
+      padding: 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      box-sizing: border-box;
+    }
+
+    .calc-copy-btn:hover {
+      background-color: #091e4224;
+    }
+    
+    .main-wrapper {
+      padding-left: 42px;
+      padding-top: 5px;
+      box-sizing: border-box;
+    }
   </style>
 </head>
 
 <body>
-  <div id="main-content">
+  <!-- Botón flotante de calculadora en la esquina izquierda -->
+  <button id="calc-toggle-btn" class="secondary" style="position: absolute; top: 5px; left: 5px; padding: 0; margin: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; width: 32px; height: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); z-index: 1000;" title="Calculadora de Importes">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+      <line x1="8" y1="6" x2="16" y2="6"></line>
+      <line x1="16" y1="14" x2="16" y2="18"></line>
+      <line x1="8" y1="10" x2="8" y2="10.01"></line>
+      <line x1="12" y1="10" x2="12" y2="10.01"></line>
+      <line x1="16" y1="10" x2="16" y2="10.01"></line>
+      <line x1="8" y1="14" x2="8" y2="14.01"></line>
+      <line x1="12" y1="14" x2="12" y2="14.01"></line>
+      <line x1="8" y1="18" x2="8" y2="18.01"></line>
+      <line x1="12" y1="18" x2="12" y2="18.01"></line>
+    </svg>
+  </button>
+
+  <!-- Panel de calculadora flotante -->
+  <div id="calculator-panel">
+    <div id="calc-screen" class="calc-screen">0</div>
+    <div class="calc-grid">
+      <button class="calc-btn action" data-val="C">C</button>
+      <button class="calc-btn op" data-val="(">(</button>
+      <button class="calc-btn op" data-val=")">)</button>
+      <button class="calc-btn op" data-val="/">/</button>
+      
+      <button class="calc-btn num" data-val="7">7</button>
+      <button class="calc-btn num" data-val="8">8</button>
+      <button class="calc-btn num" data-val="9">9</button>
+      <button class="calc-btn op" data-val="*">*</button>
+      
+      <button class="calc-btn num" data-val="4">4</button>
+      <button class="calc-btn num" data-val="5">5</button>
+      <button class="calc-btn num" data-val="6">6</button>
+      <button class="calc-btn op" data-val="-">-</button>
+      
+      <button class="calc-btn num" data-val="1">1</button>
+      <button class="calc-btn num" data-val="2">2</button>
+      <button class="calc-btn num" data-val="3">3</button>
+      <button class="calc-btn op" data-val="+">+</button>
+      
+      <button class="calc-btn num" data-val="0">0</button>
+      <button class="calc-btn num" data-val=".">.</button>
+      <button class="calc-btn equal" data-val="=">=</button>
+    </div>
+    <button id="calc-copy" class="calc-copy-btn">
+      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+      </svg>
+      <span id="calc-copy-text">Copiar resultado</span>
+    </button>
+  </div>
+
+  <div class="main-wrapper">
+    <div id="main-content">
     <!-- Seccion de CLIENTES: Visible por defecto -->
     <div id="clientes-section" style="display: block;">
       <p>Aquí vamos a ir poniendo los botones:</p>
@@ -154,6 +327,7 @@
   <div id="debug-info" style="margin-top: 20px; padding: 10px; background: #fff9db; border: 1px solid #fab005; font-size: 11px; display: none;">
     <strong>Debug:</strong> <span id="debug-msg">Esperando a Trello...</span>
   </div>
+</div>
 
   <script>
     // Inicializamos este iframe con Trello indicándole nuestra App Key para poder usar la API
@@ -1716,6 +1890,81 @@
         });
       });
     }
+
+    // --- LÓGICA DE LA CALCULADORA FLOTANTE ---
+    (function() {
+      var calcScreen = document.getElementById('calc-screen');
+      var calcInput = '';
+
+      function updateCalcScreen(val) {
+        calcScreen.textContent = val || '0';
+      }
+
+      function safeEval(str) {
+        var clean = str.replace(/[^0-9\+\-\*\/\.\(\)]/g, '');
+        if (!clean) return 0;
+        try {
+          var result = new Function('return ' + clean)();
+          if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
+            return Math.round(result * 10000) / 10000;
+          }
+          return 'Error';
+        } catch (e) {
+          return 'Error';
+        }
+      }
+
+      // Manejar clics en los botones de la calculadora
+      document.querySelectorAll('.calc-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var val = this.getAttribute('data-val');
+          if (val === 'C') {
+            calcInput = '';
+            updateCalcScreen('0');
+          } else if (val === '=') {
+            if (calcInput) {
+              var res = safeEval(calcInput);
+              calcInput = String(res);
+              updateCalcScreen(calcInput);
+            }
+          } else {
+            if (calcInput === 'Error') {
+              calcInput = '';
+            }
+            calcInput += val;
+            updateCalcScreen(calcInput);
+          }
+        });
+      });
+
+      // Manejar botón de Copiar
+      document.getElementById('calc-copy').addEventListener('click', function() {
+        var text = calcScreen.textContent;
+        if (text && text !== 'Error' && text !== '0') {
+          navigator.clipboard.writeText(text).then(function() {
+            var originalText = document.getElementById('calc-copy-text').textContent;
+            document.getElementById('calc-copy-text').textContent = '¡Copiado!';
+            setTimeout(function() {
+              document.getElementById('calc-copy-text').textContent = originalText;
+            }, 1500);
+          }).catch(function(err) {
+            console.error('Error al copiar:', err);
+          });
+        }
+      });
+
+      // Manejar botón de Mostrar/Ocultar
+      document.getElementById('calc-toggle-btn').addEventListener('click', function () {
+        var panel = document.getElementById('calculator-panel');
+        if (panel.style.display === 'none' || !panel.style.display) {
+          panel.style.display = 'block';
+          t.sizeTo(document.body).done();
+        } else {
+          panel.style.display = 'none';
+          t.sizeTo(document.body).done();
+        }
+      });
+    })();
   </script>
 </body>
 
