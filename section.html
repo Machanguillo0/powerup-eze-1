@@ -447,6 +447,52 @@
             }
           });
 
+          // Buscar y parsear la tarjeta de Historial de procesos de forma dinámica
+          var historyCard = cardsInList.find(function (c) {
+            var n = c.name.toLowerCase();
+            return n.includes("historial de procesos") || n.includes("historial de avisos");
+          });
+
+          if (historyCard && historyCard.desc) {
+            var lines = historyCard.desc.split('\n');
+            lines.forEach(function (line) {
+              line = line.trim();
+              if (!line) return;
+              
+              var colonIndex = line.indexOf(':');
+              if (colonIndex > -1) {
+                var k = line.substring(0, colonIndex).replace(/[*_~`#]/g, '').trim();
+                var v = line.substring(colonIndex + 1).replace(/[*_~`#]/g, '').trim();
+                if (k && v) {
+                  var mapKey = k.toLowerCase().replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                  
+                  // Mapear claves básicas
+                  if (mapKey === "fecha de facturación" || mapKey === "fecha de facturacion") {
+                    unified.fecha_facturacion = v;
+                  } else if (mapKey === "número de factura" || mapKey === "numero de factura") {
+                    unified.factura = v;
+                  } else if (mapKey === "importe facturación" || mapKey === "importe facturacion") {
+                    unified.importe_facturacion = v;
+                  } else {
+                    // Mapear claves secuenciales numeradas, ej: "fecha de facturación 2" -> "fecha_facturacion2"
+                    var numMatch = mapKey.match(/(fecha de facturación|fecha de facturacion|número de factura|numero de factura|importe facturación|importe facturacion)\s+(\d+)/);
+                    if (numMatch) {
+                      var base = numMatch[1];
+                      var num = numMatch[2];
+                      if (base.includes("fecha")) {
+                        unified["fecha_facturacion" + num] = v;
+                      } else if (base.includes("número") || base.includes("numero")) {
+                        unified["factura" + num] = v;
+                      } else if (base.includes("importe")) {
+                        unified["importe_facturacion" + num] = v;
+                      }
+                    }
+                  }
+                }
+              }
+            });
+          }
+
           return { 
             fields: unified, 
             count: cardsInList.length,
@@ -760,28 +806,6 @@
                 "• Aseguradora 1: " + fields.aseguradora1 + "<br>" +
                 "• Matrícula 2 (Contrario): " + fields.matricula2 + "<br>" +
                 "• Aseguradora 2: " + fields.aseguradora2 + "<br><br>" +
-                "<strong>Descripción Acumulada:</strong><br>" + 
-                "<div style='margin-top: 5px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; white-space: pre-wrap; font-family: monospace;'>" + (fields.parrafada || "(Sin descripción)") + "</div>";
-        
-        container.innerHTML = html;
-        container.style.display = 'block';
-        t.sizeTo(document.body).done();
-      });
-    });
-
-    // Botón para visualizar los datos de facturación unificados en pantalla
-    document.getElementById('boton-desc-facturacion').addEventListener('click', function () {
-      getUnifiedFields(t).then(function (data) {
-        var fields = data.fields;
-        var container = document.getElementById('descripcion-container');
-        
-        var html = "<strong>Datos de facturación unificados (datos de " + data.count + " tarjetas):</strong><br><br>";
-        html += "• Nombre: " + fields.nombre + "<br>" +
-                "• DNI: " + fields.dni + "<br>" +
-                "• Número de expediente: " + fields.num_expediente + "<br>" +
-                "• Fecha de facturación: " + fields.fecha_facturacion + "<br>" +
-                "• Número de factura: " + fields.factura + "<br>" +
-                "• Importe final: " + (fields["importe final"] || fields["Importe final"] || "___________") + "<br><br>" +
                 "<strong>Descripción Acumulada:</strong><br>" + 
                 "<div style='margin-top: 5px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; white-space: pre-wrap; font-family: monospace;'>" + (fields.parrafada || "(Sin descripción)") + "</div>";
         
@@ -1112,14 +1136,42 @@
         html += "• Número de expediente: " + fields.num_expediente + "<br>" +
                 "• Nombre: " + fields.nombre + "<br>" +
                 "• DNI: " + fields.dni + "<br>" +
-                "• Domicilio del cliente: " + fields.domicilio + "<br>" +
+                "• Domicilio del cliente: " + fields.domicilio + "<br><br>" +
+                "<strong>Factura nº 1:</strong><br>" +
                 "• Número de factura: <strong>" + fields.factura + "</strong><br>" +
-                "• Importe final: <strong>" + (fields["importe final"] || fields["Importe final"] || "___________") + "</strong><br><br>" +
-                "• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>" +
-                "• Fecha de facturación: " + fields.fecha_facturacion + "<br>";
+                "• Fecha de facturación: " + fields.fecha_facturacion + "<br>" +
+                "• Importe facturado: <strong>" + (fields.importe_facturacion || "___________") + "</strong><br>" +
+                "• Importe final (estimado/actual): <strong>" + (fields["importe final"] || fields["Importe final"] || "___________") + "</strong><br>";
+        
+        var hasAdditional = false;
+        var additionalHtml = "";
+        for (var idx = 2; idx <= 10; idx++) {
+          var fKey = "factura" + idx;
+          var fdKey = "fecha_facturacion" + idx;
+          var impKey = "importe_facturacion" + idx;
+          if (fields[fKey] && fields[fKey] !== "___________") {
+            hasAdditional = true;
+            additionalHtml += "<br><strong>Factura adicional nº " + idx + ":</strong><br>" +
+                              "• Número de factura " + idx + ": <strong>" + fields[fKey] + "</strong><br>" +
+                              "• Fecha de facturación " + idx + ": " + (fields[fdKey] || "___________") + "<br>" +
+                              "• Importe facturado " + idx + ": <strong>" + (fields[impKey] || "___________") + "</strong><br>";
+          }
+        }
+        if (hasAdditional) {
+          html += additionalHtml;
+        }
+
+        html += "<br>• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>";
         
         // Renderizar campos dinámicos adicionales (como Honorarios, Gastos, etc. provenientes de la tarjeta Importes)
-        var standardKeys = ["nombre", "dni", "domicilio", "telefono", "profesion", "observaciones", "fecha", "hora", "lugar", "ciudad", "matricula1", "aseguradora1", "matricula2", "aseguradora2", "parrafada", "fecha_sistema", "fecha_ultima", "fecha_cierre", "fecha_facturacion", "fecha_resolucion", "fecha_designa", "fecha_reclamacion", "fecha_apertura", "fecha_siniestro", "factura", "num_expediente", "secuencial", "importe final", "dds", "mess", "aaaas"];
+        var standardKeys = ["nombre", "dni", "domicilio", "telefono", "profesion", "observaciones", "fecha", "hora", "lugar", "ciudad", "matricula1", "aseguradora1", "matricula2", "aseguradora2", "parrafada", "fecha_sistema", "fecha_ultima", "fecha_cierre", "fecha_facturacion", "fecha_resolucion", "fecha_designa", "fecha_reclamacion", "fecha_apertura", "fecha_siniestro", "factura", "num_expediente", "secuencial", "importe final", "dds", "mess", "aaaas", "importe_facturacion"];
+        // Añadir también las claves secuenciales a las standard para que no aparezcan en adicionales
+        for (var s = 2; s <= 10; s++) {
+          standardKeys.push("factura" + s);
+          standardKeys.push("fecha_facturacion" + s);
+          standardKeys.push("importe_facturacion" + s);
+        }
+        
         var dynamicHtml = "";
         var printedKeys = {};
         for (var k in fields) {
@@ -1157,11 +1209,32 @@
           html += "• Número de expediente: " + fields.num_expediente + "<br>" +
                   "• Nombre: " + fields.nombre + "<br>" +
                   "• DNI: " + fields.dni + "<br>" +
-                  "• Domicilio del cliente: " + fields.domicilio + "<br>" +
+                  "• Domicilio del cliente: " + fields.domicilio + "<br><br>" +
+                  "<strong>Factura nº 1:</strong><br>" +
                   "• Número de factura: <strong>" + fields.factura + "</strong><br>" +
-                  "• Importe final: <strong>___________</strong><br><br>" +
-                  "• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>" +
-                  "• Fecha de facturación: " + fields.fecha_facturacion + "<br>";
+                  "• Fecha de facturación: " + fields.fecha_facturacion + "<br>" +
+                  "• Importe facturado: <strong>" + (fields.importe_facturacion || "___________") + "</strong><br>" +
+                  "• Importe final (estimado/actual): <strong>" + (fields["importe final"] || fields["Importe final"] || "___________") + "</strong><br>";
+          
+          var hasAdditional = false;
+          var additionalHtml = "";
+          for (var idx = 2; idx <= 10; idx++) {
+            var fKey = "factura" + idx;
+            var fdKey = "fecha_facturacion" + idx;
+            var impKey = "importe_facturacion" + idx;
+            if (fields[fKey] && fields[fKey] !== "___________") {
+              hasAdditional = true;
+              additionalHtml += "<br><strong>Factura adicional nº " + idx + ":</strong><br>" +
+                                "• Número de factura " + idx + ": <strong>" + fields[fKey] + "</strong><br>" +
+                                "• Fecha de facturación " + idx + ": " + (fields[fdKey] || "___________") + "<br>" +
+                                "• Importe facturado " + idx + ": <strong>" + (fields[impKey] || "___________") + "</strong><br>";
+            }
+          }
+          if (hasAdditional) {
+            html += additionalHtml;
+          }
+
+          html += "<br>• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>";
           
           container.innerHTML = html;
           t.sizeTo(document.body).done();
@@ -1278,7 +1351,24 @@
         t.sizeTo(document.body).done();
 
         return getAndUpdateInvoiceNumber(t, token).then(function(numFactura) {
+          // Determinar qué secuencial de factura corresponde
+          var seqIndex = 1;
+          if (fields.factura && fields.factura !== "___________") {
+            for (var idx = 2; idx <= 10; idx++) {
+              var fKey = "factura" + idx;
+              if (!fields[fKey] || fields[fKey] === "___________") {
+                seqIndex = idx;
+                break;
+              }
+            }
+          }
+
+          var today = new Date().toLocaleDateString('es-ES');
+          var currentAmount = fields["importe final"] || fields["Importe final"] || "___________";
+
+          // Sincronizar en los campos actuales para la compilación del Excel actual
           fields.factura = numFactura;
+          fields.fecha_facturacion = today;
 
           statusDiv.textContent = 'Procesando factura ' + file.name + ' (' + numFactura + ')...';
           t.sizeTo(document.body).done();
@@ -1310,7 +1400,10 @@
               var buffer = await workbook.xlsx.writeBuffer();
               var outContent = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
               var baseTemplateName = file.name.substring(0, file.name.lastIndexOf('.'));
-              var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + ".xlsx";
+              
+              // Agregar secuencial al nombre si es la segunda o sucesivas facturas
+              var suffix = seqIndex > 1 ? "_" + seqIndex : "";
+              var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + suffix + ".xlsx";
 
               statusDiv.textContent = 'Obteniendo tarjeta de Facturas...';
               t.sizeTo(document.body).done();
@@ -1338,12 +1431,17 @@
                   event.target.value = '';
                   t.sizeTo(document.body).done();
 
-                  // Actualizar historial con fecha de facturación y número de factura autogenerado
-                  var today = new Date().toLocaleDateString('es-ES');
-                  var forced = {
-                    fecha_facturacion: today,
-                    factura: numFactura
-                  };
+                  // Actualizar historial con fecha de facturación, número de factura e importe secuenciales
+                  var forced = {};
+                  if (seqIndex === 1) {
+                    forced.fecha_facturacion = today;
+                    forced.factura = numFactura;
+                    forced.importe_facturacion = currentAmount;
+                  } else {
+                    forced["fecha_facturacion" + seqIndex] = today;
+                    forced["factura" + seqIndex] = numFactura;
+                    forced["importe_facturacion" + seqIndex] = currentAmount;
+                  }
                   updateHistoryCard(t, data.idList, true, forced);
                 }).catch(function (err) {
                   console.error(err);
@@ -1472,12 +1570,22 @@
                 { label: "**Fecha cierre expediente:**", prop: "fecha_cierre" },
                 { label: "**Fecha de facturación:**", prop: "fecha_facturacion" },
                 { label: "**Número de factura:**", prop: "factura" },
+                { label: "**Importe facturación:**", prop: "importe_facturacion" }
+              ];
+
+              for (var idx = 2; idx <= 10; idx++) {
+                historyKeys.push({ label: "**Fecha de facturación " + idx + ":**", prop: "fecha_facturacion" + idx });
+                historyKeys.push({ label: "**Número de factura " + idx + ":**", prop: "factura" + idx });
+                historyKeys.push({ label: "**Importe facturación " + idx + ":**", prop: "importe_facturacion" + idx });
+              }
+
+              historyKeys = historyKeys.concat([
                 { label: "**Fecha de resolución:**", prop: "fecha_resolucion" },
                 { label: "**Fecha de comunicación designación:**", prop: "fecha_designa" },
                 { label: "**Fecha de reclamación previa:**", prop: "fecha_reclamacion" },
                 { label: "**Fecha creación de expediente:**", prop: "fecha_apertura" },
                 { label: "**Fecha del siniestro:**", prop: "fecha" }
-              ];
+              ]);
 
               if (historyCard) {
                 var desc = historyCard.desc || "";
@@ -1535,10 +1643,19 @@
                     }
                 }
 
-                // Reconstruir descripción
+                // Reconstruir descripción sin acumular campos vacíos de facturas secuenciales
                 var newDescLines = [];
                 historyKeys.forEach(function (item) {
-                  newDescLines.push(item.label + " " + values[item.prop]);
+                  var isSequential = false;
+                  for (var s = 2; s <= 10; s++) {
+                    if (item.prop === "fecha_facturacion" + s || item.prop === "factura" + s || item.prop === "importe_facturacion" + s) {
+                      isSequential = true;
+                      break;
+                    }
+                  }
+                  if (!isSequential || (values[item.prop] && values[item.prop] !== "___________")) {
+                    newDescLines.push(item.label + " " + values[item.prop]);
+                  }
                 });
 
                 lines.forEach(function (line) {
@@ -1565,15 +1682,27 @@
                 }
               } else {
                 // Crear nueva con datos iniciales (incluyendo fecha creación desde ID)
-                var newDesc = historyKeys.map(function (item) {
+                var newDescLines = [];
+                historyKeys.forEach(function (item) {
+                  var isSequential = false;
+                  for (var s = 2; s <= 10; s++) {
+                    if (item.prop === "fecha_facturacion" + s || item.prop === "factura" + s || item.prop === "importe_facturacion" + s) {
+                      isSequential = true;
+                      break;
+                    }
+                  }
                   var val = unified[item.prop] || "___________";
                   if (item.prop === 'fecha_sistema' || item.prop === 'fecha_ultima') val = today;
                   if (item.prop === 'fecha_apertura' && personalCard) {
                       val = new Date(1000 * parseInt(personalCard.id.substring(0, 8), 16)).toLocaleDateString('es-ES');
                   }
                   if (forcedFields && forcedFields[item.prop]) val = forcedFields[item.prop];
-                  return item.label + " " + val;
-                }).join('\n');
+                  
+                  if (!isSequential || val !== "___________") {
+                    newDescLines.push(item.label + " " + val);
+                  }
+                });
+                var newDesc = newDescLines.join('\n');
 
                 return fetch(`https://api.trello.com/1/cards?idList=${idList}&name=${encodeURIComponent("Historial de procesos.")}&desc=${encodeURIComponent(newDesc)}&pos=${targetPos}&key=${appKey}&token=${token}`, {
                   method: 'POST'
