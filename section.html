@@ -337,6 +337,42 @@
       appName: 'Antigravity'
     });
 
+    // Función para evaluar expresiones matemáticas de forma segura (Opción A)
+    function evalFormulaIfNeeded(val) {
+      if (!val) return val;
+      var trimmed = val.trim();
+      
+      // 1. Excluir explícitamente fechas (ej: 18/05/2026 o 18-05-2026)
+      if (/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/.test(trimmed)) {
+        return trimmed;
+      }
+      
+      // 2. Excluir si contiene letras del abecedario (es texto literal)
+      if (/[a-zA-ZáéíóúÁÉÍÓÚñÑ]/.test(trimmed)) {
+        return trimmed;
+      }
+
+      // 3. Excluir si tiene estructura de número de teléfono (ej. empieza por + y solo tiene espacios y números)
+      if (/^\+[0-9\s]+$/.test(trimmed)) {
+        return trimmed;
+      }
+      
+      // 4. Verificar si es una expresión matemática válida
+      if (/^[0-9\s\+\-\*\/\.\(\)]+$/.test(trimmed)) {
+        try {
+          var result = new Function('return ' + trimmed)();
+          if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
+            // Redondear a 2 decimales para importes
+            return String(Math.round(result * 100) / 100);
+          }
+        } catch (e) {
+          return trimmed;
+        }
+      }
+      
+      return trimmed;
+    }
+
     // Función auxiliar para extraer campos de la descripción de la tarjeta
     function extractFields(desc) {
       var fields = {
@@ -542,14 +578,16 @@
                 var k = line.substring(0, colonIndex).replace(/[*_~`#]/g, '').trim();
                 var v = line.substring(colonIndex + 1).replace(/[*_~`#]/g, '').trim();
                 if (k && v) {
+                  var calculatedV = evalFormulaIfNeeded(v);
+                  
                   // Registrar con clave original
-                  unified[k] = v;
-                  unified[k.toLowerCase()] = v;
+                  unified[k] = calculatedV;
+                  unified[k.toLowerCase()] = calculatedV;
                   
                   // Registrar con clave normalizada (reemplazando cualquier ":" por un espacio)
                   var normK = k.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
-                  unified[normK] = v;
-                  unified[normK.toLowerCase()] = v;
+                  unified[normK] = calculatedV;
+                  unified[normK.toLowerCase()] = calculatedV;
                 }
               }
             });
