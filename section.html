@@ -1104,6 +1104,8 @@
         .replace(/\{\{Número de factura\}\}/gi, facturaVal)
         .replace(/\{\{Numero de factura\}\}/gi, facturaVal)
         .replace(/\{\{Importe final\}\}/gi, fields["importe final"] || fields["Importe final"] || "___________")
+        .replace(/\{\{Importe facturado\}\}/gi, fields.importe_facturado || fields.importe_facturacion || fields["importe final"] || fields["Importe final"] || "___________")
+        .replace(/\{\{Importe facturacion\}\}/gi, fields.importe_facturado || fields.importe_facturacion || fields["importe final"] || fields["Importe final"] || "___________")
         .replace(/\{\{DDs\}\}/gi, fields.dds || "___________")
         .replace(/\{\{Mess\}\}/gi, fields.mess || "___________")
         .replace(/\{\{AAAAs\}\}/gi, fields.aaaas || "___________")
@@ -1134,14 +1136,14 @@
         var fields = data.fields;
         var html = "<strong>Ficha de Facturación (datos cruzados con Clientes):</strong><br><br>";
         html += "• Número de expediente: " + fields.num_expediente + "<br>" +
+                "• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>" +
                 "• Nombre: " + fields.nombre + "<br>" +
                 "• DNI: " + fields.dni + "<br>" +
                 "• Domicilio del cliente: " + fields.domicilio + "<br><br>" +
                 "<strong>Factura nº 1:</strong><br>" +
                 "• Número de factura: <strong>" + fields.factura + "</strong><br>" +
                 "• Fecha de facturación: " + fields.fecha_facturacion + "<br>" +
-                "• Importe facturado: <strong>" + (fields.importe_facturacion || "___________") + "</strong><br>" +
-                "• Importe final (estimado/actual): <strong>" + (fields["importe final"] || fields["Importe final"] || "___________") + "</strong><br>";
+                "• Importe facturado: <strong>" + (fields.importe_facturacion || "___________") + "</strong><br>";
         
         var hasAdditional = false;
         var additionalHtml = "";
@@ -1161,7 +1163,7 @@
           html += additionalHtml;
         }
 
-        html += "<br>• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>";
+        html += "<br>• Importe final (estimado/actual): <strong>" + (fields["importe final"] || fields["Importe final"] || "___________") + "</strong><br>";
         
         // Renderizar campos dinámicos adicionales (como Honorarios, Gastos, etc. provenientes de la tarjeta Importes)
         var standardKeys = ["nombre", "dni", "domicilio", "telefono", "profesion", "observaciones", "fecha", "hora", "lugar", "ciudad", "matricula1", "aseguradora1", "matricula2", "aseguradora2", "parrafada", "fecha_sistema", "fecha_ultima", "fecha_cierre", "fecha_facturacion", "fecha_resolucion", "fecha_designa", "fecha_reclamacion", "fecha_apertura", "fecha_siniestro", "factura", "num_expediente", "secuencial", "importe final", "dds", "mess", "aaaas", "importe_facturacion"];
@@ -1207,14 +1209,14 @@
           var html = "<strong style='color: #c93b2b;'>Error al unificar con Clientes:</strong> " + err.message + "<br><br>";
           html += "<strong>Ficha de Facturación (solo datos locales):</strong><br><br>";
           html += "• Número de expediente: " + fields.num_expediente + "<br>" +
+                  "• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>" +
                   "• Nombre: " + fields.nombre + "<br>" +
                   "• DNI: " + fields.dni + "<br>" +
                   "• Domicilio del cliente: " + fields.domicilio + "<br><br>" +
                   "<strong>Factura nº 1:</strong><br>" +
                   "• Número de factura: <strong>" + fields.factura + "</strong><br>" +
                   "• Fecha de facturación: " + fields.fecha_facturacion + "<br>" +
-                  "• Importe facturado: <strong>" + (fields.importe_facturacion || "___________") + "</strong><br>" +
-                  "• Importe final (estimado/actual): <strong>" + (fields["importe final"] || fields["Importe final"] || "___________") + "</strong><br>";
+                  "• Importe facturado: <strong>" + (fields.importe_facturacion || "___________") + "</strong><br>";
           
           var hasAdditional = false;
           var additionalHtml = "";
@@ -1234,7 +1236,7 @@
             html += additionalHtml;
           }
 
-          html += "<br>• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>";
+          html += "<br>• Importe final (estimado/actual): <strong>" + (fields["importe final"] || fields["Importe final"] || "___________") + "</strong><br>";
           
           container.innerHTML = html;
           t.sizeTo(document.body).done();
