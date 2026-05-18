@@ -102,6 +102,10 @@
       z-index: 1001;
       display: none;
       box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
     }
 
     .calc-screen {
@@ -1998,11 +2002,41 @@
         });
       });
 
+      // Helper robusto para copiar al portapapeles
+      function copyToClipboard(text) {
+        if (!text) return Promise.reject('No text');
+        
+        // 1. Intentar con Clipboard API moderna
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          return navigator.clipboard.writeText(text);
+        }
+        
+        // 2. Fallback clásico de execCommand compatible con todos los navegadores e iframes sandboxed
+        try {
+          var textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.style.position = 'fixed';
+          textarea.style.opacity = '0';
+          document.body.appendChild(textarea);
+          textarea.focus();
+          textarea.select();
+          var success = document.execCommand('copy');
+          document.body.removeChild(textarea);
+          if (success) {
+            return Promise.resolve();
+          } else {
+            return Promise.reject('execCommand failed');
+          }
+        } catch (err) {
+          return Promise.reject(err);
+        }
+      }
+
       // Manejar botón de Copiar
       document.getElementById('calc-copy').addEventListener('click', function() {
         var text = calcScreen.textContent;
         if (text && text !== 'Error' && text !== '0') {
-          navigator.clipboard.writeText(text).then(function() {
+          copyToClipboard(text).then(function() {
             var originalText = document.getElementById('calc-copy-text').textContent;
             document.getElementById('calc-copy-text').textContent = '¡Copiado!';
             setTimeout(function() {
