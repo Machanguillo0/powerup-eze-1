@@ -127,6 +127,10 @@
             <input type="file" id="proforma-upload" accept=".xlsx" />
           </label>
           <label class="btn-upload" style="background-color: #1f845a; margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; text-align: center;">
+            Generar Factura
+            <input type="file" id="factura-upload" accept=".xlsx" />
+          </label>
+          <label class="btn-upload" style="background-color: #1f845a; margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; text-align: center;">
             Generar excel desde plantilla
             <input type="file" id="excel-upload" accept=".xlsx" />
           </label>
@@ -940,8 +944,10 @@
     }
 
     // Helper para centralizar la sustitución de marcadores de posición en Excel (fijos y dinámicos)
-    function replaceExcelPlaceholders(text, fields) {
+    function replaceExcelPlaceholders(text, fields, isProforma) {
       if (!text || typeof text !== 'string') return text;
+      
+      var facturaVal = isProforma ? "___________" : (fields.factura || "___________");
       
       // 1. Reemplazo de marcadores estructurados fijos
       var res = text.replace(/\{\{Nombre\}\}/gi, fields.nombre)
@@ -968,8 +974,8 @@
         .replace(/\{\{Fecha reclamación previa\}\}/gi, fields.fecha_reclamacion || "___________")
         .replace(/\{\{Fecha apertura expediente\}\}/gi, fields.fecha_apertura || "___________")
         .replace(/\{\{Fecha siniestro\}\}/gi, fields.fecha_siniestro || "___________")
-        .replace(/\{\{Número de factura\}\}/gi, fields.factura || "___________")
-        .replace(/\{\{Numero de factura\}\}/gi, fields.factura || "___________")
+        .replace(/\{\{Número de factura\}\}/gi, facturaVal)
+        .replace(/\{\{Numero de factura\}\}/gi, facturaVal)
         .replace(/\{\{Importe final\}\}/gi, fields["importe final"] || fields["Importe final"] || "___________")
         .replace(/\{\{DDs\}\}/gi, fields.dds || "___________")
         .replace(/\{\{Mess\}\}/gi, fields.mess || "___________")
@@ -1086,11 +1092,11 @@
                     if (cell.value.richText) {
                       cell.value.richText.forEach(function (rt) {
                         if (rt.text) {
-                          rt.text = replaceExcelPlaceholders(rt.text, fields);
+                          rt.text = replaceExcelPlaceholders(rt.text, fields, true);
                         }
                       });
                     } else if (typeof cell.value === 'string') {
-                      cell.value = replaceExcelPlaceholders(cell.value, fields);
+                      cell.value = replaceExcelPlaceholders(cell.value, fields, true);
                       if (fields.parrafada && fields.parrafada.includes('\n')) cell.alignment = { wrapText: true };
                     }
                   }
@@ -1126,6 +1132,99 @@
               .then(function (response) {
                 if (!response.ok) throw new Error('Error HTTP ' + response.status);
                 statusDiv.textContent = '¡Proforma modificada y adjuntada a Facturas con éxito!';
+                event.target.value = '';
+                t.sizeTo(document.body).done();
+              }).catch(function (err) {
+                console.error(err);
+                statusDiv.textContent = 'Fallo en la subida.';
+                t.sizeTo(document.body).done();
+              });
+
+          } catch (error) {
+            console.error(error);
+            statusDiv.textContent = 'Error: ' + error.message;
+            t.sizeTo(document.body).done();
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }).catch(function (err) {
+        console.error(err);
+        if (err.message === 'REQUIRED_AUTHORIZATION') {
+          statusDiv.textContent = 'Autenticando con Trello API...';
+          t.sizeTo(document.body).done();
+          return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
+        }
+        statusDiv.textContent = 'Error al obtener datos cruzados: ' + err.message;
+        t.sizeTo(document.body).done();
+      });
+    });
+
+    // Nuevo event listener para Generar Factura en Facturación (datos cruzados + plantilla Excel)
+    document.getElementById('factura-upload').addEventListener('change', function (event) {
+      if (!event.target.files || event.target.files.length === 0) return;
+      var file = event.target.files[0];
+      var statusDiv = document.getElementById('upload-status');
+      statusDiv.textContent = 'Cargando datos cruzados desde el tablero de Clientes...';
+      t.sizeTo(document.body).done();
+
+      getCrossBoardBillingData(t).then(function (data) {
+        var fields = data.fields;
+        var token = data.token;
+        statusDiv.textContent = 'Procesando factura ' + file.name + '...';
+        t.sizeTo(document.body).done();
+
+        var reader = new FileReader();
+        reader.onload = async function (e) {
+          try {
+            var workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.load(e.target.result);
+            workbook.eachSheet(function (worksheet) {
+              worksheet.eachRow(function (row) {
+                row.eachCell(function (cell) {
+                  if (cell.value) {
+                    if (cell.value.richText) {
+                      cell.value.richText.forEach(function (rt) {
+                        if (rt.text) {
+                          rt.text = replaceExcelPlaceholders(rt.text, fields, false);
+                        }
+                      });
+                    } else if (typeof cell.value === 'string') {
+                      cell.value = replaceExcelPlaceholders(cell.value, fields, false);
+                      if (fields.parrafada && fields.parrafada.includes('\n')) cell.alignment = { wrapText: true };
+                    }
+                  }
+                });
+              });
+            });
+
+            var buffer = await workbook.xlsx.writeBuffer();
+            var outContent = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            var baseTemplateName = file.name.substring(0, file.name.lastIndexOf('.'));
+            var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + ".xlsx";
+
+            statusDiv.textContent = 'Obteniendo tarjeta de Facturas...';
+            t.sizeTo(document.body).done();
+
+            getOrCreateFacturasCard(t, data.idList, token)
+              .then(function(targetCardId) {
+                statusDiv.textContent = 'Subiendo Factura a la tarjeta Facturas...';
+                t.sizeTo(document.body).done();
+
+                var formData = new FormData();
+                formData.append("key", t.getRestApi().appKey);
+                formData.append("token", token);
+                formData.append("file", outContent, nombreFinal);
+                formData.append("name", nombreFinal);
+
+                var urlParams = new URLSearchParams();
+                urlParams.append('key', t.getRestApi().appKey);
+                urlParams.append('token', token);
+
+                return fetch(`https://api.trello.com/1/cards/${targetCardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData });
+              })
+              .then(function (response) {
+                if (!response.ok) throw new Error('Error HTTP ' + response.status);
+                statusDiv.textContent = '¡Factura modificada y adjuntada a Facturas con éxito!';
                 event.target.value = '';
                 t.sizeTo(document.body).done();
               }).catch(function (err) {
