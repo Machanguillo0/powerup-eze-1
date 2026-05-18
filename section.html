@@ -1957,11 +1957,25 @@
       // Manejar botón de Mostrar/Ocultar
       document.getElementById('calc-toggle-btn').addEventListener('click', function () {
         var panel = document.getElementById('calculator-panel');
+        var btn = document.getElementById('calc-toggle-btn');
+        var mainContent = document.getElementById('main-content');
+        
         if (panel.style.display === 'none' || !panel.style.display) {
           panel.style.display = 'block';
+          panel.style.top = '10px';
+          
+          // Medir la altura real del panel y desplazar el contenido hacia abajo
+          var panelHeight = panel.offsetHeight || 300;
+          btn.style.top = (panelHeight + 20) + 'px';
+          mainContent.style.marginTop = (panelHeight + 15) + 'px';
+          
           t.sizeTo(document.body).done();
         } else {
           panel.style.display = 'none';
+          // Restaurar posiciones originales
+          btn.style.top = '10px';
+          mainContent.style.marginTop = '0px';
+          
           t.sizeTo(document.body).done();
         }
       });
