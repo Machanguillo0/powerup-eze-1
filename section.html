@@ -816,7 +816,7 @@
         });
     }
 
-    // Función auxiliar para obtener, incrementar y guardar el número secuencial de factura
+    // Función auxiliar para obtener, incrementar y guardar el número secuencial de factura (evita duplicados de forma inteligente)
     function getAndUpdateInvoiceNumber(t, token) {
       var appKey = t.getRestApi().appKey;
       return t.lists('all').then(function(lists) {
@@ -841,26 +841,46 @@
             }
             
             var desc = configCard.desc || "";
-            var yearMatch = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Año de factura\s*[*_~`#]*[ \t]*[:\s-]+\s*([0-9]+)/i);
-            var seqMatch = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Secuencial de factura\s*[*_~`#]*[ \t]*[:\s-]+\s*([0-9]+)/i);
+            var lines = desc.split(/\r?\n/);
+            var year = new Date().getFullYear();
+            var seq = 0;
+            var otherLines = [];
             
-            var year = yearMatch ? yearMatch[1] : new Date().getFullYear().toString();
-            var seq = seqMatch ? parseInt(seqMatch[1], 10) : 0;
+            lines.forEach(function(line) {
+              var trimmed = line.trim();
+              if (!trimmed) return;
+              
+              if (/año.*factura/i.test(trimmed)) {
+                var m = trimmed.match(/\d+/);
+                if (m) {
+                  year = parseInt(m[0], 10);
+                }
+              } else if (/secuencial.*factura/i.test(trimmed)) {
+                var m = trimmed.match(/\d+/);
+                if (m) {
+                  var parsedSeq = parseInt(m[0], 10);
+                  seq = Math.max(seq, parsedSeq);
+                }
+              } else {
+                otherLines.push(line);
+              }
+            });
+            
             var nextSeq = seq + 1;
-            
             var numFactura = year + "/" + nextSeq;
             
-            // Reemplazar secuencial en la descripción
-            var newDesc = desc;
-            if (seqMatch) {
-              newDesc = desc.replace(/(Secuencial de factura\s*[*_~`#]*[ \t]*[:\s-]+\s*)([0-9]+)/i, "$1" + nextSeq);
-            } else {
-              newDesc += "\nSecuencial de factura: " + nextSeq;
+            // Reconstruir la descripción de forma limpia eliminando duplicados
+            var newDescLines = [
+              "Año de factura: " + year,
+              "Secuencial de factura: " + nextSeq
+            ];
+            
+            if (otherLines.length > 0) {
+              newDescLines.push("");
+              newDescLines = newDescLines.concat(otherLines);
             }
             
-            if (!yearMatch) {
-              newDesc += "\nAño de factura: " + year;
-            }
+            var newDesc = newDescLines.join("\n");
 
             // Actualizar la tarjeta en Trello
             return fetch(`https://api.trello.com/1/cards/${configCard.id}?key=${appKey}&token=${token}`, {
