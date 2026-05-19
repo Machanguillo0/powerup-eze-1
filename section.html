@@ -1293,6 +1293,7 @@
               count: localData.count,
               targetCardId: localData.targetCardId,
               idList: localData.idList,
+              idListClientes: idListClientes,
               token: token
             };
           });
@@ -1664,7 +1665,7 @@
                   event.target.value = '';
                   t.sizeTo(document.body).done();
 
-                  // Actualizar historial con fecha de facturación, número de factura e importe secuenciales
+                  // Actualizar historial en el tablero de Clientes (no en el local de Facturación)
                   var forced = {};
                   if (seqIndex === 1) {
                     forced.fecha_facturacion = today;
@@ -1675,7 +1676,9 @@
                     forced["factura" + seqIndex] = numFactura;
                     forced["importe_facturacion" + seqIndex] = currentAmount;
                   }
-                  updateHistoryCard(t, data.idList, true, forced);
+                  
+                  var targetHistoryListId = data.idListClientes || data.idList;
+                  updateHistoryCard(t, targetHistoryListId, true, forced, fields);
                 }).catch(function (err) {
                   console.error(err);
                   statusDiv.textContent = 'Fallo en la subida.';
@@ -1779,8 +1782,9 @@
       });
     });
 
-    function updateHistoryCard(t, idList, isAction, forcedFields) {
-      return getUnifiedFields(t).then(function (data) {
+    function updateHistoryCard(t, idList, isAction, forcedFields, overrideUnifiedFields) {
+      var getFieldsPromise = overrideUnifiedFields ? Promise.resolve({ fields: overrideUnifiedFields }) : getUnifiedFields(t);
+      return getFieldsPromise.then(function (data) {
         var unified = data.fields;
         return t.getRestApi().getToken().then(function (token) {
           if (!token) return;
