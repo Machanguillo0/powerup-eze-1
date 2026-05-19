@@ -682,7 +682,12 @@
       if (pctKey) {
         var valStr = String(fields[pctKey]);
         var cleaned = valStr.replace(/[^0-9.,]/g, '').replace(',', '.');
-        return parseFloat(cleaned) || 0;
+        var val = parseFloat(cleaned) || 0;
+        // Si el impuesto está en formato decimal (ej: 0.07 o 0.21), lo normalizamos a porcentaje (7% o 21%)
+        if (val > 0 && val < 1) {
+          val = val * 100;
+        }
+        return val;
       }
       return 0;
     }
