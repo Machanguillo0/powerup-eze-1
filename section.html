@@ -1634,9 +1634,9 @@
               var outContent = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
               var baseTemplateName = file.name.substring(0, file.name.lastIndexOf('.'));
               
-              // Agregar secuencial al nombre si es la segunda o sucesivas facturas
-              var suffix = seqIndex > 1 ? "_" + seqIndex : "";
-              var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + suffix + ".xlsx";
+              // Reemplazar la barra "/" del número de factura por un guion "-" para que sea válido en nombres de archivo
+              var cleanInvoiceNum = numFactura.replace(/\//g, "-");
+              var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + "_" + cleanInvoiceNum + ".xlsx";
 
               statusDiv.textContent = 'Obteniendo tarjeta de Facturas...';
               t.sizeTo(document.body).done();
