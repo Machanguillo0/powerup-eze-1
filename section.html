@@ -1355,12 +1355,17 @@
             }
           }
 
+          // Limpiar barras verticales | para no romper el formato de tabla de Markdown
+          var cleanNombre = (nombreCliente || "Cliente Desconocido").replace(/\|/g, " ");
+          var cleanDni = (dniCliente || "___________").replace(/\|/g, " ");
+          var cleanImporte = (importeTotal || "___________").replace(/\|/g, " ");
+
           var newRow = {
             fecha: today,
             numero: numFactura,
-            nombre: nombreCliente || "Cliente Desconocido",
-            dni: dniCliente || "___________",
-            importe: importeTotal || "___________"
+            nombre: cleanNombre,
+            dni: cleanDni,
+            importe: cleanImporte
           };
 
           if (existsIdx > -1) {
@@ -1399,8 +1404,8 @@
 
           return fetch(`https://api.trello.com/1/cards/${targetCardId}?key=${appKey}&token=${token}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ desc: finalDesc })
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ desc: finalDesc })
           });
         });
     }
@@ -2033,10 +2038,7 @@
                 })
                 .then(function (response) {
                   if (!response.ok) throw new Error('Error HTTP ' + response.status);
-                  statusDiv.textContent = '¡Factura ' + numFactura + ' modificada y adjuntada a Facturas con éxito!';
-                  event.target.value = '';
-                  t.sizeTo(document.body).done();
-
+                  
                   // Actualizar historial en el tablero de Clientes (no en el local de Facturación)
                   var forced = {};
                   if (seqIndex === 1) {
@@ -2054,14 +2056,18 @@
 
                   // Actualizar la tabla de facturas en la descripción de la tarjeta "Facturas"
                   if (targetCardIdSaved) {
-                    updateInvoicesTableOnCard(t, targetCardIdSaved, token, today, numFactura, fields.nombre, fields.dni, currentAmount)
-                      .catch(function(tableErr) {
-                        console.error("Error al actualizar la tabla de facturas:", tableErr);
-                      });
+                    statusDiv.textContent = 'Guardando registro histórico de la factura ' + numFactura + '...';
+                    t.sizeTo(document.body).done();
+                    return updateInvoicesTableOnCard(t, targetCardIdSaved, token, today, numFactura, fields.nombre, fields.dni, currentAmount);
                   }
+                })
+                .then(function() {
+                  statusDiv.textContent = '¡Factura ' + numFactura + ' y registro histórico actualizados con éxito!';
+                  event.target.value = '';
+                  t.sizeTo(document.body).done();
                 }).catch(function (err) {
                   console.error(err);
-                  statusDiv.textContent = 'Fallo en la subida.';
+                  statusDiv.textContent = 'Fallo en la subida / actualización de tabla.';
                   t.sizeTo(document.body).done();
                 });
 
