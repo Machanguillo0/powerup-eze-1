@@ -215,6 +215,142 @@
       padding-top: 5px;
       box-sizing: border-box;
     }
+
+    /* Estilos del panel de desglose de factura */
+    #desglose-panel {
+      margin-top: 15px;
+      padding: 15px;
+      background-color: #ffffff;
+      border: 1px solid #1f845a;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      display: none; /* Oculto inicialmente */
+      text-align: left;
+      box-sizing: border-box;
+    }
+
+    #desglose-panel h3 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      color: #1f845a;
+      font-size: 16px;
+      border-bottom: 2px solid #ebecf0;
+      padding-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .desglose-row {
+      margin-bottom: 12px;
+    }
+
+    .desglose-label {
+      font-weight: bold;
+      font-size: 13px;
+      color: #172b4d;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .desglose-input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #dfe1e6;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+      color: #172b4d;
+      background-color: #fafbfc;
+      transition: border-color 0.2s, background-color 0.2s;
+    }
+
+    .desglose-input:focus {
+      outline: none;
+      border-color: #1f845a;
+      background-color: #ffffff;
+    }
+
+    .desglose-checklist {
+      margin-top: 12px;
+      background: #fafbfc;
+      border: 1px solid #dfe1e6;
+      border-radius: 6px;
+      padding: 10px;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    .desglose-item {
+      display: flex;
+      align-items: flex-start;
+      padding: 8px 4px;
+      border-bottom: 1px solid #ebecf0;
+      cursor: pointer;
+      transition: background-color 0.15s;
+      border-radius: 4px;
+    }
+
+    .desglose-item:hover {
+      background-color: #ebecf0;
+    }
+
+    .desglose-item:last-child {
+      border-bottom: none;
+    }
+
+    .desglose-item input[type="checkbox"] {
+      margin-top: 2px;
+      margin-right: 10px;
+      cursor: pointer;
+      accent-color: #1f845a;
+      width: 16px;
+      height: 16px;
+    }
+
+    .desglose-item-text {
+      font-size: 13px;
+      color: #172b4d;
+      line-height: 1.4;
+      flex-grow: 1;
+    }
+
+    .desglose-item-val {
+      font-weight: bold;
+      color: #1f845a;
+      font-size: 13px;
+      white-space: nowrap;
+      margin-left: 8px;
+    }
+
+    #desglose-total-panel {
+      margin-top: 15px;
+      background: #e6f4ea;
+      border: 1px dashed #1f845a;
+      border-radius: 6px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .desglose-total-label {
+      font-size: 13px;
+      color: #137333;
+      font-weight: bold;
+    }
+
+    .desglose-total-amount {
+      font-size: 22px;
+      color: #137333;
+      font-weight: 800;
+      margin-top: 4px;
+    }
+
+    .desglose-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 5px;
+      margin-top: 15px;
+    }
   </style>
 </head>
 
@@ -307,8 +443,9 @@
     <div id="facturacion-section" style="display: none;">
       <p>Panel de Facturación:</p>
       <div style="display: flex; align-items: flex-start; gap: 5px; flex-wrap: wrap;">
-        <div>
+        <div style="display: flex; flex-direction: column; gap: 5px;">
           <button id="boton-desc-facturacion" class="secondary" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px;">Visualizar datos de facturación</button>
+          <button id="boton-desglosar" style="background-color: #1f845a; color: white; margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; font-weight: bold; border: none; border-radius: 3px; cursor: pointer; transition: background-color 0.2s;">Desglosar factura</button>
         </div>
         <div style="display: flex; flex-direction: column; gap: 5px;">
           <label class="btn-upload" style="background-color: #1f845a; margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; text-align: center;">
@@ -323,6 +460,169 @@
             Generar excel desde plantilla
             <input type="file" id="excel-upload" accept=".xlsx" />
           </label>
+        </div>
+      </div>
+
+      <!-- Panel de Desglose de Factura (Interactivo) -->
+      <div id="desglose-panel">
+        <h3>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 5px;">
+            <line x1="12" y1="1" x2="12" y2="23"></line>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+          Desglose de Factura (LP Criterios 2012)
+        </h3>
+        
+        <div class="desglose-row">
+          <label class="desglose-label" for="desglose-cuantiva">Cuantía Base (€):</label>
+          <input type="number" id="desglose-cuantiva" class="desglose-input" placeholder="Introduce el importe base..." value="0" min="0" step="any">
+        </div>
+
+        <label class="desglose-label">Conceptos a incluir en el desglose:</label>
+        <div class="desglose-checklist">
+          <!-- 1. Conceptos Fijos al Inicio -->
+          <div class="desglose-item" onclick="document.getElementById('chk-consulta-simple').click(); event.stopPropagation();">
+            <input type="checkbox" id="chk-consulta-simple" data-fixed="true" data-min="55.44" data-max="97.02" data-val="76.23" data-name="Consulta simple o telefónica (Criterio 1)" onclick="event.stopPropagation();">
+            <div class="desglose-item-text">
+              <strong>Consulta simple o telefónica (Criterio 1)</strong><br>
+              <small>Fijo recomendado entre 55,44 € y 97,02 €</small>
+            </div>
+            <div class="desglose-item-val" id="val-consulta-simple">76,23 €</div>
+          </div>
+          
+          <div class="desglose-item" onclick="document.getElementById('chk-consulta-compleja').click(); event.stopPropagation();">
+            <input type="checkbox" id="chk-consulta-compleja" data-fixed="true" data-min="117.81" data-max="152.46" data-val="135.14" data-name="Consulta compleja / examen de documentos (Criterio 2)" onclick="event.stopPropagation();">
+            <div class="desglose-item-text">
+              <strong>Consulta compleja / examen de documentos (Criterio 2)</strong><br>
+              <small>Fijo recomendado entre 117,81 € y 152,46 €</small>
+            </div>
+            <div class="desglose-item-val" id="val-consulta-compleja">135,14 €</div>
+          </div>
+          
+          <div class="desglose-item" onclick="document.getElementById('chk-salida-misma').click(); event.stopPropagation();">
+            <input type="checkbox" id="chk-salida-misma" data-fixed="true" data-min="48.51" data-max="83.16" data-val="65.84" data-name="Salida de despacho (Misma localidad) (Criterio 7.1)" onclick="event.stopPropagation();">
+            <div class="desglose-item-text">
+              <strong>Salida de despacho (Misma localidad) (Criterio 7.1)</strong><br>
+              <small>Fijo recomendado entre 48,51 € y 83,16 €</small>
+            </div>
+            <div class="desglose-item-val" id="val-salida-misma">65,84 €</div>
+          </div>
+          
+          <div class="desglose-item" onclick="document.getElementById('chk-salida-fuera').click(); event.stopPropagation();">
+            <input type="checkbox" id="chk-salida-fuera" data-fixed="true" data-val="117.81" data-name="Salida de despacho (Media jornada fuera) (Criterio 7.2)" onclick="event.stopPropagation();">
+            <div class="desglose-item-text">
+              <strong>Salida de despacho (Media jornada fuera) (Criterio 7.2)</strong><br>
+              <small>Fijo oficial recomendado: 117,81 €</small>
+            </div>
+            <div class="desglose-item-val" id="val-salida-fuera">117,81 €</div>
+          </div>
+          
+          <div class="desglose-item" onclick="document.getElementById('chk-monitorio').click(); event.stopPropagation();">
+            <input type="checkbox" id="chk-monitorio" data-fixed="true" data-val="165.00" data-name="Petición inicial de Proceso Monitorio (Criterio 38)" onclick="event.stopPropagation();">
+            <div class="desglose-item-text">
+              <strong>Petición inicial de Proceso Monitorio (Criterio 38)</strong><br>
+              <small>Fijo recomendado oficial: 165,00 €</small>
+            </div>
+            <div class="desglose-item-val" id="val-monitorio">165,00 €</div>
+          </div>
+
+          <!-- 2. Conceptos Dinámicos por Escalas -->
+          <div class="desglose-item" onclick="document.getElementById('chk-principal-100').click(); event.stopPropagation();">
+            <input type="checkbox" id="chk-principal-100" data-scale="35" data-pct="100" data-name="Procedimiento Principal (100% Criterio 35)" onclick="event.stopPropagation();">
+            <div class="desglose-item-text">
+              <strong>Procedimiento Principal (100% Criterio 35)</strong><br>
+              <small>Escala progresiva completa (mínimo 240 €)</small>
+            </div>
+            <div class="desglose-item-val" id="val-principal-100">0,00 €</div>
+          </div>
+
+          <div class="desglose-item" onclick="document.getElementById('chk-principal-demanda').click(); event.stopPropagation();">
+            <input type="checkbox" id="chk-principal-demanda" data-scale="35" data-pct="50" data-name="Fase Demanda / Alegaciones (50% Criterio 35)" onclick="event.stopPropagation();">
+            <div class="desglose-item-text">
+              <strong>Fase Demanda / Alegaciones (50% Criterio 35)</strong><br>
+              <small>50% de la escala progresiva por pleito principal</small>
+            </div>
+            <div class="desglose-item-val" id="val-principal-demanda">0,00 €</div>
+          </div>
+
+          <div class="desglose-item" onclick="document.getElementById('chk-principal-audiencia').click(); event.stopPropagation();">
+            <input type="checkbox" id="chk-principal-audiencia" data-scale="35" data-pct="10" data-name="Fase Audiencia Previa (10% Criterio 35)" onclick="event.stopPropagation();">
+            <div class="desglose-item-text">
+              <strong>Fase Audiencia Previa (10% Criterio 35)</strong><br>
+              <small>10% de la escala progresiva por pleito principal</small>
+            </div>
+            <div class="desglose-item-val" id="val-principal-audiencia">0,00 €</div>
+          </div>
+
+          <div class="desglose-item" onclick="document.getElementById('chk-principal-juicio').click(); event.stopPropagation();">
+            <input type="checkbox" id="chk-principal-juicio" data-scale="35" data-pct="40" data-name="Fase Juicio / Vista (40% Criterio 35)" onclick="event.stopPropagation();">
+            <div class="desglose-item-text">
+              <strong>Fase Juicio / Vista (40% Criterio 35)</strong><br>
+              <small>40% de la escala progresiva por pleito principal</small>
+            </div>
+            <div class="desglose-item-val" id="val-principal-juicio">0,00 €</div>
+          </div>
+
+          <div class="desglose-item" onclick="document.getElementById('chk-recargo-costas').click(); event.stopPropagation();">
+            <input type="checkbox" id="chk-recargo-costas" data-cost-recargo="true" data-name="Recargo Oficial de Costas (+15%)" onclick="event.stopPropagation();">
+            <div class="desglose-item-text">
+              <strong>Recargo Oficial de Costas (+15%)</strong><br>
+              <small>Suma +15% sobre las escalas calculadas anteriormente</small>
+            </div>
+            <div class="desglose-item-val" id="val-recargo-costas">+0,00 €</div>
+          </div>
+
+          <div class="desglose-item" onclick="document.getElementById('chk-ejecucion-sin').click(); event.stopPropagation();">
+            <input type="checkbox" id="chk-ejecucion-sin" data-scale="36" data-pct="50" data-name="Ejecución de Sentencia sin Oposición (50% Criterio 36/40)" onclick="event.stopPropagation();">
+            <div class="desglose-item-text">
+              <strong>Ejecución sin Oposición (50% Criterio 36/40)</strong><br>
+              <small>50% de la escala de ejecución (mínimo 75 € + 15%)</small>
+            </div>
+            <div class="desglose-item-val" id="val-ejecucion-sin">0,00 €</div>
+          </div>
+
+          <div class="desglose-item" onclick="document.getElementById('chk-ejecucion-con').click(); event.stopPropagation();">
+            <input type="checkbox" id="chk-ejecucion-con" data-scale="35" data-pct="100" data-name="Ejecución de Sentencia con Oposición (100% Criterio 35/40)" onclick="event.stopPropagation();">
+            <div class="desglose-item-text">
+              <strong>Ejecución con Oposición (100% Criterio 35/40)</strong><br>
+              <small>100% de la escala declarativa completa</small>
+            </div>
+            <div class="desglose-item-val" id="val-ejecucion-con">0,00 €</div>
+          </div>
+
+          <div class="desglose-item" onclick="document.getElementById('chk-apelacion-mismo').click(); event.stopPropagation();">
+            <input type="checkbox" id="chk-apelacion-mismo" data-scale="35" data-pct="50" data-name="Recurso de Apelación (Mismo Letrado) (50% Criterio 71)" onclick="event.stopPropagation();">
+            <div class="desglose-item-text">
+              <strong>Recurso de Apelación (Mismo Letrado: 50% Criterio 71)</strong><br>
+              <small>50% de la escala progresiva principal</small>
+            </div>
+            <div class="desglose-item-val" id="val-apelacion-mismo">0,00 €</div>
+          </div>
+
+          <div class="desglose-item" onclick="document.getElementById('chk-apelacion-otro').click(); event.stopPropagation();">
+            <input type="checkbox" id="chk-apelacion-otro" data-scale="35" data-pct="60" data-name="Recurso de Apelación (Otro Letrado) (60% Criterio 71)" onclick="event.stopPropagation();">
+            <div class="desglose-item-text">
+              <strong>Recurso de Apelación (Otro Letrado: 60% Criterio 71)</strong><br>
+              <small>60% de la escala progresiva principal</small>
+            </div>
+            <div class="desglose-item-val" id="val-apelacion-otro">0,00 €</div>
+          </div>
+        </div>
+
+        <div id="desglose-total-panel">
+          <div class="desglose-total-label">IMPORTE TOTAL ESTIMADO:</div>
+          <div class="desglose-total-amount" id="desglose-total">0,00 €</div>
+        </div>
+
+        <div class="desglose-actions">
+          <button id="btn-desglose-cerrar" class="secondary" style="height: 36px; padding: 0 16px; margin: 0; font-weight: bold;">Cerrar</button>
+          <button id="btn-desglose-copiar" style="background-color: #1f845a; color: white; height: 36px; padding: 0 16px; margin: 0; display: flex; align-items: center; gap: 6px; font-weight: bold; border: none; border-radius: 3px; cursor: pointer;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+            Copiar desglose 📋
+          </button>
         </div>
       </div>
     </div>
@@ -2172,6 +2472,406 @@
           t.sizeTo(document.body).done();
         }
       });
+    })();
+
+    // --- LÓGICA DE DESGLOSE DE FACTURAS (CRITERIOS COLEGIO LP 2012) ---
+    (function() {
+      // 1. Elementos de la interfaz
+      var btnDesglosar = document.getElementById('boton-desglosar');
+      var panelDesglose = document.getElementById('desglose-panel');
+      var inputCuantiva = document.getElementById('desglose-cuantiva');
+      var btnCerrar = document.getElementById('btn-desglose-cerrar');
+      var btnCopiar = document.getElementById('btn-desglose-copiar');
+      var labelTotal = document.getElementById('desglose-total');
+
+      // Checkboxes y sus contenedores de valor
+      var chkConsultaSimple = document.getElementById('chk-consulta-simple');
+      var chkConsultaCompleja = document.getElementById('chk-consulta-compleja');
+      var chkSalidaMisma = document.getElementById('chk-salida-misma');
+      var chkSalidaFuera = document.getElementById('chk-salida-fuera');
+      var chkMonitorio = document.getElementById('chk-monitorio');
+
+      var chkPrincipal100 = document.getElementById('chk-principal-100');
+      var chkPrincipalDemanda = document.getElementById('chk-principal-demanda');
+      var chkPrincipalAudiencia = document.getElementById('chk-principal-audiencia');
+      var chkPrincipalJuicio = document.getElementById('chk-principal-juicio');
+      var chkRecargoCostas = document.getElementById('chk-recargo-costas');
+
+      var chkEjecucionSin = document.getElementById('chk-ejecucion-sin');
+      var chkEjecucionCon = document.getElementById('chk-ejecucion-con');
+      var chkApelacionMismo = document.getElementById('chk-apelacion-mismo');
+      var chkApelacionOtro = document.getElementById('chk-apelacion-otro');
+
+      // Mostrar / Ocultar panel
+      if (btnDesglosar) {
+        btnDesglosar.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (panelDesglose.style.display === 'none' || !panelDesglose.style.display) {
+            panelDesglose.style.display = 'block';
+            t.sizeTo(document.body).done();
+            // Intentar rellenar automáticamente la cuantía desde los campos de Importes si existen
+            getUnifiedFields(t).then(function(data) {
+              if (data && data.fields) {
+                // Buscamos si existe un campo de "cuantía" o "base"
+                var baseAmount = 0;
+                var possibleKeys = ['cuantía', 'cuantia', 'base', 'principal', 'importe reclamado'];
+                for (var i = 0; i < possibleKeys.length; i++) {
+                  var k = possibleKeys[i];
+                  if (data.fields[k] && !isNaN(parseFloat(data.fields[k]))) {
+                    baseAmount = parseFloat(data.fields[k]);
+                    break;
+                  }
+                }
+                if (baseAmount > 0) {
+                  inputCuantiva.value = baseAmount;
+                  recalcularDesglose();
+                }
+              }
+            });
+          } else {
+            panelDesglose.style.display = 'none';
+            t.sizeTo(document.body).done();
+          }
+        });
+      }
+
+      if (btnCerrar) {
+        btnCerrar.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          panelDesglose.style.display = 'none';
+          t.sizeTo(document.body).done();
+        });
+      }
+
+      // Escala Criterio 35 (Procesos Declarativos)
+      // De 0 a 1.202 €: 32% (mínimo 240 €)
+      // Exceso a 3.005 €: 22%
+      // Exceso a 18.030 €: 15%
+      // Exceso a 30.051 €: 12%
+      // Exceso a 60.101 €: 8%
+      // Exceso a 150.253 €: 6%
+      // Exceso a 300.506 €: 5%
+      // Exceso a 601.012 €: 4%
+      // Exceso a 1.202.024 €: 2%
+      // Exceso a 3.005.061 €: 1%
+      // Exceso en adelante: 0.5%
+      function calcularEscala35(base) {
+        if (!base || isNaN(base) || base <= 0) return 0;
+        var tramos = [
+          { limite: 1202, tasa: 0.32 },
+          { limite: 3005, tasa: 0.22 },
+          { limite: 18030, tasa: 0.15 },
+          { limite: 30051, tasa: 0.12 },
+          { limite: 60101, tasa: 0.08 },
+          { limite: 150253, tasa: 0.06 },
+          { limite: 300506, tasa: 0.05 },
+          { limite: 601012, tasa: 0.04 },
+          { limite: 1202024, tasa: 0.02 },
+          { limite: 3005061, tasa: 0.01 },
+          { limite: Infinity, tasa: 0.005 }
+        ];
+
+        var total = 0;
+        var prevLimite = 0;
+        for (var i = 0; i < tramos.length; i++) {
+          var t = tramos[i];
+          if (base > prevLimite) {
+            var parteTramos = Math.min(base, t.limite) - prevLimite;
+            total += parteTramos * t.tasa;
+            prevLimite = t.limite;
+          } else {
+            break;
+          }
+        }
+
+        // Mínimo oficial del Colegio de Abogados de Las Palmas
+        if (total < 240) {
+          total = 240;
+        }
+
+        return Math.round(total * 100) / 100;
+      }
+
+      // Escala Criterio 36 (Procesos de Ejecución)
+      // De 0 a 1.202 €: 25% (mínimo 150 €)
+      // Exceso a 3.005 €: 14%
+      // Exceso a 9.015 €: 11%
+      // Exceso a 30.051 €: 6%
+      // Exceso a 60.101 €: 4%
+      // Exceso a 300.506 €: 3%
+      // Exceso a 601.012 €: 1.5%
+      // Exceso en adelante: 0.5%
+      function calcularEscala36(base) {
+        if (!base || isNaN(base) || base <= 0) return 0;
+        var tramos = [
+          { limite: 1202, tasa: 0.25 },
+          { limite: 3005, tasa: 0.14 },
+          { limite: 9015, tasa: 0.11 },
+          { limite: 30051, tasa: 0.06 },
+          { limite: 60101, tasa: 0.04 },
+          { limite: 300506, tasa: 0.03 },
+          { limite: 601012, tasa: 0.015 },
+          { limite: Infinity, tasa: 0.005 }
+        ];
+
+        var total = 0;
+        var prevLimite = 0;
+        for (var i = 0; i < tramos.length; i++) {
+          var t = tramos[i];
+          if (base > prevLimite) {
+            var parteTramos = Math.min(base, t.limite) - prevLimite;
+            total += parteTramos * t.tasa;
+            prevLimite = t.limite;
+          } else {
+            break;
+          }
+        }
+
+        // Mínimo oficial
+        if (total < 150) {
+          total = 150;
+        }
+
+        return Math.round(total * 100) / 100;
+      }
+
+      // Función principal de recalcular
+      function recalcularDesglose() {
+        var base = parseFloat(inputCuantiva.value) || 0;
+        
+        // 1. Conceptos Fijos (no dependen de la base)
+        var valConsultaSimple = parseFloat(chkConsultaSimple.getAttribute('data-val'));
+        var valConsultaCompleja = parseFloat(chkConsultaCompleja.getAttribute('data-val'));
+        var valSalidaMisma = parseFloat(chkSalidaMisma.getAttribute('data-val'));
+        var valSalidaFuera = parseFloat(chkSalidaFuera.getAttribute('data-val'));
+        var valMonitorio = parseFloat(chkMonitorio.getAttribute('data-val'));
+
+        // 2. Calcular los importes dinámicos de las escalas
+        var base35 = calcularEscala35(base);
+        var base36 = calcularEscala36(base);
+
+        var valPrincipal100 = base35;
+        var valPrincipalDemanda = Math.round(base35 * 0.5 * 100) / 100;
+        var valPrincipalAudiencia = Math.round(base35 * 0.1 * 100) / 100;
+        var valPrincipalJuicio = Math.round(base35 * 0.4 * 100) / 100;
+
+        var valEjecucionSin = Math.round(base36 * 0.5 * 100) / 100;
+        var valEjecucionCon = base35; // Ejecución con oposición = Criterio 35 declarativo completo
+
+        var valApelacionMismo = Math.round(base35 * 0.5 * 100) / 100;
+        var valApelacionOtro = Math.round(base35 * 0.6 * 100) / 100;
+
+        // Actualizar visualmente los elementos del DOM
+        document.getElementById('val-principal-100').textContent = valPrincipal100.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-principal-demanda').textContent = valPrincipalDemanda.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-principal-audiencia').textContent = valPrincipalAudiencia.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-principal-juicio').textContent = valPrincipalJuicio.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+
+        document.getElementById('val-ejecucion-sin').textContent = valEjecucionSin.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-ejecucion-con').textContent = valEjecucionCon.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-apelacion-mismo').textContent = valApelacionMismo.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-apelacion-otro').textContent = valApelacionOtro.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+
+        // 3. Sumar acumulado de escalas seleccionadas para aplicar el +15% de recargo si está activo
+        var sumaEscalasActivas = 0;
+        if (chkPrincipal100.checked) sumaEscalasActivas += valPrincipal100;
+        if (chkPrincipalDemanda.checked) sumaEscalasActivas += valPrincipalDemanda;
+        if (chkPrincipalAudiencia.checked) sumaEscalasActivas += valPrincipalAudiencia;
+        if (chkPrincipalJuicio.checked) sumaEscalasActivas += valPrincipalJuicio;
+        if (chkEjecucionSin.checked) sumaEscalasActivas += valEjecucionSin;
+        if (chkEjecucionCon.checked) sumaEscalasActivas += valEjecucionCon;
+        if (chkApelacionMismo.checked) sumaEscalasActivas += valApelacionMismo;
+        if (chkApelacionOtro.checked) sumaEscalasActivas += valApelacionOtro;
+
+        // Calcular recargo
+        var valRecargo = 0;
+        if (chkRecargoCostas.checked) {
+          valRecargo = Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
+        }
+        document.getElementById('val-recargo-costas').textContent = '+' + valRecargo.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+
+        // 4. Sumar total definitivo
+        var total = 0;
+        if (chkConsultaSimple.checked) total += valConsultaSimple;
+        if (chkConsultaCompleja.checked) total += valConsultaCompleja;
+        if (chkSalidaMisma.checked) total += valSalidaMisma;
+        if (chkSalidaFuera.checked) total += valSalidaFuera;
+        if (chkMonitorio.checked) total += valMonitorio;
+        
+        total += sumaEscalasActivas + valRecargo;
+
+        labelTotal.textContent = total.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+      }
+
+      // Escuchadores de eventos
+      inputCuantiva.addEventListener('input', recalcularDesglose);
+      document.querySelectorAll('#desglose-panel input[type="checkbox"]').forEach(function(chk) {
+        chk.addEventListener('change', recalcularDesglose);
+      });
+
+      // Lógica de copiado del desglose
+      if (btnCopiar) {
+        btnCopiar.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          
+          var base = parseFloat(inputCuantiva.value) || 0;
+          var total = parseFloat(labelTotal.textContent.replace(/\./g, '').replace(/,/g, '.').replace(/[^0-9\.]/g, '')) || 0;
+
+          var lines = [];
+          lines.push('================================================');
+          lines.push('    DESGLOSE DE HONORARIOS Y COSTAS JUDICIALES');
+          lines.push('       Criterios Ilustre Col. Abogados LP');
+          lines.push('================================================');
+          lines.push('Cuantía Base del procedimiento: ' + base.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+          lines.push('------------------------------------------------');
+
+          var itemsSelectedCount = 0;
+
+          // 1. Recorrer fijos
+          if (chkConsultaSimple.checked) {
+            lines.push('- Consulta simple o telefónica: ' + parseFloat(chkConsultaSimple.getAttribute('data-val')).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            itemsSelectedCount++;
+          }
+          if (chkConsultaCompleja.checked) {
+            lines.push('- Consulta compleja o examen: ' + parseFloat(chkConsultaCompleja.getAttribute('data-val')).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            itemsSelectedCount++;
+          }
+          if (chkSalidaMisma.checked) {
+            lines.push('- Salida despacho (Misma loc.): ' + parseFloat(chkSalidaMisma.getAttribute('data-val')).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            itemsSelectedCount++;
+          }
+          if (chkSalidaFuera.checked) {
+            lines.push('- Salida despacho (Fuera loc.): ' + parseFloat(chkSalidaFuera.getAttribute('data-val')).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            itemsSelectedCount++;
+          }
+          if (chkMonitorio.checked) {
+            lines.push('- Petición inicial Monitorio: ' + parseFloat(chkMonitorio.getAttribute('data-val')).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            itemsSelectedCount++;
+          }
+
+          // 2. Dinámicos
+          var base35 = calcularEscala35(base);
+          var base36 = calcularEscala36(base);
+
+          if (chkPrincipal100.checked) {
+            lines.push('- Procedimiento Principal (100% Criterio 35): ' + base35.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            itemsSelectedCount++;
+          }
+          if (chkPrincipalDemanda.checked) {
+            lines.push('- Fase Demanda (50% Criterio 35): ' + (Math.round(base35 * 0.5 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            itemsSelectedCount++;
+          }
+          if (chkPrincipalAudiencia.checked) {
+            lines.push('- Fase Audiencia Previa (10% Criterio 35): ' + (Math.round(base35 * 0.1 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            itemsSelectedCount++;
+          }
+          if (chkPrincipalJuicio.checked) {
+            lines.push('- Fase Juicio/Vista (40% Criterio 35): ' + (Math.round(base35 * 0.4 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            itemsSelectedCount++;
+          }
+
+          var sumaEscalasActivas = 0;
+          if (chkPrincipal100.checked) sumaEscalasActivas += base35;
+          if (chkPrincipalDemanda.checked) sumaEscalasActivas += Math.round(base35 * 0.5 * 100) / 100;
+          if (chkPrincipalAudiencia.checked) sumaEscalasActivas += Math.round(base35 * 0.1 * 100) / 100;
+          if (chkPrincipalJuicio.checked) sumaEscalasActivas += Math.round(base35 * 0.4 * 100) / 100;
+          
+          if (chkEjecucionSin.checked) {
+            var valSin = Math.round(base36 * 0.5 * 100) / 100;
+            lines.push('- Ejecución sin Oposición (50% Criterio 36): ' + valSin.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            sumaEscalasActivas += valSin;
+            itemsSelectedCount++;
+          }
+          if (chkEjecucionCon.checked) {
+            lines.push('- Ejecución con Oposición (100% Criterio 35): ' + base35.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            sumaEscalasActivas += base35;
+            itemsSelectedCount++;
+          }
+
+          if (chkApelacionMismo.checked) {
+            var valApMismo = Math.round(base35 * 0.5 * 100) / 100;
+            lines.push('- Apelación (Mismo Letrado) (50% Criterio 71): ' + valApMismo.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            sumaEscalasActivas += valApMismo;
+            itemsSelectedCount++;
+          }
+          if (chkApelacionOtro.checked) {
+            var valApOtro = Math.round(base35 * 0.6 * 100) / 100;
+            lines.push('- Apelación (Otro Letrado) (60% Criterio 71): ' + valApOtro.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            sumaEscalasActivas += valApOtro;
+            itemsSelectedCount++;
+          }
+
+          // Recargo
+          if (chkRecargoCostas.checked) {
+            var valRecargo = Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
+            lines.push('- Recargo Oficial de Costas (+15%): ' + valRecargo.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            itemsSelectedCount++;
+          }
+
+          if (itemsSelectedCount === 0) {
+            alert('Por favor, selecciona al menos un concepto en la checklist para copiar el desglose.');
+            return;
+          }
+
+          lines.push('------------------------------------------------');
+          lines.push('IMPORTE TOTAL: ' + total.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+          lines.push('================================================');
+
+          var textToCopy = lines.join('\n');
+
+          // Helper robusto para copiar al portapapeles
+          function copyTextLocal(text) {
+            try {
+              var succeeded = false;
+              var handler = function(e) {
+                e.clipboardData.setData('text/plain', text);
+                e.preventDefault();
+                succeeded = true;
+              };
+              document.addEventListener('copy', handler);
+              document.execCommand('copy');
+              document.removeEventListener('copy', handler);
+              if (succeeded) return Promise.resolve();
+            } catch (err) {}
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              return navigator.clipboard.writeText(text);
+            }
+
+            try {
+              var textarea = document.createElement('textarea');
+              textarea.value = text;
+              textarea.style.position = 'absolute';
+              textarea.style.left = '-9999px';
+              document.body.appendChild(textarea);
+              textarea.focus();
+              textarea.select();
+              var success = document.execCommand('copy');
+              document.body.removeChild(textarea);
+              if (success) return Promise.resolve();
+              else return Promise.reject();
+            } catch (err) {
+              return Promise.reject(err);
+            }
+          }
+
+          copyTextLocal(textToCopy).then(function() {
+            var originalText = btnCopiar.innerHTML;
+            btnCopiar.innerHTML = '¡Copiado con éxito! ✔️';
+            setTimeout(function() {
+              btnCopiar.innerHTML = originalText;
+            }, 2000);
+          }).catch(function(err) {
+            alert('No se pudo copiar el desglose automáticamente.');
+          });
+        });
+      }
+
+      // Ejecutar cálculo inicial
+      recalcularDesglose();
     })();
   </script>
 </body>
