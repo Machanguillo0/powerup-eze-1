@@ -1299,6 +1299,112 @@
         });
     }
 
+    // Función auxiliar para actualizar la tabla de relación de facturas en la descripción de la tarjeta "Facturas"
+    function updateInvoicesTableOnCard(t, targetCardId, token, today, numFactura, nombreCliente, dniCliente, importeTotal) {
+      var appKey = t.getRestApi().appKey;
+      return fetch(`https://api.trello.com/1/cards/${targetCardId}?key=${appKey}&token=${token}`)
+        .then(function(res) {
+          if (!res.ok) throw new Error("Error al obtener detalles de la tarjeta Facturas.");
+          return res.json();
+        })
+        .then(function(cardDetails) {
+          var desc = cardDetails.desc || "";
+          var lines = desc.split(/\r?\n/);
+          var rows = [];
+          var otherTextLinesBefore = [];
+          var otherTextLinesAfter = [];
+          var inTable = false;
+          
+          lines.forEach(function(line) {
+            var trimmed = line.trim();
+            if (trimmed.indexOf('|') === 0 && trimmed.lastIndexOf('|') === trimmed.length - 1) {
+              if (trimmed.toLowerCase().indexOf('fecha factura') > -1 || trimmed.indexOf(':---') > -1) {
+                inTable = true;
+              } else {
+                var parts = line.split('|').map(function(s) { return s.trim(); });
+                if (parts.length >= 6) {
+                  rows.push({
+                    fecha: parts[1],
+                    numero: parts[2],
+                    nombre: parts[3],
+                    dni: parts[4],
+                    importe: parts[5]
+                  });
+                }
+                inTable = true;
+              }
+            } else {
+              if (inTable && trimmed === "") {
+                // Saltarse líneas vacías dentro del bloque de la tabla
+              } else if (inTable) {
+                otherTextLinesAfter.push(line);
+              } else {
+                if (trimmed.indexOf('### Relación de Facturas') !== 0) {
+                  otherTextLinesBefore.push(line);
+                }
+              }
+            }
+          });
+
+          // Buscar si ya existe la factura para evitar duplicados
+          var existsIdx = -1;
+          for (var i = 0; i < rows.length; i++) {
+            if (rows[i].numero.trim().toLowerCase() === numFactura.trim().toLowerCase()) {
+              existsIdx = i;
+              break;
+            }
+          }
+
+          var newRow = {
+            fecha: today,
+            numero: numFactura,
+            nombre: nombreCliente || "Cliente Desconocido",
+            dni: dniCliente || "___________",
+            importe: importeTotal || "___________"
+          };
+
+          if (existsIdx > -1) {
+            rows[existsIdx] = newRow;
+          } else {
+            rows.push(newRow);
+          }
+
+          var newLines = [];
+          var filteredBefore = [];
+          otherTextLinesBefore.forEach(function(l) {
+            if (l.trim() !== "") filteredBefore.push(l);
+          });
+          
+          filteredBefore.forEach(function(l) { newLines.push(l); });
+          
+          if (newLines.length > 0) {
+            newLines.push("");
+          }
+          
+          newLines.push("### Relación de Facturas Generadas");
+          newLines.push("");
+          newLines.push("| Fecha Factura | Número Factura | Nombre del cliente | DNI | Importe Total |");
+          newLines.push("| :--- | :--- | :--- | :--- | :--- |");
+          
+          rows.forEach(function(r) {
+            newLines.push(`| ${r.fecha} | ${r.numero} | ${r.nombre} | ${r.dni} | ${r.importe} |`);
+          });
+          
+          if (otherTextLinesAfter.length > 0) {
+            newLines.push("");
+            otherTextLinesAfter.forEach(function(l) { newLines.push(l); });
+          }
+
+          var finalDesc = newLines.join("\n");
+
+          return fetch(`https://api.trello.com/1/cards/${targetCardId}?key=${appKey}&token=${token}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ desc: finalDesc })
+          });
+        });
+    }
+
     // Función auxiliar para obtener, incrementar y guardar el número secuencial de factura (evita duplicados de forma inteligente)
     function getAndUpdateInvoiceNumber(t, token) {
       var appKey = t.getRestApi().appKey;
@@ -1836,6 +1942,7 @@
       if (!event.target.files || event.target.files.length === 0) return;
       var file = event.target.files[0];
       var statusDiv = document.getElementById('upload-status');
+      var targetCardIdSaved;
       statusDiv.textContent = 'Cargando datos cruzados desde el tablero de Clientes...';
       t.sizeTo(document.body).done();
 
@@ -1908,6 +2015,7 @@
 
               getOrCreateFacturasCard(t, data.idList, token)
                 .then(function(targetCardId) {
+                  targetCardIdSaved = targetCardId;
                   statusDiv.textContent = 'Subiendo Factura a la tarjeta Facturas...';
                   t.sizeTo(document.body).done();
 
@@ -1943,6 +2051,14 @@
                   
                   var targetHistoryListId = data.idListClientes || data.idList;
                   updateHistoryCard(t, targetHistoryListId, true, forced, fields);
+
+                  // Actualizar la tabla de facturas en la descripción de la tarjeta "Facturas"
+                  if (targetCardIdSaved) {
+                    updateInvoicesTableOnCard(t, targetCardIdSaved, token, today, numFactura, fields.nombre, fields.dni, currentAmount)
+                      .catch(function(tableErr) {
+                        console.error("Error al actualizar la tabla de facturas:", tableErr);
+                      });
+                  }
                 }).catch(function (err) {
                   console.error(err);
                   statusDiv.textContent = 'Fallo en la subida.';
