@@ -801,56 +801,121 @@
       }
     });
 
-    // Cargar facturas y datos unificados al inicializar el modal
-    t.render(function() {
-      return getUnifiedFields(t).then(function(data) {
-        if (!data || !data.fields) {
-          selectFactura.innerHTML = '<option value="">Sin facturas encontradas</option>';
+    // Función para cargar las facturas directamente desde la lista de comprobación de la tarjeta "Facturas"
+    function loadInvoicesFromChecklist(t) {
+      var selectFactura = document.getElementById('select-factura');
+      selectFactura.innerHTML = '<option value="">Cargando facturas...</option>';
+      
+      var appKey = t.getRestApi().appKey;
+      return t.getRestApi().isAuthorized().then(function(auth) {
+        if (!auth) {
+          selectFactura.innerHTML = '<option value="">No autorizado en Trello REST API</option>';
           return;
         }
-
-        var fields = data.fields;
         
-        // 1. Población de facturas en el dropdown
-        selectFactura.innerHTML = '<option value="">-- Seleccionar factura --</option>';
-        var addedCount = 0;
-        for (var idx = 1; idx <= 10; idx++) {
-          var suffix = (idx === 1) ? '' : idx;
-          var fNum = fields['factura' + suffix];
-          var fDate = fields['fecha_facturacion' + suffix];
-          var fAmount = fields['importe_facturacion' + suffix];
-          
-          if (fNum && fNum !== '___________') {
-            var opt = document.createElement('option');
+        return t.getRestApi().getToken().then(function(token) {
+          return t.card('idList').then(function(currentCard) {
+            var idList = currentCard.idList;
             
-            // Extraer el número base limpio del importe
-            var cleanAmount = 0;
-            if (fAmount) {
-              var cleanStr = fAmount.replace(/[^0-9\.,]/g, '').replace(',', '.');
-              cleanAmount = parseFloat(cleanStr) || 0;
-            }
-            opt.value = cleanAmount;
-            opt.textContent = `Factura ${fNum} (${fAmount || '0 €'})` + (fDate && fDate !== '___________' ? ` - ${fDate}` : '');
-            selectFactura.appendChild(opt);
-            addedCount++;
-          }
-        }
-        if (addedCount === 0) {
-          selectFactura.innerHTML = '<option value="">Sin facturas registradas en Historial</option>';
-        }
+            // 1. Buscar la tarjeta "Facturas" en esta lista
+            return fetch(`https://api.trello.com/1/lists/${idList}/cards?key=${appKey}&token=${token}`)
+              .then(function(res) {
+                if (!res.ok) throw new Error("Error al buscar la tarjeta Facturas");
+                return res.json();
+              })
+              .then(function(cards) {
+                var facturasCard = cards.find(function(c) {
+                  return c.name.trim().toLowerCase() === "facturas";
+                });
+                
+                if (!facturasCard) {
+                  selectFactura.innerHTML = '<option value="">Sin tarjeta de Facturas creada</option>';
+                  return;
+                }
+                
+                // 2. Obtener las listas de comprobación de la tarjeta "Facturas"
+                return fetch(`https://api.trello.com/1/cards/${facturasCard.id}/checklists?key=${appKey}&token=${token}`)
+                  .then(function(res) {
+                    if (!res.ok) throw new Error("Error al obtener listas de comprobación");
+                    return res.json();
+                  })
+                  .then(function(checklists) {
+                    var targetChecklistName = "Relación de Facturas Generadas";
+                    var ch = checklists.find(function(c) { return c.name === targetChecklistName; });
+                    
+                    if (!ch || !ch.checkItems || ch.checkItems.length === 0) {
+                      selectFactura.innerHTML = '<option value="">Sin facturas registradas en la checklist</option>';
+                      return;
+                    }
+                    
+                    var checkItems = ch.checkItems;
+                    selectFactura.innerHTML = '<option value="">-- Seleccionar factura --</option>';
+                    var addedCount = 0;
+                    
+                    checkItems.forEach(function(item) {
+                      var parts = item.name.split('|').map(function(s) { return s.trim(); });
+                      var fNum = "Desconocida";
+                      var fDate = "";
+                      var fAmount = "0 €";
+                      
+                      if (parts.length >= 2) {
+                        fDate = parts[0];
+                        var numPart = parts.find(function(p) { return p.indexOf('Nº:') === 0; });
+                        if (numPart) {
+                          fNum = numPart.substring(3).trim();
+                        } else {
+                          fNum = parts[1];
+                        }
+                        fAmount = parts[parts.length - 1];
+                      }
+                      
+                      var cleanAmount = 0;
+                      if (fAmount) {
+                        var cleanStr = fAmount.replace(/[^0-9\.,]/g, '').replace(',', '.');
+                        cleanAmount = parseFloat(cleanStr) || 0;
+                      }
+                      
+                      var opt = document.createElement('option');
+                      opt.value = cleanAmount;
+                      opt.textContent = `Factura ${fNum} (${fAmount})` + (fDate ? ` - ${fDate}` : '');
+                      selectFactura.appendChild(opt);
+                      addedCount++;
+                    });
+                    
+                    if (addedCount === 0) {
+                      selectFactura.innerHTML = '<option value="">Sin facturas válidas en la checklist</option>';
+                    }
+                  });
+              });
+          });
+        });
+      }).catch(function(err) {
+        console.error("Error al cargar checklist de facturas:", err);
+        selectFactura.innerHTML = '<option value="">Error al cargar la relación de facturas</option>';
+      });
+    }
 
-        // Intentar autodetectar una cuantía inicial si el dropdown está vacío o por defecto
-        var baseAmount = 0;
-        var possibleKeys = ['cuantía', 'cuantia', 'base', 'principal', 'importe reclamado'];
-        for (var i = 0; i < possibleKeys.length; i++) {
-          var k = possibleKeys[i];
-          if (fields[k] && !isNaN(parseFloat(fields[k]))) {
-            baseAmount = parseFloat(fields[k]);
-            break;
+    // Cargar facturas y datos unificados al inicializar el modal
+    t.render(function() {
+      // 1. Cargar facturas desde la lista de comprobación
+      loadInvoicesFromChecklist(t);
+
+      // 2. Cargar cuantía inicial desde la tarjeta de Importes si existe
+      return getUnifiedFields(t).then(function(data) {
+        if (data && data.fields) {
+          var fields = data.fields;
+          var baseAmount = 0;
+          var possibleKeys = ['cuantía', 'cuantia', 'base', 'principal', 'importe reclamado'];
+          for (var i = 0; i < possibleKeys.length; i++) {
+            var k = possibleKeys[i];
+            if (fields[k] && !isNaN(parseFloat(fields[k]))) {
+              baseAmount = parseFloat(fields[k]);
+              break;
+            }
           }
-        }
-        if (baseAmount > 0 && parseFloat(inputCuantiva.value) === 0) {
-          inputCuantiva.value = baseAmount;
+          if (baseAmount > 0 && parseFloat(inputCuantiva.value) === 0) {
+            inputCuantiva.value = baseAmount;
+          }
         }
 
         recalcularDesglose();
