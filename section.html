@@ -1253,9 +1253,17 @@
           .then(function (idListClientes) {
             // 3. Obtener tarjetas de esa lista en Clientes
             return fetch(`https://api.trello.com/1/lists/${idListClientes}/cards?fields=name,desc&key=${appKey}&token=${token}`)
-              .then(function (res) { return res.json(); });
+              .then(function (res) { return res.json(); })
+              .then(function (clientCards) {
+                return {
+                  idListClientes: idListClientes,
+                  clientCards: clientCards
+                };
+              });
           })
-          .then(function (clientCards) {
+          .then(function (cardsData) {
+            var idListClientes = cardsData.idListClientes;
+            var clientCards = cardsData.clientCards;
             // 4. Extraer y unificar los datos personales desde las tarjetas de Clientes
             var clientFields = {
               nombre: "___________",
