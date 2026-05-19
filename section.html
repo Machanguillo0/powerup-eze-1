@@ -2019,18 +2019,41 @@
           }
         } catch (e) {}
         
-        // 1. Intentar con Clipboard API moderna
+        // 1. Intentar primero interceptando el evento 'copy' directo (el método más seguro del mundo)
+        try {
+          var succeeded = false;
+          var handler = function(e) {
+            e.clipboardData.setData('text/plain', text);
+            e.preventDefault(); // Cancela la copia por defecto del navegador (evita copiar el HTML/imagen)
+            succeeded = true;
+          };
+          
+          document.addEventListener('copy', handler);
+          document.execCommand('copy');
+          document.removeEventListener('copy', handler);
+          
+          if (succeeded) {
+            return Promise.resolve();
+          }
+        } catch (err) {
+          console.warn('Fallo el interceptor de copy:', err);
+        }
+
+        // 2. Fallback Clipboard API moderna si falla la anterior
         if (navigator.clipboard && navigator.clipboard.writeText) {
           return navigator.clipboard.writeText(text);
         }
         
-        // 2. Fallback clásico de execCommand compatible con todos los navegadores e iframes sandboxed
+        // 3. Fallback clásico de textarea temporal si todo lo demás falla
         try {
           var textarea = document.createElement('textarea');
           textarea.value = text;
           textarea.style.position = 'absolute';
           textarea.style.left = '-9999px';
           textarea.style.top = '0';
+          textarea.setAttribute('readonly', '');
+          textarea.style.webkitUserSelect = 'text';
+          textarea.style.userSelect = 'text';
           document.body.appendChild(textarea);
           textarea.focus();
           textarea.select();
@@ -2039,7 +2062,7 @@
           if (success) {
             return Promise.resolve();
           } else {
-            return Promise.reject('execCommand failed');
+            return Promise.reject('Todos los métodos de copia fallaron');
           }
         } catch (err) {
           return Promise.reject(err);
@@ -2047,7 +2070,9 @@
       }
 
       // Manejar botón de Copiar
-      document.getElementById('calc-copy').addEventListener('click', function() {
+      document.getElementById('calc-copy').addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
         var text = calcScreen.textContent;
         if (text && text !== 'Error') {
           copyToClipboard(text).then(function() {
