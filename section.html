@@ -648,6 +648,45 @@
       appName: 'Antigravity'
     });
 
+    // Analizador de floats adaptado a localización en español (evita truncamientos por puntos de miles)
+    function parseSpanishFloat(str) {
+      if (!str) return 0;
+      var cleaned = str.replace(/[^0-9.,]/g, '');
+      if (!cleaned) return 0;
+      if (cleaned.indexOf('.') > -1 && cleaned.indexOf(',') > -1) {
+        cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+      } else if (cleaned.indexOf(',') > -1) {
+        cleaned = cleaned.replace(',', '.');
+      } else if (cleaned.indexOf('.') > -1) {
+        var parts = cleaned.split('.');
+        var lastPart = parts[parts.length - 1];
+        if (lastPart.length === 3) {
+          cleaned = cleaned.replace(/\./g, '');
+        }
+      }
+      return parseFloat(cleaned) || 0;
+    }
+
+    // Formateador de moneda en español
+    function formatSpanishCurrency(value) {
+      if (isNaN(value)) return "0,00 €";
+      return value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+    }
+
+    // Extraedor de porcentaje de impuestos desde los campos unificados
+    function getTaxPercentage(fields) {
+      var pctKey = Object.keys(fields).find(function(k) {
+        var normalized = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return normalized === 'porcentajeimpuestos' || normalized === 'impuestos';
+      });
+      if (pctKey) {
+        var valStr = String(fields[pctKey]);
+        var cleaned = valStr.replace(/[^0-9.,]/g, '').replace(',', '.');
+        return parseFloat(cleaned) || 0;
+      }
+      return 0;
+    }
+
     // Función para evaluar expresiones matemáticas de forma segura (Opción A)
     function evalFormulaIfNeeded(val) {
       if (!val) return val;
@@ -1018,6 +1057,31 @@
             });
           }
 
+          // Calcular automáticamente el "Total Factura" para la factura 1 a la 10
+          var taxPct = getTaxPercentage(unified);
+          for (var idx = 1; idx <= 10; idx++) {
+            var suffix = (idx === 1) ? '' : idx;
+            var baseKey = 'importe_facturacion' + suffix;
+            var totalKey = 'total_factura' + suffix;
+            
+            var baseVal = unified[baseKey];
+            if (baseVal && baseVal !== '___________') {
+              var baseAmount = parseSpanishFloat(baseVal);
+              var totalAmount = baseAmount + (baseAmount * taxPct / 100);
+              unified[totalKey] = formatSpanishCurrency(totalAmount);
+              if (idx === 1) {
+                unified['total_factura'] = unified[totalKey];
+                unified['total factura'] = unified[totalKey];
+              }
+            } else {
+              unified[totalKey] = '___________';
+              if (idx === 1) {
+                unified['total_factura'] = '___________';
+                unified['total factura'] = '___________';
+              }
+            }
+          }
+
           return { 
             fields: unified, 
             count: cardsInList.length,
@@ -1080,8 +1144,9 @@
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Mess}}", fields.mess);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{AAAAs}}", fields.aaaas);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Número de expediente:}}", fields.num_expediente);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Numero de expediente:}}", fields.num_expediente);
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Número de expediente}}", fields.num_expediente);
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Total Factura}}", fields.total_factura || fields["total factura"] || "___________");
+            contentXml = reemplazarEtiquetaRota(contentXml, "{{Total factura}}", fields.total_factura || fields["total factura"] || "___________");
 
             var parrafadaDocx = fields.parrafada.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
             contentXml = reemplazarEtiquetaRota(contentXml, "{{Parrafada}}", parrafadaDocx);
@@ -1300,13 +1365,14 @@
     }
 
     // Función auxiliar para actualizar la lista de comprobación nativa en la tarjeta "Facturas"
-    function updateInvoicesTableOnCard(t, targetCardId, token, today, numFactura, nombreCliente, dniCliente, importeTotal) {
+    function updateInvoicesTableOnCard(t, targetCardId, token, today, numFactura, nombreCliente, dniCliente, importeBase, importeTotal) {
       var appKey = t.getRestApi().appKey;
       
       // Limpiar barras verticales | para no romper el formato de texto
       var cleanNombre = (nombreCliente || "Cliente Desconocido").replace(/\|/g, " ");
       var cleanDni = (dniCliente || "___________").replace(/\|/g, " ");
-      var cleanImporte = (importeTotal || "___________").replace(/\|/g, " ");
+      var cleanBase = (importeBase || "___________").replace(/\|/g, " ");
+      var cleanTotal = (importeTotal || "___________").replace(/\|/g, " ");
 
       // ACTUALIZAR LISTA DE COMPROBACIÓN NATIVA (Interactiva y visual en Trello)
       return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?key=${appKey}&token=${token}`)
@@ -1318,7 +1384,7 @@
           var targetChecklistName = "Relación de Facturas Generadas";
           var ch = checklists.find(function(c) { return c.name === targetChecklistName; });
           
-          var newItemText = `${today} | Nº: ${numFactura} | ${cleanNombre} | DNI: ${cleanDni} | ${cleanImporte}`;
+          var newItemText = `${today} | Nº: ${numFactura} | ${cleanNombre} | DNI: ${cleanDni} | Base: ${cleanBase} | Total: ${cleanTotal}`;
 
           if (ch) {
             // Ya existe la lista de comprobación
@@ -1592,9 +1658,12 @@
                     } else if (mapKey === "importe facturación" || mapKey === "importe facturacion") {
                       combinedFields.importe_facturacion = v;
                       combinedFields.importe_facturado = v;
+                    } else if (mapKey === "total factura" || mapKey === "total de factura") {
+                      combinedFields.total_factura = v;
+                      combinedFields.total_facturado = v;
                     } else {
                       // Mapear claves secuenciales numeradas, ej: "fecha de facturación 2" -> "fecha_facturacion2"
-                      var numMatch = mapKey.match(/(fecha de facturación|fecha de facturacion|número de factura|numero de factura|importe facturación|importe facturacion)\s+(\d+)/);
+                      var numMatch = mapKey.match(/(fecha de facturación|fecha de facturacion|número de factura|numero de factura|importe facturación|importe facturacion|total factura|total de factura)\s+(\d+)/);
                       if (numMatch) {
                         var base = numMatch[1];
                         var num = numMatch[2];
@@ -1604,6 +1673,8 @@
                           combinedFields["factura" + num] = v;
                         } else if (base.includes("importe")) {
                           combinedFields["importe_facturacion" + num] = v;
+                        } else if (base.includes("total")) {
+                          combinedFields["total_factura" + num] = v;
                         }
                       }
                     }
@@ -1658,8 +1729,9 @@
         .replace(/\{\{Número de factura\}\}/gi, facturaVal)
         .replace(/\{\{Numero de factura\}\}/gi, facturaVal)
         .replace(/\{\{Importe final\}\}/gi, fields["importe final"] || fields["Importe final"] || "___________")
-        .replace(/\{\{Importe facturado\}\}/gi, fields.importe_facturado || fields.importe_facturacion || fields["importe a facturar"] || fields["Importe a facturar"] || fields["importe final"] || fields["Importe final"] || "___________")
         .replace(/\{\{Importe facturacion\}\}/gi, fields.importe_facturado || fields.importe_facturacion || fields["importe a facturar"] || fields["Importe a facturar"] || fields["importe final"] || fields["Importe final"] || "___________")
+        .replace(/\{\{Total Factura\}\}/gi, fields.total_factura || fields["total factura"] || "___________")
+        .replace(/\{\{Total factura\}\}/gi, fields.total_factura || fields["total factura"] || "___________")
         .replace(/\{\{DDs\}\}/gi, fields.dds || "___________")
         .replace(/\{\{Mess\}\}/gi, fields.mess || "___________")
         .replace(/\{\{AAAAs\}\}/gi, fields.aaaas || "___________")
@@ -1697,7 +1769,8 @@
                 "<strong>Factura nº 1:</strong><br>" +
                 "• Número de factura: <strong>" + fields.factura + "</strong><br>" +
                 "• Fecha de facturación: " + fields.fecha_facturacion + "<br>" +
-                "• Importe facturado: <strong>" + (fields.importe_facturacion || "___________") + "</strong><br>";
+                "• Importe facturado: <strong>" + (fields.importe_facturacion || "___________") + "</strong><br>" +
+                "• Total Factura: <strong>" + (fields.total_factura || "___________") + "</strong><br>";
         
         var hasAdditional = false;
         var additionalHtml = "";
@@ -1705,12 +1778,14 @@
           var fKey = "factura" + idx;
           var fdKey = "fecha_facturacion" + idx;
           var impKey = "importe_facturacion" + idx;
+          var totKey = "total_factura" + idx;
           if (fields[fKey] && fields[fKey] !== "___________") {
             hasAdditional = true;
             additionalHtml += "<br><strong>Factura adicional nº " + idx + ":</strong><br>" +
                               "• Número de factura " + idx + ": <strong>" + fields[fKey] + "</strong><br>" +
                               "• Fecha de facturación " + idx + ": " + (fields[fdKey] || "___________") + "<br>" +
-                              "• Importe facturado " + idx + ": <strong>" + (fields[impKey] || "___________") + "</strong><br>";
+                              "• Importe facturado " + idx + ": <strong>" + (fields[impKey] || "___________") + "</strong><br>" +
+                              "• Total Factura " + idx + ": <strong>" + (fields[totKey] || "___________") + "</strong><br>";
           }
         }
         if (hasAdditional) {
@@ -1720,12 +1795,13 @@
         html += "<br>• Importe final (estimado/actual): <strong>" + (fields["importe final"] || fields["Importe final"] || "___________") + "</strong><br>";
         
         // Renderizar campos dinámicos adicionales (como Honorarios, Gastos, etc. provenientes de la tarjeta Importes)
-        var standardKeys = ["nombre", "dni", "domicilio", "telefono", "profesion", "observaciones", "fecha", "hora", "lugar", "ciudad", "matricula1", "aseguradora1", "matricula2", "aseguradora2", "parrafada", "fecha_sistema", "fecha_ultima", "fecha_cierre", "fecha_facturacion", "fecha_resolucion", "fecha_designa", "fecha_reclamacion", "fecha_apertura", "fecha_siniestro", "factura", "num_expediente", "secuencial", "importe final", "dds", "mess", "aaaas", "importe_facturacion"];
+        var standardKeys = ["nombre", "dni", "domicilio", "telefono", "profesion", "observaciones", "fecha", "hora", "lugar", "ciudad", "matricula1", "aseguradora1", "matricula2", "aseguradora2", "parrafada", "fecha_sistema", "fecha_ultima", "fecha_cierre", "fecha_facturacion", "fecha_resolucion", "fecha_designa", "fecha_reclamacion", "fecha_apertura", "fecha_siniestro", "factura", "num_expediente", "secuencial", "importe final", "dds", "mess", "aaaas", "importe_facturacion", "total_factura", "total factura"];
         // Añadir también las claves secuenciales a las standard para que no aparezcan en adicionales
         for (var s = 2; s <= 10; s++) {
           standardKeys.push("factura" + s);
           standardKeys.push("fecha_facturacion" + s);
           standardKeys.push("importe_facturacion" + s);
+          standardKeys.push("total_factura" + s);
         }
         
         var dynamicHtml = "";
@@ -1770,7 +1846,8 @@
                   "<strong>Factura nº 1:</strong><br>" +
                   "• Número de factura: <strong>" + fields.factura + "</strong><br>" +
                   "• Fecha de facturación: " + fields.fecha_facturacion + "<br>" +
-                  "• Importe facturado: <strong>" + (fields.importe_facturacion || "___________") + "</strong><br>";
+                  "• Importe facturado: <strong>" + (fields.importe_facturacion || "___________") + "</strong><br>" +
+                  "• Total Factura: <strong>" + (fields.total_factura || "___________") + "</strong><br>";
           
           var hasAdditional = false;
           var additionalHtml = "";
@@ -1778,12 +1855,14 @@
             var fKey = "factura" + idx;
             var fdKey = "fecha_facturacion" + idx;
             var impKey = "importe_facturacion" + idx;
+            var totKey = "total_factura" + idx;
             if (fields[fKey] && fields[fKey] !== "___________") {
               hasAdditional = true;
               additionalHtml += "<br><strong>Factura adicional nº " + idx + ":</strong><br>" +
                                 "• Número de factura " + idx + ": <strong>" + fields[fKey] + "</strong><br>" +
                                 "• Fecha de facturación " + idx + ": " + (fields[fdKey] || "___________") + "<br>" +
-                                "• Importe facturado " + idx + ": <strong>" + (fields[impKey] || "___________") + "</strong><br>";
+                                "• Importe facturado " + idx + ": <strong>" + (fields[impKey] || "___________") + "</strong><br>" +
+                                "• Total Factura " + idx + ": <strong>" + (fields[totKey] || "___________") + "</strong><br>";
             }
           }
           if (hasAdditional) {
@@ -1923,11 +2002,19 @@
           var today = new Date().toLocaleDateString('es-ES');
           var currentAmount = fields["importe a facturar"] || fields["Importe a facturar"] || fields["importe final"] || fields["Importe final"] || "___________";
 
+          // Calcular el total con impuestos
+          var taxPct = getTaxPercentage(fields);
+          var baseNum = parseSpanishFloat(currentAmount);
+          var totalNum = baseNum + (baseNum * taxPct / 100);
+          var currentTotal = formatSpanishCurrency(totalNum);
+
           // Sincronizar en los campos actuales para la compilación del Excel actual
           fields.factura = numFactura;
           fields.fecha_facturacion = today;
           fields.importe_facturado = currentAmount;
           fields.importe_facturacion = currentAmount;
+          fields.total_factura = currentTotal;
+          fields["total factura"] = currentTotal;
 
           statusDiv.textContent = 'Procesando factura ' + file.name + ' (' + numFactura + ')...';
           t.sizeTo(document.body).done();
@@ -1994,10 +2081,12 @@
                     forced.fecha_facturacion = today;
                     forced.factura = numFactura;
                     forced.importe_facturacion = currentAmount;
+                    forced.total_factura = currentTotal;
                   } else {
                     forced["fecha_facturacion" + seqIndex] = today;
                     forced["factura" + seqIndex] = numFactura;
                     forced["importe_facturacion" + seqIndex] = currentAmount;
+                    forced["total_factura" + seqIndex] = currentTotal;
                   }
                   
                   var targetHistoryListId = data.idListClientes || data.idList;
@@ -2007,7 +2096,7 @@
                   if (targetCardIdSaved) {
                     statusDiv.textContent = 'Guardando registro histórico de la factura ' + numFactura + '...';
                     t.sizeTo(document.body).done();
-                    return updateInvoicesTableOnCard(t, targetCardIdSaved, token, today, numFactura, fields.nombre, fields.dni, currentAmount);
+                    return updateInvoicesTableOnCard(t, targetCardIdSaved, token, today, numFactura, fields.nombre, fields.dni, currentAmount, currentTotal);
                   }
                 })
                 .then(function() {
@@ -2142,13 +2231,15 @@
                 { label: "**Fecha cierre expediente:**", prop: "fecha_cierre" },
                 { label: "**Fecha de facturación:**", prop: "fecha_facturacion" },
                 { label: "**Número de factura:**", prop: "factura" },
-                { label: "**Importe facturación:**", prop: "importe_facturacion" }
+                { label: "**Importe facturación:**", prop: "importe_facturacion" },
+                { label: "**Total factura:**", prop: "total_factura" }
               ];
 
               for (var idx = 2; idx <= 10; idx++) {
                 historyKeys.push({ label: "**Fecha de facturación " + idx + ":**", prop: "fecha_facturacion" + idx });
                 historyKeys.push({ label: "**Número de factura " + idx + ":**", prop: "factura" + idx });
                 historyKeys.push({ label: "**Importe facturación " + idx + ":**", prop: "importe_facturacion" + idx });
+                historyKeys.push({ label: "**Total factura " + idx + ":**", prop: "total_factura" + idx });
               }
 
               historyKeys = historyKeys.concat([
@@ -2220,7 +2311,7 @@
                 historyKeys.forEach(function (item) {
                   var isSequential = false;
                   for (var s = 2; s <= 10; s++) {
-                    if (item.prop === "fecha_facturacion" + s || item.prop === "factura" + s || item.prop === "importe_facturacion" + s) {
+                    if (item.prop === "fecha_facturacion" + s || item.prop === "factura" + s || item.prop === "importe_facturacion" + s || item.prop === "total_factura" + s) {
                       isSequential = true;
                       break;
                     }
@@ -2258,7 +2349,7 @@
                 historyKeys.forEach(function (item) {
                   var isSequential = false;
                   for (var s = 2; s <= 10; s++) {
-                    if (item.prop === "fecha_facturacion" + s || item.prop === "factura" + s || item.prop === "importe_facturacion" + s) {
+                    if (item.prop === "fecha_facturacion" + s || item.prop === "factura" + s || item.prop === "importe_facturacion" + s || item.prop === "total_factura" + s) {
                       isSequential = true;
                       break;
                     }

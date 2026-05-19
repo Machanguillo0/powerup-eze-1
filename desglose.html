@@ -856,7 +856,8 @@
                       var parts = item.name.split('|').map(function(s) { return s.trim(); });
                       var fNum = "Desconocida";
                       var fDate = "";
-                      var fAmount = "0 €";
+                      var fAmount = "0 €"; // Representa la base imponible
+                      var fTotal = "0 €"; // Representa el total con impuestos
                       
                       if (parts.length >= 2) {
                         fDate = parts[0];
@@ -866,7 +867,23 @@
                         } else {
                           fNum = parts[1];
                         }
-                        fAmount = parts[parts.length - 1];
+                        
+                        // Buscar parte Base
+                        var basePart = parts.find(function(p) { return p.indexOf('Base:') === 0; });
+                        if (basePart) {
+                          fAmount = basePart.substring(5).trim();
+                        } else {
+                          // Si no hay prefijo 'Base:', tomamos el último elemento (retrocompatible)
+                          fAmount = parts[parts.length - 1];
+                        }
+                        
+                        // Buscar parte Total
+                        var totalPart = parts.find(function(p) { return p.indexOf('Total:') === 0; });
+                        if (totalPart) {
+                          fTotal = totalPart.substring(6).trim();
+                        } else {
+                          fTotal = fAmount;
+                        }
                       }
                       
                       var cleanAmount = 0;
@@ -890,7 +907,7 @@
                       
                       var opt = document.createElement('option');
                       opt.value = cleanAmount;
-                      opt.textContent = `Factura ${fNum} (${fAmount})` + (fDate ? ` - ${fDate}` : '');
+                      opt.textContent = `Factura ${fNum} (Base: ${fAmount} | Total: ${fTotal})` + (fDate ? ` - ${fDate}` : '');
                       selectFactura.appendChild(opt);
                       addedCount++;
                     });
