@@ -1296,6 +1296,54 @@
             combinedFields.domicilio = clientFields.domicilio;
             combinedFields.fecha_apertura = clientFields.fecha_apertura;
 
+            // 5.5 Buscar y parsear la tarjeta de Historial de procesos desde el tablero de Clientes
+            var historyCard = cards.find(function (c) {
+              var n = c.name.toLowerCase();
+              return n.includes("historial de procesos") || n.includes("historial de avisos");
+            });
+
+            if (historyCard && historyCard.desc) {
+              var lines = historyCard.desc.split('\n');
+              lines.forEach(function (line) {
+                line = line.trim();
+                if (!line) return;
+                
+                var colonIndex = line.indexOf(':');
+                if (colonIndex > -1) {
+                  var k = line.substring(0, colonIndex).replace(/[*_~`#]/g, '').trim();
+                  var v = line.substring(colonIndex + 1).replace(/[*_~`#]/g, '').trim();
+                  if (k && v) {
+                    var mapKey = k.toLowerCase().replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                    
+                    // Mapear claves básicas
+                    if (mapKey === "fecha de facturación" || mapKey === "fecha de facturacion") {
+                      combinedFields.fecha_facturacion = v;
+                      combinedFields.fecha_facturado = v;
+                    } else if (mapKey === "número de factura" || mapKey === "numero de factura") {
+                      combinedFields.factura = v;
+                    } else if (mapKey === "importe facturación" || mapKey === "importe facturacion") {
+                      combinedFields.importe_facturacion = v;
+                      combinedFields.importe_facturado = v;
+                    } else {
+                      // Mapear claves secuenciales numeradas, ej: "fecha de facturación 2" -> "fecha_facturacion2"
+                      var numMatch = mapKey.match(/(fecha de facturación|fecha de facturacion|número de factura|numero de factura|importe facturación|importe facturacion)\s+(\d+)/);
+                      if (numMatch) {
+                        var base = numMatch[1];
+                        var num = numMatch[2];
+                        if (base.includes("fecha")) {
+                          combinedFields["fecha_facturacion" + num] = v;
+                        } else if (base.includes("número") || base.includes("numero")) {
+                          combinedFields["factura" + num] = v;
+                        } else if (base.includes("importe")) {
+                          combinedFields["importe_facturacion" + num] = v;
+                        }
+                      }
+                    }
+                  }
+                }
+              });
+            }
+
             return {
               fields: combinedFields,
               count: localData.count,
