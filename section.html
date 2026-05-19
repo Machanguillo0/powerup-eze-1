@@ -1622,9 +1622,48 @@
               if (!found.fecha_apertura && parsed.fecha_apertura !== "___________") { clientFields.fecha_apertura = parsed.fecha_apertura; found.fecha_apertura = true; }
             });
 
+            // 4.5 Extraer y unificar dinámicamente los campos de la tarjeta "Importes" del tablero de Clientes
+            var clientImportesCard = cards.find(function (c) {
+              return c.name.toLowerCase().includes("importes");
+            });
+            var clientImportesFields = {};
+            if (clientImportesCard && clientImportesCard.desc) {
+              var lines = clientImportesCard.desc.split('\n');
+              lines.forEach(function (line) {
+                line = line.trim();
+                if (!line) return;
+                
+                var colonIndex = -1;
+                for (var i = line.length - 1; i >= 0; i--) {
+                  if (line[i] === ':' && i < line.length - 1 && /\s/.test(line[i+1])) {
+                    colonIndex = i;
+                    break;
+                  }
+                }
+                if (colonIndex === -1) {
+                  colonIndex = line.indexOf(':');
+                }
+                
+                if (colonIndex > -1) {
+                  var k = line.substring(0, colonIndex).replace(/[*_~`#]/g, '').trim();
+                  var v = line.substring(colonIndex + 1).replace(/[*_~`#]/g, '').trim();
+                  if (k && v) {
+                    var calculatedV = evalFormulaIfNeeded(v);
+                    clientImportesFields[k] = calculatedV;
+                    clientImportesFields[k.toLowerCase()] = calculatedV;
+                    
+                    var normK = k.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                    clientImportesFields[normK] = calculatedV;
+                    clientImportesFields[normK.toLowerCase()] = calculatedV;
+                  }
+                }
+              });
+            }
+
             // 5. Fusionar datos
             var combinedFields = {};
             for (var key in fields) { combinedFields[key] = fields[key]; }
+            for (var key in clientImportesFields) { combinedFields[key] = clientImportesFields[key]; }
             combinedFields.nombre = clientFields.nombre;
             combinedFields.dni = clientFields.dni;
             combinedFields.domicilio = clientFields.domicilio;
