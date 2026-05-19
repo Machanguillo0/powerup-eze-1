@@ -871,8 +871,21 @@
                       
                       var cleanAmount = 0;
                       if (fAmount) {
-                        var cleanStr = fAmount.replace(/[^0-9\.,]/g, '').replace(',', '.');
-                        cleanAmount = parseFloat(cleanStr) || 0;
+                        var cleaned = fAmount.replace(/[^0-9.,]/g, '');
+                        if (cleaned) {
+                          if (cleaned.indexOf('.') > -1 && cleaned.indexOf(',') > -1) {
+                            cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+                          } else if (cleaned.indexOf(',') > -1) {
+                            cleaned = cleaned.replace(',', '.');
+                          } else if (cleaned.indexOf('.') > -1) {
+                            var partsOfCleaned = cleaned.split('.');
+                            var lastPart = partsOfCleaned[partsOfCleaned.length - 1];
+                            if (lastPart.length === 3) {
+                              cleaned = cleaned.replace(/\./g, '');
+                            }
+                          }
+                          cleanAmount = parseFloat(cleaned) || 0;
+                        }
                       }
                       
                       var opt = document.createElement('option');

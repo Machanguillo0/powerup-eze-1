@@ -1299,120 +1299,17 @@
         });
     }
 
-    // Función auxiliar para actualizar la tabla de relación de facturas en la descripción y la lista de comprobación nativa
+    // Función auxiliar para actualizar la lista de comprobación nativa en la tarjeta "Facturas"
     function updateInvoicesTableOnCard(t, targetCardId, token, today, numFactura, nombreCliente, dniCliente, importeTotal) {
       var appKey = t.getRestApi().appKey;
       
-      // Limpiar barras verticales | para no romper el formato de tabla de Markdown
+      // Limpiar barras verticales | para no romper el formato de texto
       var cleanNombre = (nombreCliente || "Cliente Desconocido").replace(/\|/g, " ");
       var cleanDni = (dniCliente || "___________").replace(/\|/g, " ");
       var cleanImporte = (importeTotal || "___________").replace(/\|/g, " ");
 
-      // 1. ACTUALIZAR TABLA EN LA DESCRIPCIÓN (Ideal para copiar y pegar directo a Excel)
-      var pTable = fetch(`https://api.trello.com/1/cards/${targetCardId}?key=${appKey}&token=${token}`)
-        .then(function(res) {
-          if (!res.ok) throw new Error("Error al obtener detalles de la tarjeta Facturas.");
-          return res.json();
-        })
-        .then(function(cardDetails) {
-          var desc = cardDetails.desc || "";
-          var lines = desc.split(/\r?\n/);
-          var rows = [];
-          var otherTextLinesBefore = [];
-          var otherTextLinesAfter = [];
-          var inTable = false;
-          
-          lines.forEach(function(line) {
-            var trimmed = line.trim();
-            if (trimmed.indexOf('|') === 0 && trimmed.lastIndexOf('|') === trimmed.length - 1) {
-              if (trimmed.toLowerCase().indexOf('fecha factura') > -1 || trimmed.indexOf(':---') > -1) {
-                inTable = true;
-              } else {
-                var parts = line.split('|').map(function(s) { return s.trim(); });
-                if (parts.length >= 6) {
-                  rows.push({
-                    fecha: parts[1],
-                    numero: parts[2],
-                    nombre: parts[3],
-                    dni: parts[4],
-                    importe: parts[5]
-                  });
-                }
-                inTable = true;
-              }
-            } else {
-              if (inTable && trimmed === "") {
-                // Saltarse líneas vacías dentro del bloque de la tabla
-              } else if (inTable) {
-                otherTextLinesAfter.push(line);
-              } else {
-                if (trimmed.indexOf('### Relación de Facturas') !== 0) {
-                  otherTextLinesBefore.push(line);
-                }
-              }
-            }
-          });
-
-          // Buscar si ya existe la factura para evitar duplicados
-          var existsIdx = -1;
-          for (var i = 0; i < rows.length; i++) {
-            if (rows[i].numero.trim().toLowerCase() === numFactura.trim().toLowerCase()) {
-              existsIdx = i;
-              break;
-            }
-          }
-
-          var newRow = {
-            fecha: today,
-            numero: numFactura,
-            nombre: cleanNombre,
-            dni: cleanDni,
-            importe: cleanImporte
-          };
-
-          if (existsIdx > -1) {
-            rows[existsIdx] = newRow;
-          } else {
-            rows.push(newRow);
-          }
-
-          var newLines = [];
-          var filteredBefore = [];
-          otherTextLinesBefore.forEach(function(l) {
-            if (l.trim() !== "") filteredBefore.push(l);
-          });
-          
-          filteredBefore.forEach(function(l) { newLines.push(l); });
-          
-          if (newLines.length > 0) {
-            newLines.push("");
-          }
-          
-          newLines.push("### Relación de Facturas Generadas");
-          newLines.push("");
-          newLines.push("| Fecha Factura | Número Factura | Nombre del cliente | DNI | Importe Total |");
-          newLines.push("| :--- | :--- | :--- | :--- | :--- |");
-          
-          rows.forEach(function(r) {
-            newLines.push(`| ${r.fecha} | ${r.numero} | ${r.nombre} | ${r.dni} | ${r.importe} |`);
-          });
-          
-          if (otherTextLinesAfter.length > 0) {
-            newLines.push("");
-            otherTextLinesAfter.forEach(function(l) { newLines.push(l); });
-          }
-
-          var finalDesc = newLines.join("\n");
-
-          return fetch(`https://api.trello.com/1/cards/${targetCardId}?key=${appKey}&token=${token}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({ desc: finalDesc })
-          });
-        });
-
-      // 2. ACTUALIZAR LISTA DE COMPROBACIÓN NATIVA (Interactiva y visual en Trello)
-      var pChecklist = fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?key=${appKey}&token=${token}`)
+      // ACTUALIZAR LISTA DE COMPROBACIÓN NATIVA (Interactiva y visual en Trello)
+      return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?key=${appKey}&token=${token}`)
         .then(function(chRes) {
           if (!chRes.ok) throw new Error("Error al obtener listas de comprobación de la tarjeta.");
           return chRes.json();
@@ -1460,8 +1357,6 @@
             });
           }
         });
-
-      return Promise.all([pTable, pChecklist]);
     }
 
     // Función auxiliar para obtener, incrementar y guardar el número secuencial de factura (evita duplicados de forma inteligente)
@@ -2592,7 +2487,7 @@
           e.preventDefault();
           e.stopPropagation();
           t.modal({
-            url: './desglose.html?v=43',
+            url: './desglose.html?v=44',
             height: 600,
             title: 'Desglose de Factura (Colegio LP 2012)',
             accentColor: '#1f845a'
