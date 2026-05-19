@@ -1299,10 +1299,17 @@
         });
     }
 
-    // Función auxiliar para actualizar la tabla de relación de facturas en la descripción de la tarjeta "Facturas"
+    // Función auxiliar para actualizar la tabla de relación de facturas en la descripción y la lista de comprobación nativa
     function updateInvoicesTableOnCard(t, targetCardId, token, today, numFactura, nombreCliente, dniCliente, importeTotal) {
       var appKey = t.getRestApi().appKey;
-      return fetch(`https://api.trello.com/1/cards/${targetCardId}?key=${appKey}&token=${token}`)
+      
+      // Limpiar barras verticales | para no romper el formato de tabla de Markdown
+      var cleanNombre = (nombreCliente || "Cliente Desconocido").replace(/\|/g, " ");
+      var cleanDni = (dniCliente || "___________").replace(/\|/g, " ");
+      var cleanImporte = (importeTotal || "___________").replace(/\|/g, " ");
+
+      // 1. ACTUALIZAR TABLA EN LA DESCRIPCIÓN (Ideal para copiar y pegar directo a Excel)
+      var pTable = fetch(`https://api.trello.com/1/cards/${targetCardId}?key=${appKey}&token=${token}`)
         .then(function(res) {
           if (!res.ok) throw new Error("Error al obtener detalles de la tarjeta Facturas.");
           return res.json();
@@ -1355,11 +1362,6 @@
             }
           }
 
-          // Limpiar barras verticales | para no romper el formato de tabla de Markdown
-          var cleanNombre = (nombreCliente || "Cliente Desconocido").replace(/\|/g, " ");
-          var cleanDni = (dniCliente || "___________").replace(/\|/g, " ");
-          var cleanImporte = (importeTotal || "___________").replace(/\|/g, " ");
-
           var newRow = {
             fecha: today,
             numero: numFactura,
@@ -1408,6 +1410,58 @@
             body: new URLSearchParams({ desc: finalDesc })
           });
         });
+
+      // 2. ACTUALIZAR LISTA DE COMPROBACIÓN NATIVA (Interactiva y visual en Trello)
+      var pChecklist = fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?key=${appKey}&token=${token}`)
+        .then(function(chRes) {
+          if (!chRes.ok) throw new Error("Error al obtener listas de comprobación de la tarjeta.");
+          return chRes.json();
+        })
+        .then(function(checklists) {
+          var targetChecklistName = "Relación de Facturas Generadas";
+          var ch = checklists.find(function(c) { return c.name === targetChecklistName; });
+          
+          var newItemText = `${today} | Nº: ${numFactura} | ${cleanNombre} | DNI: ${cleanDni} | ${cleanImporte}`;
+
+          if (ch) {
+            // Ya existe la lista de comprobación
+            var item = ch.checkItems.find(function(i) {
+              return i.name.indexOf(`Nº: ${numFactura}`) > -1 || i.name.indexOf(`Nº:  ${numFactura}`) > -1;
+            });
+            
+            if (item) {
+              // Actualizar elemento existente
+              var urlParams = new URLSearchParams({ name: newItemText });
+              return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklist/${ch.id}/checkItem/${item.id}?key=${appKey}&token=${token}&${urlParams.toString()}`, {
+                method: 'PUT'
+              });
+            } else {
+              // Crear nuevo elemento en la lista existente
+              var urlParams = new URLSearchParams({ name: newItemText });
+              return fetch(`https://api.trello.com/1/checklists/${ch.id}/checkItems?key=${appKey}&token=${token}&${urlParams.toString()}`, {
+                method: 'POST'
+              });
+            }
+          } else {
+            // Crear nueva lista de comprobación y luego el primer elemento
+            var urlParams = new URLSearchParams({ name: targetChecklistName });
+            return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?key=${appKey}&token=${token}&${urlParams.toString()}`, {
+              method: 'POST'
+            })
+            .then(function(newChRes) {
+              if (!newChRes.ok) throw new Error("Error al crear la lista de comprobación en Trello.");
+              return newChRes.json();
+            })
+            .then(function(newCh) {
+              var urlParamsItem = new URLSearchParams({ name: newItemText });
+              return fetch(`https://api.trello.com/1/checklists/${newCh.id}/checkItems?key=${appKey}&token=${token}&${urlParamsItem.toString()}`, {
+                method: 'POST'
+              });
+            });
+          }
+        });
+
+      return Promise.all([pTable, pChecklist]);
     }
 
     // Función auxiliar para obtener, incrementar y guardar el número secuencial de factura (evita duplicados de forma inteligente)
