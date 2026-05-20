@@ -844,6 +844,90 @@
       return fields;
     }
 
+    // Helper to parse checklist items from the "Relación de Facturas Generadas" checklist
+    function parseChecklistsToUnified(checklists, unified) {
+      var ch = checklists.find(function(c) {
+        var n = c.name.trim().toLowerCase();
+        return n === "relación de facturas generadas" || 
+               n === "relacion de facturas generadas" || 
+               n === "relaación de facturas generadas" || 
+               n === "relaacion de facturas generadas" ||
+               n.indexOf("relación de facturas") > -1 ||
+               n.indexOf("relacion de facturas") > -1 ||
+               n.indexOf("relaación de facturas") > -1;
+      });
+      if (ch && ch.checkItems && ch.checkItems.length > 0) {
+        unified._hasChecklistInvoices = true;
+        
+        // Limpiamos los campos de factura antiguos de unified
+        unified.factura = "___________";
+        unified.fecha_facturacion = "___________";
+        unified.importe_facturacion = "___________";
+        unified.total_factura = "___________";
+        unified.total_facturado = "___________";
+        unified.importe_facturado = "___________";
+        for (var s = 2; s <= 10; s++) {
+          delete unified["factura" + s];
+          delete unified["fecha_facturacion" + s];
+          delete unified["importe_facturacion" + s];
+          delete unified["total_factura" + s];
+        }
+        
+        var checkItems = ch.checkItems.concat().sort(function(a, b) {
+          return a.pos - b.pos;
+        });
+        
+        checkItems.forEach(function(item, index) {
+          var idx = index + 1;
+          var suffix = (idx === 1) ? '' : idx;
+          
+          var parts = item.name.split('|').map(function(s) { return s.trim(); });
+          if (parts.length >= 2) {
+            var fDate = parts[0] || "___________";
+            
+            var fNum = "___________";
+            var numPart = parts.find(function(p) { return /^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)/i.test(p); });
+            if (numPart) {
+              fNum = numPart.replace(/^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)\s*/i, '').trim();
+            } else {
+              fNum = parts[1] || "___________";
+            }
+            
+            var fAmount = "___________";
+            var basePart = parts.find(function(p) { return /^(?:Base:|Importe:)/i.test(p); });
+            if (basePart) {
+              fAmount = basePart.replace(/^(?:Base:|Importe:)\s*/i, '').trim();
+            } else {
+              fAmount = parts[parts.length - 1] || "___________";
+            }
+            
+            var fTotal = "___________";
+            var totalPart = parts.find(function(p) { return /^(?:Total:)/i.test(p); });
+            if (totalPart) {
+              fTotal = totalPart.replace(/^(?:Total:)\s*/i, '').trim();
+            } else {
+              fTotal = fAmount;
+            }
+            
+            unified["factura" + suffix] = fNum;
+            unified["fecha_facturacion" + suffix] = fDate;
+            unified["importe_facturacion" + suffix] = fAmount;
+            unified["total_factura" + suffix] = fTotal;
+            
+            if (idx === 1) {
+              unified.factura = fNum;
+              unified.fecha_facturacion = fDate;
+              unified.importe_facturacion = fAmount;
+              unified.importe_facturado = fAmount;
+              unified.total_factura = fTotal;
+              unified.total_facturado = fTotal;
+              unified["total factura"] = fTotal;
+            }
+          }
+        });
+      }
+    }
+
     // Función para obtener datos unificados de toda la lista
     function getUnifiedFields(t) {
       return t.card('id', 'idList').then(function (currentCard) {
@@ -1016,6 +1100,11 @@
             }
           });
 
+          var localFacturasCard = cardsInList.find(function(c) {
+            var nameLower = c.name.trim().toLowerCase();
+            return nameLower === "facturas" || nameLower === "facturación" || nameLower === "facturacion";
+          });
+
           // Buscar y parsear la tarjeta de Historial de procesos de forma dinámica
           var historyCard = cardsInList.find(function (c) {
             var n = c.name.toLowerCase();
@@ -1034,6 +1123,19 @@
                 var v = line.substring(colonIndex + 1).replace(/[*_~`#]/g, '').trim();
                 if (k && v) {
                   var mapKey = k.toLowerCase().replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                  
+                  // Si estamos en el tablero de Clientes (no hay tarjeta local de Facturas),
+                  // ignoramos el mapeo de cualquier clave de facturación desde el historial local
+                  // ya que su origen real debe ser la checklist del tablero de Facturación.
+                  var isInvoiceKey = mapKey === "fecha de facturación" || mapKey === "fecha de facturacion" ||
+                                     mapKey === "número de factura" || mapKey === "numero de factura" ||
+                                     mapKey === "importe facturación" || mapKey === "importe facturacion" ||
+                                     mapKey === "total factura" || mapKey === "total de factura" ||
+                                     /(fecha de facturación|fecha de facturacion|número de factura|numero de factura|importe facturación|importe facturacion|total factura|total de factura)\s+(\d+)/.test(mapKey);
+                  
+                  if (!localFacturasCard && isInvoiceKey) {
+                    return;
+                  }
                   
                   // Mapear claves básicas
                   if (mapKey === "fecha de facturación" || mapKey === "fecha de facturacion") {
@@ -1105,12 +1207,89 @@
               });
               
               if (!facturasCard) {
-                return { 
-                  fields: unified, 
-                  count: cardsInList.length,
-                  targetCardId: targetCardId || currentCardId,
-                  idList: idList
-                };
+                // Búsqueda cruzada en el tablero de FACTURACIÓN
+                var searchQuery = encodeURIComponent('name:"Tipo tablero"');
+                return fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
+                  .then(function(res) {
+                    if (!res.ok) throw new Error("Search failed");
+                    return res.json();
+                  })
+                  .then(function(searchData) {
+                    var cards = searchData.cards || [];
+                    var facturacionCard = cards.find(function(c) {
+                      var n = c.name.toUpperCase();
+                      return n.includes('TIPO TABLERO') && (n.includes('FACTURACIÓN') || n.includes('FACTURACION'));
+                    });
+                    if (!facturacionCard) {
+                      return { 
+                        fields: unified, 
+                        count: cardsInList.length,
+                        targetCardId: targetCardId || currentCardId,
+                        idList: idList
+                      };
+                    }
+                    var idBoardFacturacion = facturacionCard.idBoard;
+                    return fetch(`https://api.trello.com/1/boards/${idBoardFacturacion}/lists?key=${appKey}&token=${token}`)
+                      .then(function(res) {
+                        if (!res.ok) throw new Error("Boards lists fetch failed");
+                        return res.json();
+                      })
+                      .then(function(lists) {
+                        var billingList = lists.find(function(l) {
+                          return l.name.trim().toLowerCase() === listName.trim().toLowerCase();
+                        });
+                        if (!billingList) {
+                          return { 
+                            fields: unified, 
+                            count: cardsInList.length,
+                            targetCardId: targetCardId || currentCardId,
+                            idList: idList
+                          };
+                        }
+                        return fetch(`https://api.trello.com/1/lists/${billingList.id}/cards?key=${appKey}&token=${token}`)
+                          .then(function(res) {
+                            if (!res.ok) throw new Error("List cards fetch failed");
+                            return res.json();
+                          })
+                          .then(function(billingCards) {
+                            var facturasCardCross = billingCards.find(function(c) {
+                              var nameLower = c.name.trim().toLowerCase();
+                              return nameLower === "facturas" || nameLower === "facturación" || nameLower === "facturacion";
+                            });
+                            if (!facturasCardCross) {
+                              return { 
+                                fields: unified, 
+                                count: cardsInList.length,
+                                targetCardId: targetCardId || currentCardId,
+                                idList: idList
+                              };
+                            }
+                            return fetch(`https://api.trello.com/1/cards/${facturasCardCross.id}/checklists?key=${appKey}&token=${token}`)
+                              .then(function(res) {
+                                if (!res.ok) throw new Error("Checklists fetch failed");
+                                return res.json();
+                              })
+                              .then(function(checklists) {
+                                parseChecklistsToUnified(checklists, unified);
+                                return { 
+                                  fields: unified, 
+                                  count: cardsInList.length,
+                                  targetCardId: targetCardId || currentCardId,
+                                  idList: idList
+                                };
+                              });
+                          });
+                      });
+                  })
+                  .catch(function(err) {
+                    console.error("Error al buscar checklist cruzada de Facturación:", err);
+                    return { 
+                      fields: unified, 
+                      count: cardsInList.length,
+                      targetCardId: targetCardId || currentCardId,
+                      idList: idList
+                    };
+                  });
               }
               
               return fetch(`https://api.trello.com/1/cards/${facturasCard.id}/checklists?key=${appKey}&token=${token}`)
@@ -1119,87 +1298,7 @@
                   return res.json();
                 })
                 .then(function(checklists) {
-                  var ch = checklists.find(function(c) {
-                    var n = c.name.trim().toLowerCase();
-                    return n === "relación de facturas generadas" || 
-                           n === "relacion de facturas generadas" || 
-                           n === "relaación de facturas generadas" || 
-                           n === "relaacion de facturas generadas" ||
-                           n.indexOf("relación de facturas") > -1 ||
-                           n.indexOf("relacion de facturas") > -1 ||
-                           n.indexOf("relaación de facturas") > -1;
-                  });
-                  if (ch && ch.checkItems && ch.checkItems.length > 0) {
-                    unified._hasChecklistInvoices = true;
-                    
-                    // Limpiamos los campos de factura antiguos de unified
-                    unified.factura = "___________";
-                    unified.fecha_facturacion = "___________";
-                    unified.importe_facturacion = "___________";
-                    unified.total_factura = "___________";
-                    unified.total_facturado = "___________";
-                    unified.importe_facturado = "___________";
-                    for (var s = 2; s <= 10; s++) {
-                      delete unified["factura" + s];
-                      delete unified["fecha_facturacion" + s];
-                      delete unified["importe_facturacion" + s];
-                      delete unified["total_factura" + s];
-                    }
-                    
-                    var checkItems = ch.checkItems.concat().sort(function(a, b) {
-                      return a.pos - b.pos;
-                    });
-                    
-                    checkItems.forEach(function(item, index) {
-                      var idx = index + 1;
-                      var suffix = (idx === 1) ? '' : idx;
-                      
-                      var parts = item.name.split('|').map(function(s) { return s.trim(); });
-                      if (parts.length >= 2) {
-                        var fDate = parts[0] || "___________";
-                        
-                        var fNum = "___________";
-                        var numPart = parts.find(function(p) { return /^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)/i.test(p); });
-                        if (numPart) {
-                          fNum = numPart.replace(/^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)\s*/i, '').trim();
-                        } else {
-                          fNum = parts[1] || "___________";
-                        }
-                        
-                        var fAmount = "___________";
-                        var basePart = parts.find(function(p) { return /^(?:Base:|Importe:)/i.test(p); });
-                        if (basePart) {
-                          fAmount = basePart.replace(/^(?:Base:|Importe:)\s*/i, '').trim();
-                        } else {
-                          fAmount = parts[parts.length - 1] || "___________";
-                        }
-                        
-                        var fTotal = "___________";
-                        var totalPart = parts.find(function(p) { return /^(?:Total:)/i.test(p); });
-                        if (totalPart) {
-                          fTotal = totalPart.replace(/^(?:Total:)\s*/i, '').trim();
-                        } else {
-                          fTotal = fAmount;
-                        }
-                        
-                        unified["factura" + suffix] = fNum;
-                        unified["fecha_facturacion" + suffix] = fDate;
-                        unified["importe_facturacion" + suffix] = fAmount;
-                        unified["total_factura" + suffix] = fTotal;
-                        
-                        if (idx === 1) {
-                          unified.factura = fNum;
-                          unified.fecha_facturacion = fDate;
-                          unified.importe_facturacion = fAmount;
-                          unified.importe_facturado = fAmount;
-                          unified.total_factura = fTotal;
-                          unified.total_facturado = fTotal;
-                          unified["total factura"] = fTotal;
-                        }
-                      }
-                    });
-                  }
-                  
+                  parseChecklistsToUnified(checklists, unified);
                   return { 
                     fields: unified, 
                     count: cardsInList.length,
@@ -1207,14 +1306,6 @@
                     idList: idList
                   };
                 });
-            }).catch(function(err) {
-              console.error("Error al obtener el token en getUnifiedFields:", err);
-              return { 
-                fields: unified, 
-                count: cardsInList.length,
-                targetCardId: targetCardId || currentCardId,
-                idList: idList
-              };
             });
           }).catch(function(err) {
             console.error("Error de autorización en getUnifiedFields:", err);
@@ -1444,8 +1535,39 @@
                 "• Matrícula 1 (Propio): " + fields.matricula1 + "<br>" +
                 "• Aseguradora 1: " + fields.aseguradora1 + "<br>" +
                 "• Matrícula 2 (Contrario): " + fields.matricula2 + "<br>" +
-                "• Aseguradora 2: " + fields.aseguradora2 + "<br><br>" +
-                "<strong>Descripción Acumulada:</strong><br>" + 
+                "• Aseguradora 2: " + fields.aseguradora2 + "<br><br>";
+
+        // Renderizar el bloque de facturas secuenciales (1 a 10) si existen
+        if (fields.factura && fields.factura !== "___________") {
+          html += "<strong>Factura nº 1:</strong><br>" +
+                  "• Número de factura: <strong>" + fields.factura + "</strong><br>" +
+                  "• Fecha de facturación: " + fields.fecha_facturacion + "<br>" +
+                  "• Importe facturado: <strong>" + (fields.importe_facturacion || "___________") + "</strong><br>" +
+                  "• Total Factura: <strong>" + (fields.total_factura || "___________") + "</strong><br>";
+          
+          var hasAdditional = false;
+          var additionalHtml = "";
+          for (var idx = 2; idx <= 10; idx++) {
+            var fKey = "factura" + idx;
+            var fdKey = "fecha_facturacion" + idx;
+            var impKey = "importe_facturacion" + idx;
+            var totKey = "total_factura" + idx;
+            if (fields[fKey] && fields[fKey] !== "___________") {
+              hasAdditional = true;
+              additionalHtml += "<br><strong>Factura adicional nº " + idx + ":</strong><br>" +
+                                "• Número de factura " + idx + ": <strong>" + fields[fKey] + "</strong><br>" +
+                                "• Fecha de facturación " + idx + ": " + (fields[fdKey] || "___________") + "<br>" +
+                                "• Importe facturado " + idx + ": <strong>" + (fields[impKey] || "___________") + "</strong><br>" +
+                                "• Total Factura " + idx + ": <strong>" + (fields[totKey] || "___________") + "</strong><br>";
+            }
+          }
+          if (hasAdditional) {
+            html += additionalHtml;
+          }
+          html += "<br>";
+        }
+
+        html += "<strong>Descripción Acumulada:</strong><br>" + 
                 "<div style='margin-top: 5px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; white-space: pre-wrap; font-family: monospace;'>" + (fields.parrafada || "(Sin descripción)") + "</div>";
         
         container.innerHTML = html;
