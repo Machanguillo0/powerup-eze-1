@@ -189,6 +189,29 @@
     button.primary:hover {
       background-color: #166b44;
     }
+    
+    .resto-panel {
+      margin-top: 15px;
+      background-color: #ebecf0;
+      border: 1px solid #dfe1e6;
+      border-radius: 3px;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .resto-label {
+      font-weight: 600;
+      font-size: 13px;
+      color: #5e6c84;
+    }
+    
+    .resto-amount {
+      font-weight: 700;
+      font-size: 15px;
+      color: #42526e;
+    }
   </style>
 </head>
 <body>
@@ -368,6 +391,12 @@
       <div class="value-badge" id="val-recargo-costas">0,00 €</div>
     </div>
 
+  </div>
+
+  <!-- Panel de Resto (Importe base ajustado) -->
+  <div class="resto-panel" id="resto-panel">
+    <div class="resto-label">Importe base ajustado (Resto):</div>
+    <div class="resto-amount" id="desglose-resto">0,00 €</div>
   </div>
 
   <!-- Panel de Total -->
@@ -897,7 +926,16 @@
         total += valRecargo;
       }
 
-      labelTotal.textContent = total.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+      // 4. Calcular Importe base ajustado (Resto)
+      var resto = 0;
+      var finalTotal = total;
+      if (base > total) {
+        resto = base - total;
+        finalTotal = base;
+      }
+
+      document.getElementById('desglose-resto').textContent = resto.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+      labelTotal.textContent = finalTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
     }
 
     // Registrar Eventos de Re-cálculo
@@ -1095,26 +1133,37 @@
       lines.push('Conceptos incluidos:');
 
       var itemsSelectedCount = 0;
+      var sumaConceptos = 0;
 
       // 1. Fijos
       if (chkConsultaSimple.checked) {
-        lines.push('- Consulta simple o telefónica: 76,23 €');
+        var val = parseFloat(chkConsultaSimple.getAttribute('data-val'));
+        lines.push('- Consulta simple o telefónica: ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        sumaConceptos += val;
         itemsSelectedCount++;
       }
       if (chkConsultaCompleja.checked) {
-        lines.push('- Consulta compleja o examen de documentos: 135,14 €');
+        var val = parseFloat(chkConsultaCompleja.getAttribute('data-val'));
+        lines.push('- Consulta compleja o examen de documentos: ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        sumaConceptos += val;
         itemsSelectedCount++;
       }
       if (chkSalidaMisma.checked) {
-        lines.push('- Salida de despacho (Misma localidad): 65,84 €');
+        var val = parseFloat(chkSalidaMisma.getAttribute('data-val'));
+        lines.push('- Salida de despacho (Misma localidad): ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        sumaConceptos += val;
         itemsSelectedCount++;
       }
       if (chkSalidaFuera.checked) {
-        lines.push('- Salida de despacho (Media jornada fuera): 117,81 €');
+        var val = parseFloat(chkSalidaFuera.getAttribute('data-val'));
+        lines.push('- Salida de despacho (Media jornada fuera): ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        sumaConceptos += val;
         itemsSelectedCount++;
       }
       if (chkMonitorio.checked) {
-        lines.push('- Petición inicial de Proceso Monitorio: 165,00 €');
+        var val = parseFloat(chkMonitorio.getAttribute('data-val'));
+        lines.push('- Petición inicial de Proceso Monitorio: ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        sumaConceptos += val;
         itemsSelectedCount++;
       }
 
@@ -1124,18 +1173,25 @@
 
       if (chkPrincipal100.checked) {
         lines.push('- Procedimiento Principal (100% Criterio 35): ' + base35.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        sumaConceptos += base35;
         itemsSelectedCount++;
       }
       if (chkPrincipalDemanda.checked) {
-        lines.push('- Fase Demanda (50% Criterio 35): ' + (Math.round(base35 * 0.5 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        var valDem = Math.round(base35 * 0.5 * 100) / 100;
+        lines.push('- Fase Demanda (50% Criterio 35): ' + valDem.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        sumaConceptos += valDem;
         itemsSelectedCount++;
       }
       if (chkPrincipalAudiencia.checked) {
-        lines.push('- Fase Audiencia Previa (10% Criterio 35): ' + (Math.round(base35 * 0.1 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        var valAud = Math.round(base35 * 0.1 * 100) / 100;
+        lines.push('- Fase Audiencia Previa (10% Criterio 35): ' + valAud.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        sumaConceptos += valAud;
         itemsSelectedCount++;
       }
       if (chkPrincipalJuicio.checked) {
-        lines.push('- Fase Juicio/Vista (40% Criterio 35): ' + (Math.round(base35 * 0.4 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        var valJui = Math.round(base35 * 0.4 * 100) / 100;
+        lines.push('- Fase Juicio/Vista (40% Criterio 35): ' + valJui.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        sumaConceptos += valJui;
         itemsSelectedCount++;
       }
 
@@ -1148,11 +1204,13 @@
       if (chkEjecucionSin.checked) {
         var valSin = Math.round(base36 * 0.5 * 100) / 100;
         lines.push('- Ejecución sin Oposición (50% Criterio 36): ' + valSin.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        sumaConceptos += valSin;
         sumaEscalasActivas += valSin;
         itemsSelectedCount++;
       }
       if (chkEjecucionCon.checked) {
         lines.push('- Ejecución con Oposición (100% Criterio 35): ' + base35.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        sumaConceptos += base35;
         sumaEscalasActivas += base35;
         itemsSelectedCount++;
       }
@@ -1160,12 +1218,14 @@
       if (chkApelacionMismo.checked) {
         var valApMismo = Math.round(base35 * 0.5 * 100) / 100;
         lines.push('- Apelación (Mismo Letrado) (50% Criterio 71): ' + valApMismo.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        sumaConceptos += valApMismo;
         sumaEscalasActivas += valApMismo;
         itemsSelectedCount++;
       }
       if (chkApelacionOtro.checked) {
         var valApOtro = Math.round(base35 * 0.6 * 100) / 100;
         lines.push('- Apelación (Otro Letrado) (60% Criterio 71): ' + valApOtro.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        sumaConceptos += valApOtro;
         sumaEscalasActivas += valApOtro;
         itemsSelectedCount++;
       }
@@ -1173,6 +1233,15 @@
       if (chkRecargoCostas.checked) {
         var valRecargo = Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
         lines.push('- Recargo Oficial de Costas (+15%): ' + valRecargo.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        sumaConceptos += valRecargo;
+        itemsSelectedCount++;
+      }
+
+      // 3. Importe base ajustado (Resto) si aplica
+      var resto = 0;
+      if (base > sumaConceptos) {
+        resto = base - sumaConceptos;
+        lines.push('- Importe base ajustado (Resto): ' + resto.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
         itemsSelectedCount++;
       }
 
