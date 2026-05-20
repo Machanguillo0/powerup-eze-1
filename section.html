@@ -2566,6 +2566,11 @@
                 var lines = desc.split('\n');
                 var values = {};
 
+                var localFacturasCard = cards.find(function(c) {
+                  var nameLower = c.name.trim().toLowerCase();
+                  return nameLower === "facturas" || nameLower === "facturación" || nameLower === "facturacion";
+                });
+
                 // Extraer valores actuales
                 historyKeys.forEach(function (item) {
                   var regex = new RegExp(item.label.replace(/\*/g, '\\*') + "\\s*([^\\n]*)", "i");
@@ -2575,6 +2580,17 @@
                   // Sincronizar si está vacío en la tarjeta pero tenemos el dato unificado
                   if (values[item.prop] === "___________" && unified[item.prop] && unified[item.prop] !== "___________") {
                     values[item.prop] = unified[item.prop];
+                  }
+
+                  // Si tenemos facturas provenientes de la checklist o si estamos en el tablero de Clientes (sin tarjeta Facturas local),
+                  // forzamos a que el historial de procesos use ÚNICAMENTE lo que tiene unified para los campos de factura,
+                  // limpiando cualquier dato residual acumulado.
+                  var isInvoiceProp = item.prop === "fecha_facturacion" || item.prop === "factura" ||
+                                      item.prop === "importe_facturacion" || item.prop === "total_factura" ||
+                                      /^(fecha_facturacion|factura|importe_facturacion|total_factura)\d+$/.test(item.prop);
+                  
+                  if (isInvoiceProp && (unified._hasChecklistInvoices || !localFacturasCard)) {
+                    values[item.prop] = unified[item.prop] || "___________";
                   }
                   
                   // Aplicar campos forzados (triggers de documentos)
