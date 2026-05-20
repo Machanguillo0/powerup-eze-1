@@ -1999,7 +1999,7 @@
                 if (cleanK.indexOf("impuesto") > -1 || cleanK.indexOf("porcentaje") > -1) {
                   var numVal = parseFloat(String(val).replace(',', '.'));
                   if (!isNaN(numVal) && numVal > 0 && numVal < 1) {
-                    val = (numVal * 100) + "%";
+                    val = Math.round(numVal * 100) + "%";
                   }
                 }
                 
