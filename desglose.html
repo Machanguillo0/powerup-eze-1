@@ -169,6 +169,11 @@
       font-size: 13px;
       border: none;
       box-sizing: border-box;
+      transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+    }
+    
+    button:active {
+      transform: scale(0.97);
     }
     
     button.secondary {
@@ -190,6 +195,7 @@
     
     button.primary:hover {
       background-color: #166b44;
+      box-shadow: 0 4px 8px rgba(31, 132, 90, 0.2);
     }
     
     .resto-panel {
@@ -418,7 +424,7 @@
       Copiar desglose 📋
     </button>
     <input type="file" id="excel-desglose-upload" accept=".xlsx" style="display: none;">
-    <button id="btn-desglose-excel" class="primary" style="background-color: #0079bf; display: flex; align-items: center; gap: 6px;">
+    <button id="btn-desglose-excel" class="primary" style="display: flex; align-items: center; gap: 6px;">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
         <polyline points="14 2 14 8 20 8"></polyline>
@@ -496,6 +502,283 @@
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:NÚMERO DE FACTURA|Numero de factura|Nº Factura|Nº de Factura)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.factura = m[1].replace(/[*_~`]/g, '').trim(); }
 
       return fields;
+    }
+
+    // Helper para escapar caracteres especiales de expresiones regulares
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // Función para evaluar expresiones matemáticas de forma segura
+    function evalFormulaIfNeeded(val) {
+      if (!val) return val;
+      var trimmed = val.trim();
+      
+      // 1. Excluir explícitamente fechas (ej: 18/05/2026 o 18-05-2026)
+      if (/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/.test(trimmed)) {
+        return trimmed;
+      }
+      
+      // 2. Excluir si contiene letras del abecedario (es texto literal)
+      if (/[a-zA-ZáéíóúÁÉÍÓÚñÑ]/.test(trimmed)) {
+        return trimmed;
+      }
+
+      // 3. Excluir si tiene estructura de número de teléfono (ej. empieza por + y solo tiene espacios y números)
+      if (/^\+[0-9\s]+$/.test(trimmed)) {
+        return trimmed;
+      }
+      
+      // 4. Verificar si es una expresión matemática válida
+      if (/^[0-9\s\+\-\*\/\.\(\)\%]+$/.test(trimmed)) {
+        try {
+          var expr = trimmed.replace(/%/g, '/100');
+          var result = new Function('return ' + expr)();
+          if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
+            // Redondear a 2 decimales para importes
+            return String(Math.round(result * 100) / 100);
+          }
+        } catch (e) {
+          return trimmed;
+        }
+      }
+      
+      return trimmed;
+    }
+
+    // Función auxiliar para obtener o crear la tarjeta "Facturas" en la segunda posición de la lista
+    function getOrCreateFacturasCard(t, idList, token) {
+      var appKey = t.getRestApi().appKey;
+      return fetch(`https://api.trello.com/1/lists/${idList}/cards?key=${appKey}&token=${token}`)
+        .then(function(res) {
+          if (!res.ok) throw new Error("Error al consultar las tarjetas de la lista.");
+          return res.json();
+        })
+        .then(function(cards) {
+          // 1. Buscar si ya existe la tarjeta "Facturas"
+          var facturasCard = cards.find(function(c) {
+            return c.name.trim().toLowerCase() === "facturas";
+          });
+          if (facturasCard) return facturasCard.id;
+          
+          // 2. Si no existe, calculamos la posición para que sea la SEGUNDA tarjeta de la lista
+          var newPos = 'top';
+          if (cards.length > 1) {
+            newPos = (cards[0].pos + cards[1].pos) / 2;
+          } else if (cards.length === 1) {
+            newPos = cards[0].pos + 16384;
+          }
+          
+          // 3. Crear la tarjeta "Facturas" con la posición calculada
+          return fetch(`https://api.trello.com/1/cards?idList=${idList}&name=Facturas&pos=${newPos}&key=${appKey}&token=${token}`, {
+            method: 'POST'
+          })
+          .then(function(createRes) {
+            if (!createRes.ok) throw new Error("Error al crear la tarjeta Facturas.");
+            return createRes.json();
+          })
+          .then(function(newCard) {
+            return newCard.id;
+          });
+        });
+    }
+
+    // Helper para obtener y unificar de forma asíncrona datos cruzados del Tablero de Clientes y la tarjeta local de Importes
+    function getCrossBoardBillingData(t) {
+      return Promise.all([
+        getUnifiedFields(t),
+        t.getRestApi().getToken(),
+        t.list('all')
+      ]).then(function (results) {
+        var localData = results[0];
+        var token = results[1];
+        var currentListName = results[2].name;
+        var fields = localData.fields;
+        var appKey = t.getRestApi().appKey;
+
+        if (!token) {
+          throw new Error('REQUIRED_AUTHORIZATION');
+        }
+
+        // 1. Buscar el tablero configurado como "CLIENTES"
+        var searchQuery = encodeURIComponent('name:"Tipo tablero"');
+        return fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
+          .then(function (res) { return res.json(); })
+          .then(function (searchData) {
+            var cards = searchData.cards || [];
+            var clientesCard = cards.find(function(c) {
+              var n = c.name.toUpperCase();
+              return n.includes('TIPO TABLERO') && n.includes('CLIENTES');
+            });
+            
+            if (!clientesCard) {
+              throw new Error('No se encontró ningún tablero configurado como "CLIENTES". Asegúrate de tener la tarjeta "Tipo tablero CLIENTES" en el tablero correspondiente.');
+            }
+            return clientesCard.idBoard;
+          })
+          .then(function (idBoardClientes) {
+            // 2. Obtener listas del tablero de Clientes
+            return fetch(`https://api.trello.com/1/boards/${idBoardClientes}/lists?key=${appKey}&token=${token}`)
+              .then(function (res) { return res.json(); })
+              .then(function (lists) {
+                var clientList = lists.find(function(l) {
+                  return l.name.trim().toLowerCase() === currentListName.trim().toLowerCase();
+                });
+                
+                if (!clientList) {
+                  throw new Error('No se encontró ninguna lista llamada "' + currentListName + '" en el tablero de Clientes.');
+                }
+                return clientList.id;
+              });
+          })
+          .then(function (idListClientes) {
+            // 3. Obtener tarjetas de esa lista en Clientes
+            return fetch(`https://api.trello.com/1/lists/${idListClientes}/cards?fields=name,desc&key=${appKey}&token=${token}`)
+              .then(function (res) { return res.json(); })
+              .then(function (clientCards) {
+                return {
+                  idListClientes: idListClientes,
+                  clientCards: clientCards
+                };
+              });
+          })
+          .then(function (cardsData) {
+            var idListClientes = cardsData.idListClientes;
+            var clientCards = cardsData.clientCards;
+            // 4. Extraer y unificar los datos personales desde las tarjetas de Clientes
+            var clientFields = {
+              nombre: "___________",
+              dni: "___________",
+              domicilio: "___________",
+              fecha_apertura: "___________"
+            };
+            var found = { nombre: false, dni: false, domicilio: false, fecha_apertura: false };
+            
+            var cards = clientCards || [];
+            cards.sort(function(a, b) {
+              var aScore = a.name.toLowerCase().includes("datos personales") ? 100 : 0;
+              var bScore = b.name.toLowerCase().includes("datos personales") ? 100 : 0;
+              return bScore - aScore;
+            });
+            
+            cards.forEach(function(card) {
+              var parsed = extractFields(card.desc);
+              if (!found.nombre && parsed.nombre !== "Cliente Desconocido") { clientFields.nombre = parsed.nombre; found.nombre = true; }
+              if (!found.dni && parsed.dni !== "___________") { clientFields.dni = parsed.dni; found.dni = true; }
+              if (!found.domicilio && parsed.domicilio !== "___________") { clientFields.domicilio = parsed.domicilio; found.domicilio = true; }
+              if (!found.fecha_apertura && parsed.fecha_apertura !== "___________") { clientFields.fecha_apertura = parsed.fecha_apertura; found.fecha_apertura = true; }
+            });
+
+            // 4.5 Extraer y unificar dinámicamente los campos de la tarjeta "Importes" del tablero de Clientes
+            var clientImportesCard = cards.find(function (c) {
+              return c.name.toLowerCase().includes("importes");
+            });
+            var clientImportesFields = {};
+            if (clientImportesCard && clientImportesCard.desc) {
+              var lines = clientImportesCard.desc.split('\n');
+              lines.forEach(function (line) {
+                line = line.trim();
+                if (!line) return;
+                
+                var colonIndex = -1;
+                for (var i = line.length - 1; i >= 0; i--) {
+                  if (line[i] === ':' && i < line.length - 1 && /\s/.test(line[i+1])) {
+                    colonIndex = i;
+                    break;
+                  }
+                }
+                if (colonIndex === -1) {
+                  colonIndex = line.indexOf(':');
+                }
+                
+                if (colonIndex > -1) {
+                  var k = line.substring(0, colonIndex).replace(/[*_~`#]/g, '').trim();
+                  var v = line.substring(colonIndex + 1).replace(/[*_~`#]/g, '').trim();
+                  if (k && v) {
+                    var calculatedV = evalFormulaIfNeeded(v);
+                    clientImportesFields[k] = calculatedV;
+                    clientImportesFields[k.toLowerCase()] = calculatedV;
+                    
+                    var normK = k.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                    clientImportesFields[normK] = calculatedV;
+                    clientImportesFields[normK.toLowerCase()] = calculatedV;
+                  }
+                }
+              });
+            }
+
+            // 5. Fusionar datos
+            var combinedFields = {};
+            for (var key in fields) { combinedFields[key] = fields[key]; }
+            for (var key in clientImportesFields) { combinedFields[key] = clientImportesFields[key]; }
+            combinedFields.nombre = clientFields.nombre;
+            combinedFields.dni = clientFields.dni;
+            combinedFields.domicilio = clientFields.domicilio;
+            combinedFields.fecha_apertura = clientFields.fecha_apertura;
+
+            // 5.5 Buscar y parsear la tarjeta de Historial de procesos desde el tablero de Clientes
+            var historyCard = cards.find(function (c) {
+              var n = c.name.toLowerCase();
+              return n.includes("historial de procesos") || n.includes("historial de avisos");
+            });
+
+            if (!combinedFields._hasChecklistInvoices && historyCard && historyCard.desc) {
+              var lines = historyCard.desc.split('\n');
+              lines.forEach(function (line) {
+                line = line.trim();
+                if (!line) return;
+                
+                var colonIndex = line.indexOf(':');
+                if (colonIndex > -1) {
+                  var k = line.substring(0, colonIndex).replace(/[*_~`#]/g, '').trim();
+                  var v = line.substring(colonIndex + 1).replace(/[*_~`#]/g, '').trim();
+                  if (k && v) {
+                    var mapKey = k.toLowerCase().replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                    
+                    // Mapear claves básicas
+                    if (mapKey === "fecha de facturación" || mapKey === "fecha de facturacion") {
+                      combinedFields.fecha_facturacion = v;
+                      combinedFields.fecha_facturado = v;
+                    } else if (mapKey === "número de factura" || mapKey === "numero de factura") {
+                      combinedFields.factura = v;
+                    } else if (mapKey === "importe facturación" || mapKey === "importe facturacion") {
+                      combinedFields.importe_facturacion = v;
+                      combinedFields.importe_facturado = v;
+                    } else if (mapKey === "total factura" || mapKey === "total de factura") {
+                      combinedFields.total_factura = v;
+                      combinedFields.total_facturado = v;
+                    } else {
+                      // Mapear claves secuenciales numeradas, ej: "fecha de facturación 2" -> "fecha_facturacion2"
+                      var numMatch = mapKey.match(/(fecha de facturación|fecha de facturacion|número de factura|numero de factura|importe facturación|importe facturacion|total factura|total de factura)\s+(\d+)/);
+                      if (numMatch) {
+                        var base = numMatch[1];
+                        var num = numMatch[2];
+                        if (base.includes("fecha")) {
+                          combinedFields["fecha_facturacion" + num] = v;
+                        } else if (base.includes("número") || base.includes("numero")) {
+                          combinedFields["factura" + num] = v;
+                        } else if (base.includes("importe")) {
+                          combinedFields["importe_facturacion" + num] = v;
+                        } else if (base.includes("total")) {
+                          combinedFields["total_factura" + num] = v;
+                        }
+                      }
+                    }
+                  }
+                }
+              });
+            }
+
+            return {
+              fields: combinedFields,
+              count: localData.count,
+              targetCardId: localData.targetCardId,
+              idList: localData.idList,
+              idListClientes: idListClientes,
+              token: token
+            };
+          });
+      });
     }
 
     function getUnifiedFields(t) {
@@ -623,7 +906,7 @@
           var appKey = t.getRestApi().appKey;
           return t.getRestApi().isAuthorized().then(function(auth) {
             if (!auth) {
-              return { fields: unified };
+              return { fields: unified, idList: idList };
             }
             
             return t.getRestApi().getToken().then(function(token) {
@@ -633,7 +916,7 @@
               });
               
               if (!facturasCard) {
-                return { fields: unified };
+                return { fields: unified, idList: idList };
               }
               
               return fetch(`https://api.trello.com/1/cards/${facturasCard.id}/checklists?key=${appKey}&token=${token}`)
@@ -723,15 +1006,15 @@
                     });
                   }
                   
-                  return { fields: unified };
+                  return { fields: unified, idList: idList };
                 });
             }).catch(function(err) {
               console.error("Error al obtener el token en getUnifiedFields:", err);
-              return { fields: unified };
+              return { fields: unified, idList: idList };
             });
           }).catch(function(err) {
             console.error("Error de autorización en getUnifiedFields:", err);
-            return { fields: unified };
+            return { fields: unified, idList: idList };
           });
         });
       });
@@ -1071,6 +1354,10 @@
                       var opt = document.createElement('option');
                       opt.value = cleanAmount;
                       opt.textContent = `Factura ${fNum} (Base: ${fAmount} | Total: ${fTotal})`;
+                      opt.setAttribute('data-num', fNum);
+                      opt.setAttribute('data-date', fDate);
+                      opt.setAttribute('data-amount', fAmount);
+                      opt.setAttribute('data-total', fTotal);
                       selectFactura.appendChild(opt);
                       addedCount++;
                     });
@@ -1093,8 +1380,11 @@
       // 1. Cargar facturas desde la lista de comprobación
       loadInvoicesFromChecklist(t);
 
-      // 2. Cargar cuantía inicial desde la tarjeta de Importes si existe
-      return getUnifiedFields(t).then(function(data) {
+      // 2. Cargar cuantía inicial desde la tarjeta de Importes si existe (usando getCrossBoardBillingData con fallback a getUnifiedFields)
+      return getCrossBoardBillingData(t).catch(function(err) {
+        console.warn("No se pudieron obtener datos cruzados para la cuantía inicial, usando locales:", err);
+        return getUnifiedFields(t);
+      }).then(function(data) {
         if (data && data.fields) {
           var fields = data.fields;
           var baseAmount = 0;
@@ -1106,7 +1396,7 @@
               break;
             }
           }
-          if (baseAmount > 0 && parseFloat(inputCuantiva.value) === 0) {
+          if (baseAmount > 0 && (!inputCuantiva.value || parseFloat(inputCuantiva.value) === 0)) {
             inputCuantiva.value = baseAmount;
           }
         }
@@ -1321,58 +1611,66 @@
 
     btnExcel.addEventListener('click', function(e) {
       e.preventDefault();
-      var base = parseFloat(inputCuantiva.value) || 0;
       
-      var itemsCount = 0;
-      if (chkConsultaSimple.checked) itemsCount++;
-      if (chkConsultaCompleja.checked) itemsCount++;
-      if (chkSalidaMisma.checked) itemsCount++;
-      if (chkSalidaFuera.checked) itemsCount++;
-      if (chkMonitorio.checked) itemsCount++;
-      if (chkPrincipal100.checked) itemsCount++;
-      if (chkPrincipalDemanda.checked) itemsCount++;
-      if (chkPrincipalAudiencia.checked) itemsCount++;
-      if (chkPrincipalJuicio.checked) itemsCount++;
-      if (chkEjecucionSin.checked) itemsCount++;
-      if (chkEjecucionCon.checked) itemsCount++;
-      if (chkApelacionMismo.checked) itemsCount++;
-      if (chkApelacionOtro.checked) itemsCount++;
-      if (chkRecargoCostas.checked) itemsCount++;
+      // Comprobar autorización primero para una experiencia de usuario (UX) óptima
+      t.getRestApi().isAuthorized().then(function(auth) {
+        if (!auth) {
+          return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
+        }
+        
+        var base = parseFloat(inputCuantiva.value) || 0;
+        
+        var itemsCount = 0;
+        if (chkConsultaSimple.checked) itemsCount++;
+        if (chkConsultaCompleja.checked) itemsCount++;
+        if (chkSalidaMisma.checked) itemsCount++;
+        if (chkSalidaFuera.checked) itemsCount++;
+        if (chkMonitorio.checked) itemsCount++;
+        if (chkPrincipal100.checked) itemsCount++;
+        if (chkPrincipalDemanda.checked) itemsCount++;
+        if (chkPrincipalAudiencia.checked) itemsCount++;
+        if (chkPrincipalJuicio.checked) itemsCount++;
+        if (chkEjecucionSin.checked) itemsCount++;
+        if (chkEjecucionCon.checked) itemsCount++;
+        if (chkApelacionMismo.checked) itemsCount++;
+        if (chkApelacionOtro.checked) itemsCount++;
+        if (chkRecargoCostas.checked) itemsCount++;
 
-      var totalConceptos = 0;
-      if (chkConsultaSimple.checked) totalConceptos += 76.23;
-      if (chkConsultaCompleja.checked) totalConceptos += 135.14;
-      if (chkSalidaMisma.checked) totalConceptos += 65.84;
-      if (chkSalidaFuera.checked) totalConceptos += 117.81;
-      if (chkMonitorio.checked) totalConceptos += 165.00;
+        var totalConceptos = 0;
+        if (chkConsultaSimple.checked) totalConceptos += 76.23;
+        if (chkConsultaCompleja.checked) totalConceptos += 135.14;
+        if (chkSalidaMisma.checked) totalConceptos += 65.84;
+        if (chkSalidaFuera.checked) totalConceptos += 117.81;
+        if (chkMonitorio.checked) totalConceptos += 165.00;
 
-      var base35 = calcularEscala35(base);
-      var base36 = calcularEscala36(base);
-      var sumaEscalasActivas = 0;
+        var base35 = calcularEscala35(base);
+        var base36 = calcularEscala36(base);
+        var sumaEscalasActivas = 0;
 
-      if (chkPrincipal100.checked) { totalConceptos += base35; sumaEscalasActivas += base35; }
-      if (chkPrincipalDemanda.checked) { totalConceptos += Math.round(base35 * 0.5 * 100) / 100; sumaEscalasActivas += Math.round(base35 * 0.5 * 100) / 100; }
-      if (chkPrincipalAudiencia.checked) { totalConceptos += Math.round(base35 * 0.1 * 100) / 100; sumaEscalasActivas += Math.round(base35 * 0.1 * 100) / 100; }
-      if (chkPrincipalJuicio.checked) { totalConceptos += Math.round(base35 * 0.4 * 100) / 100; sumaEscalasActivas += Math.round(base35 * 0.4 * 100) / 100; }
-      if (chkEjecucionSin.checked) { totalConceptos += Math.round(base36 * 0.5 * 100) / 100; sumaEscalasActivas += Math.round(base36 * 0.5 * 100) / 100; }
-      if (chkEjecucionCon.checked) { totalConceptos += base35; sumaEscalasActivas += base35; }
-      if (chkApelacionMismo.checked) { totalConceptos += Math.round(base35 * 0.5 * 100) / 100; sumaEscalasActivas += Math.round(base35 * 0.5 * 100) / 100; }
-      if (chkApelacionOtro.checked) { totalConceptos += Math.round(base35 * 0.6 * 100) / 100; sumaEscalasActivas += Math.round(base35 * 0.6 * 100) / 100; }
+        if (chkPrincipal100.checked) { totalConceptos += base35; sumaEscalasActivas += base35; }
+        if (chkPrincipalDemanda.checked) { totalConceptos += Math.round(base35 * 0.5 * 100) / 100; sumaEscalasActivas += Math.round(base35 * 0.5 * 100) / 100; }
+        if (chkPrincipalAudiencia.checked) { totalConceptos += Math.round(base35 * 0.1 * 100) / 100; sumaEscalasActivas += Math.round(base35 * 0.1 * 100) / 100; }
+        if (chkPrincipalJuicio.checked) { totalConceptos += Math.round(base35 * 0.4 * 100) / 100; sumaEscalasActivas += Math.round(base35 * 0.4 * 100) / 100; }
+        if (chkEjecucionSin.checked) { totalConceptos += Math.round(base36 * 0.5 * 100) / 100; sumaEscalasActivas += Math.round(base36 * 0.5 * 100) / 100; }
+        if (chkEjecucionCon.checked) { totalConceptos += base35; sumaEscalasActivas += base35; }
+        if (chkApelacionMismo.checked) { totalConceptos += Math.round(base35 * 0.5 * 100) / 100; sumaEscalasActivas += Math.round(base35 * 0.5 * 100) / 100; }
+        if (chkApelacionOtro.checked) { totalConceptos += Math.round(base35 * 0.6 * 100) / 100; sumaEscalasActivas += Math.round(base35 * 0.6 * 100) / 100; }
 
-      if (chkRecargoCostas.checked) {
-        totalConceptos += Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
-      }
+        if (chkRecargoCostas.checked) {
+          totalConceptos += Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
+        }
 
-      if (base > totalConceptos) {
-        itemsCount++;
-      }
+        if (base > totalConceptos) {
+          itemsCount++;
+        }
 
-      if (itemsCount === 0) {
-        alert('Por favor, selecciona al menos un concepto en la checklist para generar la factura desglosada.');
-        return;
-      }
+        if (itemsCount === 0) {
+          alert('Por favor, selecciona al menos un concepto en la checklist para generar la factura desglosada.');
+          return;
+        }
 
-      excelUpload.click();
+        excelUpload.click();
+      });
     });
 
     excelUpload.addEventListener('change', function(event) {
@@ -1462,212 +1760,211 @@
         conceptosList.push({ name: 'Importe base ajustado (Resto)', val: restoVal });
       }
 
-      getUnifiedFields(t).then(function(data) {
+      getCrossBoardBillingData(t).then(function(data) {
         var fields = data.fields || {};
+        var token = data.token;
         
-        return t.getRestApi().isAuthorized().then(function(auth) {
-          if (auth) {
-            return t.getRestApi().getToken();
-          }
-          return null;
-        }).then(function(token) {
+        // Mapear marcadores dinámicos secuenciales
+        for (var idx = 1; idx <= 15; idx++) {
+          var cKey = "Concepto_" + idx;
+          var iKey = "Importe_" + idx;
           
-          // Mapear marcadores dinámicos secuenciales
-          for (var idx = 1; idx <= 15; idx++) {
-            var cKey = "Concepto_" + idx;
-            var iKey = "Importe_" + idx;
-            
-            if (idx <= conceptosList.length) {
-              var item = conceptosList[idx - 1];
-              fields[cKey] = item.name;
-              fields[iKey] = item.val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
-            } else {
-              fields[cKey] = "";
-              fields[iKey] = "";
+          if (idx <= conceptosList.length) {
+            var item = conceptosList[idx - 1];
+            fields[cKey] = item.name;
+            fields[iKey] = item.val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+          } else {
+            fields[cKey] = "";
+            fields[iKey] = "";
+          }
+        }
+
+        fields["Total_Desglose_Imp"] = total.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+
+        // Marcadores estáticos individuales
+        fields["Consulta_Simple"] = chkConsultaSimple.checked ? "Consulta simple o telefónica" : "";
+        fields["Consulta_Simple_Imp"] = chkConsultaSimple.checked ? "76,23 €" : "";
+        fields["Consulta_Compleja"] = chkConsultaCompleja.checked ? "Consulta compleja o examen de documentos" : "";
+        fields["Consulta_Compleja_Imp"] = chkConsultaCompleja.checked ? "135,14 €" : "";
+        fields["Salida_Misma"] = chkSalidaMisma.checked ? "Salida de despacho (Misma localidad)" : "";
+        fields["Salida_Misma_Imp"] = chkSalidaMisma.checked ? "65,84 €" : "";
+        fields["Salida_Fuera"] = chkSalidaFuera.checked ? "Salida de despacho (Media jornada fuera)" : "";
+        fields["Salida_Fuera_Imp"] = chkSalidaFuera.checked ? "117,81 €" : "";
+        fields["Monitorio"] = chkMonitorio.checked ? "Petición inicial de Proceso Monitorio" : "";
+        fields["Monitorio_Imp"] = chkMonitorio.checked ? "165,00 €" : "";
+        
+        fields["Principal_100"] = chkPrincipal100.checked ? "Procedimiento Principal (100% Criterio 35)" : "";
+        fields["Principal_100_Imp"] = chkPrincipal100.checked ? base35.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        
+        fields["Demanda_50"] = chkPrincipalDemanda.checked ? "Fase Demanda / Alegaciones (50% Criterio 35)" : "";
+        fields["Demanda_50_Imp"] = chkPrincipalDemanda.checked ? (Math.round(base35 * 0.5 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        
+        fields["Audiencia_10"] = chkPrincipalAudiencia.checked ? "Fase Audiencia Previa (10% Criterio 35)" : "";
+        fields["Audiencia_10_Imp"] = chkPrincipalAudiencia.checked ? (Math.round(base35 * 0.1 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        
+        fields["Juicio_40"] = chkPrincipalJuicio.checked ? "Fase Juicio / Vista (40% Criterio 35)" : "";
+        fields["Juicio_40_Imp"] = chkPrincipalJuicio.checked ? (Math.round(base35 * 0.4 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        
+        fields["Ejecucion_Sin"] = chkEjecucionSin.checked ? "Ejecución sin Oposición (50% Criterio 36)" : "";
+        fields["Ejecucion_Sin_Imp"] = chkEjecucionSin.checked ? (Math.round(base36 * 0.5 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        
+        fields["Ejecucion_Con"] = chkEjecucionCon.checked ? "Ejecución con Oposición (100% Criterio 35)" : "";
+        fields["Ejecucion_Con_Imp"] = chkEjecucionCon.checked ? base35.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        
+        fields["Apelacion_Mismo"] = chkApelacionMismo.checked ? "Apelación (Mismo Letrado) (50% Criterio 71)" : "";
+        fields["Apelacion_Mismo_Imp"] = chkApelacionMismo.checked ? (Math.round(base35 * 0.5 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        
+        fields["Apelacion_Otro"] = chkApelacionOtro.checked ? "Apelación (Otro Letrado) (60% Criterio 71)" : "";
+        fields["Apelacion_Otro_Imp"] = chkApelacionOtro.checked ? (Math.round(base35 * 0.6 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        
+        fields["Recargo_Costas"] = chkRecargoCostas.checked ? "Recargo Oficial de Costas (+15%)" : "";
+        fields["Recargo_Costas_Imp"] = chkRecargoCostas.checked ? (Math.round(sumaEscalasActivas * 0.15 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        
+        var restoCalculado = (base > totalConceptos) ? (base - totalConceptos) : 0;
+        fields["Base_Ajustada"] = restoCalculado > 0 ? "Importe base ajustado (Resto)" : "";
+        fields["Base_Ajustada_Imp"] = restoCalculado > 0 ? restoCalculado.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+
+        function escapeRegExp(string) {
+          return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        function replaceExcelPlaceholdersLocal(text, f) {
+          if (!text || typeof text !== 'string') return text;
+          var res = text;
+          
+          for (var key in f) {
+            if (f.hasOwnProperty(key)) {
+              var regex = new RegExp("\\{\\{" + escapeRegExp(key) + "\\}\\}", "gi");
+              res = res.replace(regex, f[key] || "");
             }
           }
-
-          fields["Total_Desglose_Imp"] = total.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
-
-          // Marcadores estáticos individuales
-          fields["Consulta_Simple"] = chkConsultaSimple.checked ? "Consulta simple o telefónica" : "";
-          fields["Consulta_Simple_Imp"] = chkConsultaSimple.checked ? "76,23 €" : "";
-          fields["Consulta_Compleja"] = chkConsultaCompleja.checked ? "Consulta compleja o examen de documentos" : "";
-          fields["Consulta_Compleja_Imp"] = chkConsultaCompleja.checked ? "135,14 €" : "";
-          fields["Salida_Misma"] = chkSalidaMisma.checked ? "Salida de despacho (Misma localidad)" : "";
-          fields["Salida_Misma_Imp"] = chkSalidaMisma.checked ? "65,84 €" : "";
-          fields["Salida_Fuera"] = chkSalidaFuera.checked ? "Salida de despacho (Media jornada fuera)" : "";
-          fields["Salida_Fuera_Imp"] = chkSalidaFuera.checked ? "117,81 €" : "";
-          fields["Monitorio"] = chkMonitorio.checked ? "Petición inicial de Proceso Monitorio" : "";
-          fields["Monitorio_Imp"] = chkMonitorio.checked ? "165,00 €" : "";
           
-          fields["Principal_100"] = chkPrincipal100.checked ? "Procedimiento Principal (100% Criterio 35)" : "";
-          fields["Principal_100_Imp"] = chkPrincipal100.checked ? base35.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
-          
-          fields["Demanda_50"] = chkPrincipalDemanda.checked ? "Fase Demanda / Alegaciones (50% Criterio 35)" : "";
-          fields["Demanda_50_Imp"] = chkPrincipalDemanda.checked ? (Math.round(base35 * 0.5 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
-          
-          fields["Audiencia_10"] = chkPrincipalAudiencia.checked ? "Fase Audiencia Previa (10% Criterio 35)" : "";
-          fields["Audiencia_10_Imp"] = chkPrincipalAudiencia.checked ? (Math.round(base35 * 0.1 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
-          
-          fields["Juicio_40"] = chkPrincipalJuicio.checked ? "Fase Juicio / Vista (40% Criterio 35)" : "";
-          fields["Juicio_40_Imp"] = chkPrincipalJuicio.checked ? (Math.round(base35 * 0.4 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
-          
-          fields["Ejecucion_Sin"] = chkEjecucionSin.checked ? "Ejecución sin Oposición (50% Criterio 36)" : "";
-          fields["Ejecucion_Sin_Imp"] = chkEjecucionSin.checked ? (Math.round(base36 * 0.5 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
-          
-          fields["Ejecucion_Con"] = chkEjecucionCon.checked ? "Ejecución con Oposición (100% Criterio 35)" : "";
-          fields["Ejecucion_Con_Imp"] = chkEjecucionCon.checked ? base35.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
-          
-          fields["Apelacion_Mismo"] = chkApelacionMismo.checked ? "Apelación (Mismo Letrado) (50% Criterio 71)" : "";
-          fields["Apelacion_Mismo_Imp"] = chkApelacionMismo.checked ? (Math.round(base35 * 0.5 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
-          
-          fields["Apelacion_Otro"] = chkApelacionOtro.checked ? "Apelación (Otro Letrado) (60% Criterio 71)" : "";
-          fields["Apelacion_Otro_Imp"] = chkApelacionOtro.checked ? (Math.round(base35 * 0.6 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
-          
-          fields["Recargo_Costas"] = chkRecargoCostas.checked ? "Recargo Oficial de Costas (+15%)" : "";
-          fields["Recargo_Costas_Imp"] = chkRecargoCostas.checked ? (Math.round(sumaEscalasActivas * 0.15 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
-          
-          var restoCalculado = (base > totalConceptos) ? (base - totalConceptos) : 0;
-          fields["Base_Ajustada"] = restoCalculado > 0 ? "Importe base ajustado (Resto)" : "";
-          fields["Base_Ajustada_Imp"] = restoCalculado > 0 ? restoCalculado.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
-
-          function escapeRegExp(string) {
-            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          }
-
-          function replaceExcelPlaceholdersLocal(text, f) {
-            if (!text || typeof text !== 'string') return text;
-            var res = text;
+          var facturaVal = f.factura || "___________";
+          res = res.replace(/\{\{Nombre\}\}/gi, f.nombre || "Cliente Desconocido")
+            .replace(/\{\{DNI\}\}/gi, f.dni || "___________")
+            .replace(/\{\{Domicilio\}\}/gi, f.domicilio || "___________")
+            .replace(/\{\{Teléfono\}\}/gi, f.telefono || "___________")
+            .replace(/\{\{Telefono\}\}/gi, f.telefono || "___________")
+            .replace(/\{\{Profesión\}\}/gi, f.profesion || "___________")
+            .replace(/\{\{Observaciones\}\}/gi, f.observaciones || "___________")
+            .replace(/\{\{Fecha del siniestro\}\}/gi, f.fecha || "___________")
+            .replace(/\{\{Hora\}\}/gi, f.hora || "___________")
+            .replace(/\{\{Lugar\}\}/gi, f.lugar || "___________")
+            .replace(/\{\{Ciudad\}\}/gi, f.ciudad || "___________")
+            .replace(/\{\{Matrícula1\}\}/gi, f.matricula1 || "___________")
+            .replace(/\{\{Aseguradora1\}\}/gi, f.aseguradora1 || "___________")
+            .replace(/\{\{Matrícula2\}\}/gi, f.matricula2 || "___________")
+            .replace(/\{\{Aseguradora2\}\}/gi, f.aseguradora2 || "___________")
+            .replace(/\{\{Fecha del sistema\}\}/gi, f.fecha_sistema || "___________")
+            .replace(/\{\{Fecha última actuación\}\}/gi, f.fecha_ultima || "___________")
+            .replace(/\{\{Fecha cierre expediente\}\}/gi, f.fecha_cierre || "___________")
+            .replace(/\{\{Fecha facturación\}\}/gi, f.fecha_facturacion || "___________")
+            .replace(/\{\{Fecha de resolución\}\}/gi, f.fecha_resolucion || "___________")
+            .replace(/\{\{Fecha comunicación designa\}\}/gi, f.fecha_designa || "___________")
+            .replace(/\{\{Fecha reclamación previa\}\}/gi, f.fecha_reclamacion || "___________")
+            .replace(/\{\{Fecha apertura expediente\}\}/gi, f.fecha_apertura || "___________")
+            .replace(/\{\{Fecha siniestro\}\}/gi, f.fecha_siniestro || "___________")
+            .replace(/\{\{Número de factura\}\}/gi, facturaVal)
+            .replace(/\{\{Numero de factura\}\}/gi, facturaVal);
             
-            for (var key in f) {
-              if (f.hasOwnProperty(key)) {
-                var regex = new RegExp("\\{\\{" + escapeRegExp(key) + "\\}\\}", "gi");
-                res = res.replace(regex, f[key] || "");
-              }
-            }
-            
-            var facturaVal = f.factura || "___________";
-            res = res.replace(/\{\{Nombre\}\}/gi, f.nombre || "Cliente Desconocido")
-              .replace(/\{\{DNI\}\}/gi, f.dni || "___________")
-              .replace(/\{\{Domicilio\}\}/gi, f.domicilio || "___________")
-              .replace(/\{\{Teléfono\}\}/gi, f.telefono || "___________")
-              .replace(/\{\{Telefono\}\}/gi, f.telefono || "___________")
-              .replace(/\{\{Profesión\}\}/gi, f.profesion || "___________")
-              .replace(/\{\{Observaciones\}\}/gi, f.observaciones || "___________")
-              .replace(/\{\{Fecha del siniestro\}\}/gi, f.fecha || "___________")
-              .replace(/\{\{Hora\}\}/gi, f.hora || "___________")
-              .replace(/\{\{Lugar\}\}/gi, f.lugar || "___________")
-              .replace(/\{\{Ciudad\}\}/gi, f.ciudad || "___________")
-              .replace(/\{\{Matrícula1\}\}/gi, f.matricula1 || "___________")
-              .replace(/\{\{Aseguradora1\}\}/gi, f.aseguradora1 || "___________")
-              .replace(/\{\{Matrícula2\}\}/gi, f.matricula2 || "___________")
-              .replace(/\{\{Aseguradora2\}\}/gi, f.aseguradora2 || "___________")
-              .replace(/\{\{Fecha del sistema\}\}/gi, f.fecha_sistema || "___________")
-              .replace(/\{\{Fecha última actuación\}\}/gi, f.fecha_ultima || "___________")
-              .replace(/\{\{Fecha cierre expediente\}\}/gi, f.fecha_cierre || "___________")
-              .replace(/\{\{Fecha facturación\}\}/gi, f.fecha_facturacion || "___________")
-              .replace(/\{\{Fecha de resolución\}\}/gi, f.fecha_resolucion || "___________")
-              .replace(/\{\{Fecha comunicación designa\}\}/gi, f.fecha_designa || "___________")
-              .replace(/\{\{Fecha reclamación previa\}\}/gi, f.fecha_reclamacion || "___________")
-              .replace(/\{\{Fecha apertura expediente\}\}/gi, f.fecha_apertura || "___________")
-              .replace(/\{\{Fecha siniestro\}\}/gi, f.fecha_siniestro || "___________")
-              .replace(/\{\{Número de factura\}\}/gi, facturaVal)
-              .replace(/\{\{Numero de factura\}\}/gi, facturaVal);
-              
-            return res;
-          }
+          return res;
+        }
 
-          var reader = new FileReader();
-          reader.onload = async function(e) {
-            try {
-              var workbook = new ExcelJS.Workbook();
-              await workbook.xlsx.load(e.target.result);
-              
-              workbook.eachSheet(function(worksheet) {
-                worksheet.eachRow(function(row) {
-                  row.eachCell(function(cell) {
-                    if (cell.value) {
-                      if (cell.value.richText) {
-                        cell.value.richText.forEach(function(rt) {
-                          if (rt.text) {
-                            rt.text = replaceExcelPlaceholdersLocal(rt.text, fields);
-                          }
-                        });
-                      } else if (typeof cell.value === 'string') {
-                        cell.value = replaceExcelPlaceholdersLocal(cell.value, fields);
-                      }
+        var reader = new FileReader();
+        reader.onload = async function(e) {
+          try {
+            var workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.load(e.target.result);
+            
+            workbook.eachSheet(function(worksheet) {
+              worksheet.eachRow(function(row) {
+                row.eachCell(function(cell) {
+                  if (cell.value) {
+                    if (cell.value.richText) {
+                      cell.value.richText.forEach(function(rt) {
+                        if (rt.text) {
+                          rt.text = replaceExcelPlaceholdersLocal(rt.text, fields);
+                        }
+                      });
+                    } else if (typeof cell.value === 'string') {
+                      cell.value = replaceExcelPlaceholdersLocal(cell.value, fields);
                     }
-                  });
+                  }
                 });
               });
+            });
 
-              var buffer = await workbook.xlsx.writeBuffer();
-              var outBlob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-              
-              var downloadUrl = URL.createObjectURL(outBlob);
-              var downloadLink = document.createElement('a');
-              downloadLink.href = downloadUrl;
-              
-              var cleanName = (fields.nombre || "Cliente").replace(/\s+/g, '_');
-              var outFileName = "Factura_Desglosada_" + cleanName + ".xlsx";
-              downloadLink.download = outFileName;
-              document.body.appendChild(downloadLink);
-              downloadLink.click();
-              document.body.removeChild(downloadLink);
-              URL.revokeObjectURL(downloadUrl);
+            var buffer = await workbook.xlsx.writeBuffer();
+            var outBlob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            
+            var downloadUrl = URL.createObjectURL(outBlob);
+            var downloadLink = document.createElement('a');
+            downloadLink.href = downloadUrl;
+            
+            var cleanName = (fields.nombre || "Cliente").replace(/\s+/g, '_');
+            var outFileName = "Factura_Desglosada_" + cleanName + ".xlsx";
+            downloadLink.download = outFileName;
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            URL.revokeObjectURL(downloadUrl);
 
-              if (token) {
-                t.card('idList').then(function(currentCard) {
-                  return fetch(`https://api.trello.com/1/lists/${currentCard.idList}/cards?key=${t.getRestApi().appKey}&token=${token}`)
-                    .then(function(res) {
-                      if (!res.ok) throw new Error("Error al listar tarjetas");
-                      return res.json();
-                    })
-                    .then(function(cards) {
-                      var facturasCard = cards.find(function(c) {
-                        var n = c.name.trim().toLowerCase();
-                        return n === "facturas" || n === "facturación" || n === "facturacion";
-                      });
-                      if (!facturasCard) return;
-
-                      var formData = new FormData();
-                      formData.append("key", t.getRestApi().appKey);
-                      formData.append("token", token);
-                      formData.append("file", outBlob, outFileName);
-                      formData.append("name", outFileName);
-
-                      var urlParams = new URLSearchParams();
-                      urlParams.append('key', t.getRestApi().appKey);
-                      urlParams.append('token', token);
-
-                      return fetch(`https://api.trello.com/1/cards/${facturasCard.id}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData });
+            if (token) {
+              t.card('idList').then(function(currentCard) {
+                return fetch(`https://api.trello.com/1/lists/${currentCard.idList}/cards?key=${t.getRestApi().appKey}&token=${token}`)
+                  .then(function(res) {
+                    if (!res.ok) throw new Error("Error al listar tarjetas");
+                    return res.json();
+                  })
+                  .then(function(cards) {
+                    var facturasCard = cards.find(function(c) {
+                      var n = c.name.trim().toLowerCase();
+                      return n === "facturas" || n === "facturación" || n === "facturacion";
                     });
-                }).catch(function(err) {
-                  console.error("Error al subir el Excel a Trello:", err);
-                });
-              }
+                    if (!facturasCard) return;
 
-              btnExcel.innerHTML = '¡Factura generada! ✔️';
-              setTimeout(function() {
-                btnExcel.innerHTML = originalBtnText;
-                btnExcel.disabled = false;
-              }, 2000);
+                    var formData = new FormData();
+                    formData.append("key", t.getRestApi().appKey);
+                    formData.append("token", token);
+                    formData.append("file", outBlob, outFileName);
+                    formData.append("name", outFileName);
 
-            } catch(err) {
-              console.error("Error al generar el Excel:", err);
-              alert("Error al procesar la plantilla Excel: " + err.message);
+                    var urlParams = new URLSearchParams();
+                    urlParams.append('key', t.getRestApi().appKey);
+                    urlParams.append('token', token);
+
+                    return fetch(`https://api.trello.com/1/cards/${facturasCard.id}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData });
+                  });
+              }).catch(function(err) {
+                console.error("Error al subir el Excel a Trello:", err);
+              });
+            }
+
+            btnExcel.innerHTML = '¡Factura generada! ✔️';
+            setTimeout(function() {
               btnExcel.innerHTML = originalBtnText;
               btnExcel.disabled = false;
-            }
-          };
+            }, 2000);
 
-          reader.readAsArrayBuffer(file);
-          excelUpload.value = '';
-        });
+          } catch(err) {
+            console.error("Error al generar el Excel:", err);
+            alert("Error al procesar la plantilla Excel: " + err.message);
+            btnExcel.innerHTML = originalBtnText;
+            btnExcel.disabled = false;
+          }
+        };
+
+        reader.readAsArrayBuffer(file);
+        excelUpload.value = '';
       }).catch(function(err) {
-        console.error("Error al obtener datos unificados:", err);
-        alert("Error al obtener los datos del cliente.");
+        console.error("Error al obtener datos cruzados del cliente:", err);
+        if (err && err.message === 'REQUIRED_AUTHORIZATION') {
+          btnExcel.innerHTML = originalBtnText;
+          btnExcel.disabled = false;
+          excelUpload.value = '';
+          return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
+        }
+        alert("Error al obtener los datos del cliente: " + err.message);
         btnExcel.innerHTML = originalBtnText;
         btnExcel.disabled = false;
         excelUpload.value = '';
