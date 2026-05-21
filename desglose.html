@@ -1419,11 +1419,20 @@
       var base = parseFloat(inputCuantiva.value) || 0;
       var total = parseFloat(labelTotal.textContent.replace(/\./g, '').replace(/,/g, '.').replace(/[^0-9\.]/g, '')) || 0;
 
+      var selectedOption = selectFactura.options[selectFactura.selectedIndex];
+      var selectedDate = selectedOption ? selectedOption.getAttribute('data-date') || '' : '';
+      var selectedNum = selectedOption ? selectedOption.getAttribute('data-num') || '' : '';
+
       var lines = [];
       lines.push('================================================');
       lines.push('ESTIMACIÓN DE HONORARIOS PROFESIONALES');
       lines.push('Colegio de Abogados de Las Palmas (Tarifas 2012)');
       lines.push('================================================');
+      if (selectedNum && selectedNum !== "Desconocida") {
+        lines.push('Factura vinculada: Nº ' + selectedNum + (selectedDate ? ' (Fecha: ' + selectedDate + ')' : ''));
+      } else if (selectedDate) {
+        lines.push('Fecha factura: ' + selectedDate);
+      }
       lines.push('Cuantía Base reclamada: ' + base.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
       lines.push('------------------------------------------------');
       lines.push('Conceptos incluidos:');
@@ -1677,6 +1686,10 @@
       var base = parseFloat(inputCuantiva.value) || 0;
       var total = parseFloat(labelTotal.textContent.replace(/\./g, '').replace(/,/g, '.').replace(/[^0-9\.]/g, '')) || 0;
       
+      var selectedOption = selectFactura.options[selectFactura.selectedIndex];
+      var selectedDate = selectedOption ? selectedOption.getAttribute('data-date') || '' : '';
+      var selectedNum = selectedOption ? selectedOption.getAttribute('data-num') || '' : '';
+      
       var conceptosList = [];
       
       if (chkConsultaSimple.checked) {
@@ -1749,8 +1762,9 @@
       });
       var totalConceptos = sumaActual;
 
+      var restoVal = 0;
       if (base > sumaActual) {
-        var restoVal = base - sumaActual;
+        restoVal = base - sumaActual;
         conceptosList.push({ name: 'Importe base ajustado (Resto)', val: restoVal });
       }
 
@@ -1772,6 +1786,20 @@
             fields[iKey] = "";
           }
         }
+
+        // Asignar el importe base ajustado (Resto) a Concepto_0 e Importe_0
+        fields["Concepto_0"] = restoVal > 0 ? "Importe base ajustado (Resto)" : "";
+        fields["Importe_0"] = restoVal > 0 ? restoVal.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €' : "";
+
+        // Asignar fecha y número de la factura seleccionada a marcadores
+        fields["Fecha_Factura"] = selectedDate;
+        fields["Fecha"] = selectedDate;
+        fields["Factura_Fecha"] = selectedDate;
+
+        fields["Numero_Factura"] = selectedNum;
+        fields["Factura_Numero"] = selectedNum;
+        fields["Nº_Factura"] = selectedNum;
+        fields["NºFactura"] = selectedNum;
 
         fields["Total_Desglose_Imp"] = total.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
 
