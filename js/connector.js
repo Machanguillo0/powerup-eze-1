@@ -83,12 +83,11 @@ window.TrelloPowerUp.initialize({
       }
     };
   },
-  // Capability para añadir un botón a nivel de tablero
-  'board-buttons': function (t, options) {
+  // Capability para añadir un bo  'board-buttons': function (t, options) {
     return getBoardTypeSafe(t).then(function(type) {
       if (type !== 'CLIENTES' && type !== 'FACTURACIÓN') return [];
 
-      return [
+      var buttons = [
         {
           icon: {
             dark: './export_tablero.png',
@@ -175,18 +174,17 @@ window.TrelloPowerUp.initialize({
                     if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:LUGAR)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.lugar = m[1].replace(/[*_~`]/g, '').trim(); }
                     if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:CIUDAD)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.ciudad = m[1].replace(/[*_~`]/g, '').trim(); }
                     
-                    // Extracción contextual en connector.js (similar a section.html)
                     var vLA = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
                     
-                    var pM = c.desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\\s*VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vLA, "i"));
-                    if (pM) {
-                      var pT = pM[0];
+                    var propioMatch = c.desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\\s*VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vLA, "i"));
+                    if (propioMatch) {
+                      var pT = propioMatch[0];
                       if (m = pT.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula1 = m[1].trim(); }
                       if (m = pT.match(/(?:^|\n)[ \t]*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora1 = m[1].trim(); }
                     }
-                    var cM = c.desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\\s*VEH[ÍI]CULO CONTRARIO[\\s\\S]*?" + vLA, "i"));
-                    if (cM) {
-                      var cT = cM[0];
+                    var contrarioMatch = c.desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\\s*VEH[ÍI]CULO CONTRARIO[\\s\\S]*?" + vLA, "i"));
+                    if (contrarioMatch) {
+                      var cT = contrarioMatch[0];
                       if (m = cT.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula2 = m[1].trim(); }
                       if (m = cT.match(/(?:^|\n)[ \t]*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora2 = m[1].trim(); }
                     }
@@ -272,7 +270,6 @@ window.TrelloPowerUp.initialize({
                 var workbook = new ExcelJS.Workbook();
                 var sheet = workbook.addWorksheet('Reporte por Listas');
 
-                // Agrupamos tarjetas por lista, extraemos info de cliente y etiquetas
                 var tarjetasPorLista = {};
                 var infoClientePorLista = {};
                 var etiquetasPorLista = {};
@@ -289,14 +286,12 @@ window.TrelloPowerUp.initialize({
                   if (tarjetasPorLista[c.idList]) {
                     tarjetasPorLista[c.idList].push(c.name);
 
-                    // Recopilamos todas las etiquetas de la lista
                     if (c.labels) {
                       c.labels.forEach(function (label) {
                         etiquetasPorLista[c.idList].add(label.name || label.color);
                       });
                     }
 
-                    // Intentamos extraer info de cliente si aún no la tenemos para esta lista
                     if (infoClientePorLista[c.idList].nombre === '' && c.desc) {
                       var m;
                       if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*)/i)) { infoClientePorLista[c.idList].nombre = m[1].replace(/[*_~`]/g, '').trim(); }
@@ -313,14 +308,12 @@ window.TrelloPowerUp.initialize({
                   }
                 });
 
-                // Convertimos Sets a Arrays y calculamos el máximo de etiquetas
                 lists.forEach(function (l) {
                   var arrLabels = Array.from(etiquetasPorLista[l.id]);
                   etiquetasPorLista[l.id] = arrLabels;
                   if (arrLabels.length > maxLabels) maxLabels = arrLabels.length;
                 });
 
-                // Creamos y añadimos el encabezado dinámico
                 var encabezado = ['Nombre lista', 'Nombre', 'DNI', 'Domicilio', 'Teléfono', 'Profesión', 'Observaciones'];
                 for (var i = 1; i <= maxLabels; i++) {
                   encabezado.push('Etiqueta ' + i);
@@ -330,9 +323,8 @@ window.TrelloPowerUp.initialize({
                 }
 
                 var headerRow = sheet.addRow(encabezado);
-                headerRow.font = { bold: true }; // Ponemos el encabezado en negrita
+                headerRow.font = { bold: true };
 
-                // Añadimos cada lista como una fila de datos
                 lists.forEach(function (l) {
                   var info = infoClientePorLista[l.id];
                   var labels = etiquetasPorLista[l.id];
@@ -340,8 +332,7 @@ window.TrelloPowerUp.initialize({
                   sheet.addRow(fila);
                 });
 
-                // Ajustamos anchos de columna básicos
-                sheet.getColumn(1).width = 25; // Nombre de la lista
+                sheet.getColumn(1).width = 25;
 
                 return workbook.xlsx.writeBuffer();
               })
@@ -367,6 +358,247 @@ window.TrelloPowerUp.initialize({
           }
         }
       ];
+
+      if (type === 'FACTURACIÓN') {
+        buttons.push({
+          icon: {
+            dark: './icon.svg',
+            light: './icon.svg'
+          },
+          text: 'Descarga de facturas',
+          condition: 'always',
+          callback: function (t) {
+            t.alert({
+              message: 'Iniciando descarga de facturas...',
+              duration: 3,
+              display: 'info'
+            });
+
+            return Promise.all([
+              t.cards('id', 'name', 'idList', 'pos'),
+              t.lists('id', 'name')
+            ])
+              .then(function (results) {
+                var cards = results[0];
+                var lists = results[1];
+                var mapListas = {};
+                lists.forEach(function (l) { mapListas[l.id] = l.name; });
+
+                var cardsByList = {};
+                cards.forEach(function(c) {
+                  if (!cardsByList[c.idList]) {
+                    cardsByList[c.idList] = [];
+                  }
+                  cardsByList[c.idList].push(c);
+                });
+
+                var clientePorLista = {};
+                lists.forEach(function(l) {
+                  var listCards = cardsByList[l.id] || [];
+                  listCards.sort(function(a, b) {
+                    return a.pos - b.pos;
+                  });
+
+                  var firstCard = listCards.find(function(c) {
+                    var nameLower = c.name.toLowerCase().trim();
+                    return nameLower !== "facturas" && 
+                           nameLower !== "facturación" && 
+                           nameLower !== "facturacion" && 
+                           nameLower !== "importes" && 
+                           !nameLower.includes("historial de procesos") && 
+                           !nameLower.includes("historial de avisos");
+                  });
+
+                  clientePorLista[l.id] = firstCard ? firstCard.name : "Sin Cliente";
+                });
+
+                var facturasCards = cards.filter(function(c) {
+                  var nameLower = c.name.trim().toLowerCase();
+                  return nameLower === "facturas" || nameLower === "facturación" || nameLower === "facturacion";
+                });
+
+                if (facturasCards.length === 0) {
+                  return t.alert({
+                    message: 'No se encontraron tarjetas de Facturas en este tablero.',
+                    duration: 5,
+                    display: 'warning'
+                  });
+                }
+
+                return t.getRestApi().isAuthorized().then(function(auth) {
+                  if (!auth) {
+                    return t.alert({
+                      message: 'Por favor, autoriza primero el Power-Up en el menú de acciones de cualquier tarjeta para poder descargar las facturas.',
+                      duration: 8,
+                      display: 'error'
+                    });
+                  }
+
+                  return t.getRestApi().getToken().then(function(token) {
+                    var appKey = t.getRestApi().appKey;
+
+                    var fetchPromises = facturasCards.map(function(card) {
+                      return fetch('https://api.trello.com/1/cards/' + card.id + '/checklists?key=' + appKey + '&token=' + token)
+                        .then(function(res) {
+                          if (!res.ok) throw new Error("Error fetching checklists");
+                          return res.json();
+                        })
+                        .then(function(checklists) {
+                          return { card: card, checklists: checklists };
+                        })
+                        .catch(function(err) {
+                          console.error("Error al consultar checklists de tarjeta " + card.id + ":", err);
+                          return { card: card, checklists: [] };
+                        });
+                    });
+
+                    return Promise.all(fetchPromises).then(function(results) {
+                      var invoiceRows = [];
+
+                      results.forEach(function(res) {
+                        var card = res.card;
+                        var checklists = res.checklists;
+                        var listName = mapListas[card.idList] || "Desconocida";
+                        var clientName = clientePorLista[card.idList] || "Sin Cliente";
+
+                        var ch = checklists.find(function(c) {
+                          var n = c.name.trim().toLowerCase();
+                          return n === "relación de facturas generadas" || 
+                                 n === "relacion de facturas generadas" || 
+                                 n === "relaación de facturas generadas" || 
+                                 n === "relaacion de facturas generadas" ||
+                                 n.indexOf("relación de facturas") > -1 ||
+                                 n.indexOf("relacion de facturas") > -1 ||
+                                 n.indexOf("relaación de facturas") > -1;
+                        });
+
+                        if (ch && ch.checkItems && ch.checkItems.length > 0) {
+                          var checkItems = ch.checkItems.concat().sort(function(a, b) {
+                            return a.pos - b.pos;
+                          });
+
+                          checkItems.forEach(function(item) {
+                            var parts = item.name.split('|').map(function(s) { return s.trim(); });
+                            var fDate = "";
+                            var fNum = "";
+                            var fAmount = "";
+                            var fTotal = "";
+
+                            if (parts.length >= 2) {
+                              fDate = parts[0] || "";
+
+                              var numPart = parts.find(function(p) { return /^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)/i.test(p); });
+                              if (numPart) {
+                                fNum = numPart.replace(/^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)\s*/i, '').trim();
+                              } else {
+                                fNum = parts[1] || "";
+                              }
+
+                              var basePart = parts.find(function(p) { return /^(?:Base:|Importe:)/i.test(p); });
+                              if (basePart) {
+                                fAmount = basePart.replace(/^(?:Base:|Importe:)\s*/i, '').trim();
+                              } else {
+                                fAmount = parts[parts.length - 1] || "";
+                              }
+
+                              var totalPart = parts.find(function(p) { return /^(?:Total:)/i.test(p); });
+                              if (totalPart) {
+                                fTotal = totalPart.replace(/^(?:Total:)\s*/i, '').trim();
+                              } else {
+                                fTotal = fAmount;
+                              }
+                            } else {
+                              fDate = "";
+                              fNum = item.name;
+                              fAmount = "";
+                              fTotal = "";
+                            }
+
+                            invoiceRows.push({
+                              expediente: listName,
+                              cliente: clientName,
+                              fecha: fDate,
+                              factura: fNum,
+                              base: fAmount,
+                              total: fTotal,
+                              estado: item.state === "complete" ? "Cobrada" : "Pendiente"
+                            });
+                          });
+                        }
+                      });
+
+                      if (invoiceRows.length === 0) {
+                        return t.alert({
+                          message: 'No se encontraron facturas registradas en los checklists de las tarjetas de Facturas.',
+                          duration: 5,
+                          display: 'warning'
+                        });
+                      }
+
+                      return new Promise(function(resolve, reject) {
+                        if (window.ExcelJS) return resolve();
+                        var script = document.createElement('script');
+                        script.src = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js";
+                        script.onload = function() { resolve(); };
+                        script.onerror = reject;
+                        document.head.appendChild(script);
+                      })
+                        .then(function() {
+                          var workbook = new ExcelJS.Workbook();
+                          var sheet = workbook.addWorksheet('Relación de Facturas');
+
+                          sheet.columns = [
+                            { header: 'Expediente / Lista', key: 'expediente', width: 25 },
+                            { header: 'Cliente', key: 'cliente', width: 30 },
+                            { header: 'Fecha', key: 'fecha', width: 15 },
+                            { header: 'Nº Factura', key: 'factura', width: 15 },
+                            { header: 'Importe Base', key: 'base', width: 15 },
+                            { header: 'Importe Total', key: 'total', width: 15 },
+                            { header: 'Estado', key: 'estado', width: 15 }
+                          ];
+
+                          var headerRow = sheet.getRow(1);
+                          headerRow.font = { bold: true };
+                          headerRow.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFE6F4EA' }
+                          };
+
+                          invoiceRows.forEach(function(row) {
+                            sheet.addRow(row);
+                          });
+
+                          return workbook.xlsx.writeBuffer();
+                        })
+                        .then(function(buffer) {
+                          return new Promise(function(resolve, reject) {
+                            if (window.saveAs) return resolve(buffer);
+                            var scriptFS = document.createElement('script');
+                            scriptFS.src = "https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js";
+                            scriptFS.onload = function() { resolve(buffer); };
+                            scriptFS.onerror = reject;
+                            document.head.appendChild(scriptFS);
+                          });
+                        })
+                        .then(function(buffer) {
+                          var blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+                          window.saveAs(blob, "Relacion_Facturas_Generadas.xlsx");
+                          return t.alert({ message: 'Descarga de facturas completada.', duration: 3, display: 'success' });
+                        });
+                    });
+                  });
+                });
+              })
+              .catch(function (err) {
+                console.error("Error al descargar facturas:", err);
+                return t.alert({ message: 'Error al exportar facturas.', duration: 6, display: 'error' });
+              });
+          }
+        });
+      }
+
+      return buttons;
     });
   }
 });
