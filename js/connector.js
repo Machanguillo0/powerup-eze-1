@@ -89,168 +89,173 @@ window.TrelloPowerUp.initialize({
     return getBoardTypeSafe(t).then(function(type) {
       if (type !== 'CLIENTES' && type !== 'FACTURACIÓN') return [];
 
-      var buttons = [
-        {
-          icon: {
-            dark: BASE_URL + 'excel_icon.png',
-            light: BASE_URL + 'excel_icon.png'
-          },
-          text: 'Excel Tablero',
-          condition: 'always',
-          callback: function (t) {
-            t.alert({
-              message: 'Recopilando tarjetas e iniciando exportación...',
-              duration: 3,
-              display: 'info'
-            });
+      var buttons = [];
 
-            return Promise.all([
-              t.cards('id', 'name', 'desc', 'idList'),
-              t.lists('id', 'name')
-            ])
-              .then(function (results) {
-                var cards = results[0];
-                var lists = results[1];
-                var mapListas = {};
-                lists.forEach(function (l) { mapListas[l.id] = l.name; });
-
-                return new Promise((resolve, reject) => {
-                  if (window.ExcelJS) return resolve({ cards: cards, mapListas: mapListas });
-                  var script = document.createElement('script');
-                  script.src = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js";
-                  script.onload = () => resolve({ cards: cards, mapListas: mapListas });
-                  script.onerror = reject;
-                  document.head.appendChild(script);
-                });
-              })
-              .then(function (data) {
-                var cards = data.cards;
-                var mapListas = data.mapListas;
-                var workbook = new ExcelJS.Workbook();
-                var sheet = workbook.addWorksheet('Clientes');
-
-                sheet.columns = [
-                  { header: 'Lista', key: 'lista', width: 20 },
-                  { header: 'Tarjeta Trello', key: 'tarjeta', width: 30 },
-                  { header: 'Nombre', key: 'nombre', width: 30 },
-                  { header: 'DNI', key: 'dni', width: 15 },
-                  { header: 'Lugar', key: 'lugar', width: 20 },
-                  { header: 'Ciudad', key: 'ciudad', width: 20 },
-                  { header: 'Matrícula 1', key: 'matricula1', width: 15 },
-                  { header: 'Aseguradora 1', key: 'aseguradora1', width: 20 },
-                  { header: 'Matrícula 2', key: 'matricula2', width: 15 },
-                  { header: 'Aseguradora 2', key: 'aseguradora2', width: 20 },
-                  { header: 'Fecha del siniestro', key: 'fecha', width: 20 },
-                  { header: 'Hora', key: 'hora', width: 10 },
-                  { header: 'Observaciones', key: 'observaciones', width: 40 }
-                ];
-
-                cards.forEach(function (c) {
-                  var fields = {
-                    nombre: "No encontrado",
-                    dni: "No encontrado",
-                    domicilio: "No encontrado",
-                    telefono: "No encontrado",
-                    profesion: "No encontrado",
-                    fecha: "No encontrado",
-                    hora: "No encontrado",
-                    lugar: "No encontrado",
-                    ciudad: "No encontrado",
-                    matricula1: "No encontrado",
-                    aseguradora1: "No encontrado",
-                    matricula2: "No encontrado",
-                    aseguradora2: "No encontrado",
-                    observaciones: "No encontrado"
-                  };
-
-                  if (c.desc) {
-                    var m;
-                    if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
-                    if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DNI[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
-                    if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DOMICILIO[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
-                    if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
-                    if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
-                    if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
-                    if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:FECHA DEL SINIESTRO|Fecha)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha = m[1].replace(/[*_~`]/g, '').replace(/\s*\(.*\)\s*$/, '').trim(); }
-                    if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:HORA)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.hora = m[1].replace(/[*_~`]/g, '').trim(); }
-                    if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:LUGAR)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.lugar = m[1].replace(/[*_~`]/g, '').trim(); }
-                    if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:CIUDAD)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.ciudad = m[1].replace(/[*_~`]/g, '').trim(); }
-                    
-                    var vLA = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
-                    
-                    var propioMatch = c.desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\\s*VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vLA, "i"));
-                    if (propioMatch) {
-                      var pT = propioMatch[0];
-                      if (m = pT.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula1 = m[1].trim(); }
-                      if (m = pT.match(/(?:^|\n)[ \t]*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora1 = m[1].trim(); }
-                    }
-                    var contrarioMatch = c.desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\\s*VEH[ÍI]CULO CONTRARIO[\\s\\S]*?" + vLA, "i"));
-                    if (contrarioMatch) {
-                      var cT = contrarioMatch[0];
-                      if (m = cT.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula2 = m[1].trim(); }
-                      if (m = cT.match(/(?:^|\n)[ \t]*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora2 = m[1].trim(); }
-                    }
-                  }
-
-                  sheet.addRow({
-                    lista: mapListas[c.idList] || "Desconocida",
-                    tarjeta: c.name,
-                    nombre: fields.nombre,
-                    dni: fields.dni,
-                    domicilio: fields.domicilio,
-                    telefono: fields.telefono,
-                    profesion: fields.profesion,
-                    fecha: fields.fecha,
-                    hora: fields.hora,
-                    lugar: fields.lugar,
-                    ciudad: fields.ciudad,
-                    matricula1: fields.matricula1,
-                    aseguradora1: fields.aseguradora1,
-                    matricula2: fields.matricula2,
-                    aseguradora2: fields.aseguradora2,
-                    observaciones: fields.observaciones
-                  });
-                });
-
-                return workbook.xlsx.writeBuffer();
-              })
-              .then(function (buffer) {
-                return new Promise((resolve, reject) => {
-                  if (window.saveAs) return resolve(buffer);
-                  var scriptFS = document.createElement('script');
-                  scriptFS.src = "https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js";
-                  scriptFS.onload = () => resolve(buffer);
-                  scriptFS.onerror = reject;
-                  document.head.appendChild(scriptFS);
-                });
-              })
-              .then(function (buffer) {
-                var blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-                window.saveAs(blob, "Reporte_Tablero.xlsx");
-                return t.alert({ message: 'Descarga completada.', duration: 3, display: 'success' });
-              })
-              .catch(function (err) {
-                console.error("Error exportando tablero:", err);
-                return t.alert({ message: 'Error al exportar.', duration: 6, display: 'error' });
-              });
-          }
+      // Botón "Excel Tablero" común
+      buttons.push({
+        icon: {
+          dark: BASE_URL + 'excel_icon.png',
+          light: BASE_URL + 'excel_icon.png'
         },
-        {
+        text: 'Excel Tablero',
+        condition: 'always',
+        callback: function (t) {
+          t.alert({
+            message: 'Recopilando tarjetas e iniciando exportación...',
+            duration: 3,
+            display: 'info'
+          });
+
+          return Promise.all([
+            t.cards('id', 'name', 'desc', 'idList'),
+            t.lists('id', 'name')
+          ])
+            .then(function (results) {
+              var cards = results[0];
+              var lists = results[1];
+              var mapListas = {};
+              lists.forEach(function (l) { mapListas[l.id] = l.name; });
+
+              return new Promise((resolve, reject) => {
+                if (window.ExcelJS) return resolve({ cards: cards, mapListas: mapListas });
+                var script = document.createElement('script');
+                script.src = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js";
+                script.onload = () => resolve({ cards: cards, mapListas: mapListas });
+                script.onerror = reject;
+                document.head.appendChild(script);
+              });
+            })
+            .then(function (data) {
+              var cards = data.cards;
+              var mapListas = data.mapListas;
+              var workbook = new ExcelJS.Workbook();
+              var sheet = workbook.addWorksheet('Clientes');
+
+              sheet.columns = [
+                { header: 'Lista', key: 'lista', width: 20 },
+                { header: 'Tarjeta Trello', key: 'tarjeta', width: 30 },
+                { header: 'Nombre', key: 'nombre', width: 30 },
+                { header: 'DNI', key: 'dni', width: 15 },
+                { header: 'Lugar', key: 'lugar', width: 20 },
+                { header: 'Ciudad', key: 'ciudad', width: 20 },
+                { header: 'Matrícula 1', key: 'matricula1', width: 15 },
+                { header: 'Aseguradora 1', key: 'aseguradora1', width: 20 },
+                { header: 'Matrícula 2', key: 'matricula2', width: 15 },
+                { header: 'Aseguradora 2', key: 'aseguradora2', width: 20 },
+                { header: 'Fecha del siniestro', key: 'fecha', width: 20 },
+                { header: 'Hora', key: 'hora', width: 10 },
+                { header: 'Observaciones', key: 'observaciones', width: 40 }
+              ];
+
+              cards.forEach(function (c) {
+                var fields = {
+                  nombre: "No encontrado",
+                  dni: "No encontrado",
+                  domicilio: "No encontrado",
+                  telefono: "No encontrado",
+                  profesion: "No encontrado",
+                  fecha: "No encontrado",
+                  hora: "No encontrado",
+                  lugar: "No encontrado",
+                  ciudad: "No encontrado",
+                  matricula1: "No encontrado",
+                  aseguradora1: "No encontrado",
+                  matricula2: "No encontrado",
+                  aseguradora2: "No encontrado",
+                  observaciones: "No encontrado"
+                };
+
+                if (c.desc) {
+                  var m;
+                  if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DNI[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DOMICILIO[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:FECHA DEL SINIESTRO|Fecha)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha = m[1].replace(/[*_~`]/g, '').replace(/\s*\(.*\)\s*$/, '').trim(); }
+                  if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:HORA)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.hora = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:LUGAR)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.lugar = m[1].replace(/[*_~`]/g, '').trim(); }
+                  if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:CIUDAD)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.ciudad = m[1].replace(/[*_~`]/g, '').trim(); }
+                  
+                  var vLA = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
+                  
+                  var propioMatch = c.desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\s*VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vLA, "i"));
+                  if (propioMatch) {
+                    var pT = propioMatch[0];
+                    if (m = pT.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula1 = m[1].trim(); }
+                    if (m = pT.match(/(?:^|\n)[ \t]*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora1 = m[1].trim(); }
+                  }
+                  var contrarioMatch = c.desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\s*VEH[ÍI]CULO CONTRARIO[\\s\\S]*?" + vLA, "i"));
+                  if (contrarioMatch) {
+                    var cT = contrarioMatch[0];
+                    if (m = cT.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula2 = m[1].trim(); }
+                    if (m = cT.match(/(?:^|\n)[ \t]*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora2 = m[1].trim(); }
+                  }
+                }
+
+                sheet.addRow({
+                  lista: mapListas[c.idList] || "Desconocida",
+                  tarjeta: c.name,
+                  nombre: fields.nombre,
+                  dni: fields.dni,
+                  domicilio: fields.domicilio,
+                  telefono: fields.telefono,
+                  profesion: fields.profesion,
+                  fecha: fields.fecha,
+                  hora: fields.hora,
+                  lugar: fields.lugar,
+                  ciudad: fields.ciudad,
+                  matricula1: fields.matricula1,
+                  aseguradora1: fields.aseguradora1,
+                  matricula2: fields.matricula2,
+                  aseguradora2: fields.aseguradora2,
+                  observaciones: fields.observaciones
+                });
+              });
+
+              return workbook.xlsx.writeBuffer();
+            })
+            .then(function (buffer) {
+              return new Promise((resolve, reject) => {
+                if (window.saveAs) return resolve(buffer);
+                var scriptFS = document.createElement('script');
+                scriptFS.src = "https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js";
+                scriptFS.onload = () => resolve(buffer);
+                scriptFS.onerror = reject;
+                document.head.appendChild(scriptFS);
+              });
+            })
+            .then(function (buffer) {
+              var blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+              window.saveAs(blob, "Reporte_Tablero.xlsx");
+              return t.alert({ message: 'Descarga completada.', duration: 3, display: 'success' });
+            })
+            .catch(function (err) {
+              console.error("Error exportando tablero:", err);
+              return t.alert({ message: 'Error al exportar.', duration: 6, display: 'error' });
+            });
+        }
+      });
+
+      // Botón "Descargar clientes" sólo para tableros de CLIENTES
+      if (type === 'CLIENTES') {
+        buttons.push({
           icon: {
             dark: BASE_URL + 'excel_icon.png',
             light: BASE_URL + 'excel_icon.png'
           },
-          text: 'Excel Listas',
+          text: 'Descargar clientes',
           condition: 'always',
           callback: function (t) {
             t.alert({
-              message: 'Generando reporte por listas...',
+              message: 'Generando reporte de clientes...',
               duration: 3,
               display: 'info'
             });
 
             return Promise.all([
-              t.cards('name', 'desc', 'idList', 'labels'),
+              t.cards('desc', 'idList'),
               t.lists('id', 'name')
             ])
               .then(function (results) {
@@ -270,30 +275,16 @@ window.TrelloPowerUp.initialize({
                 var cards = data.cards;
                 var lists = data.lists;
                 var workbook = new ExcelJS.Workbook();
-                var sheet = workbook.addWorksheet('Reporte por Listas');
+                var sheet = workbook.addWorksheet('Clientes');
 
-                var tarjetasPorLista = {};
                 var infoClientePorLista = {};
-                var etiquetasPorLista = {};
-                var maxCards = 0;
-                var maxLabels = 0;
 
                 lists.forEach(function (l) {
-                  tarjetasPorLista[l.id] = [];
                   infoClientePorLista[l.id] = { nombre: '', dni: '', domicilio: '', telefono: '', profesion: '', observaciones: '' };
-                  etiquetasPorLista[l.id] = new Set();
                 });
 
                 cards.forEach(function (c) {
-                  if (tarjetasPorLista[c.idList]) {
-                    tarjetasPorLista[c.idList].push(c.name);
-
-                    if (c.labels) {
-                      c.labels.forEach(function (label) {
-                        etiquetasPorLista[c.idList].add(label.name || label.color);
-                      });
-                    }
-
+                  if (infoClientePorLista[c.idList]) {
                     if (infoClientePorLista[c.idList].nombre === '' && c.desc) {
                       var m;
                       if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*NOMBRE Y APELLIDOS[^:]*[:\s-]+\s*([^\n\r]*)/i)) { infoClientePorLista[c.idList].nombre = m[1].replace(/[*_~`]/g, '').trim(); }
@@ -303,38 +294,26 @@ window.TrelloPowerUp.initialize({
                       if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*PROFESI[OÓ]N[^:]*[:\s-]+\s*([^\n\r]*)/i)) { infoClientePorLista[c.idList].profesion = m[1].replace(/[*_~`]/g, '').trim(); }
                       if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*OBSERVACIONES[^:]*[:\s-]+\s*([^\n\r]*)/i)) { infoClientePorLista[c.idList].observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
                     }
-
-                    if (tarjetasPorLista[c.idList].length > maxCards) {
-                      maxCards = tarjetasPorLista[c.idList].length;
-                    }
                   }
                 });
 
-                lists.forEach(function (l) {
-                  var arrLabels = Array.from(etiquetasPorLista[l.id]);
-                  etiquetasPorLista[l.id] = arrLabels;
-                  if (arrLabels.length > maxLabels) maxLabels = arrLabels.length;
-                });
-
                 var encabezado = ['Nombre lista', 'Nombre', 'DNI', 'Domicilio', 'Teléfono', 'Profesión', 'Observaciones'];
-                for (var i = 1; i <= maxLabels; i++) {
-                  encabezado.push('Etiqueta ' + i);
-                }
-                for (var i = 1; i <= maxCards; i++) {
-                  encabezado.push('nombre tarjeta ' + i);
-                }
-
                 var headerRow = sheet.addRow(encabezado);
                 headerRow.font = { bold: true };
 
                 lists.forEach(function (l) {
                   var info = infoClientePorLista[l.id];
-                  var labels = etiquetasPorLista[l.id];
-                  var fila = [l.name, info.nombre, info.dni, info.domicilio, info.telefono, info.profesion, info.observaciones].concat(labels).concat(tarjetasPorLista[l.id]);
+                  var fila = [l.name, info.nombre, info.dni, info.domicilio, info.telefono, info.profesion, info.observaciones];
                   sheet.addRow(fila);
                 });
 
                 sheet.getColumn(1).width = 25;
+                sheet.getColumn(2).width = 30;
+                sheet.getColumn(3).width = 15;
+                sheet.getColumn(4).width = 25;
+                sheet.getColumn(5).width = 15;
+                sheet.getColumn(6).width = 20;
+                sheet.getColumn(7).width = 40;
 
                 return workbook.xlsx.writeBuffer();
               })
@@ -350,16 +329,17 @@ window.TrelloPowerUp.initialize({
               })
               .then(function (buffer) {
                 var blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-                window.saveAs(blob, "Reporte_Listas.xlsx");
-                return t.alert({ message: 'Descarga de listas completada.', duration: 3, display: 'success' });
+                window.saveAs(blob, "Clientes.xlsx");
+                return t.alert({ message: 'Descarga de clientes completada.', duration: 3, display: 'success' });
               })
               .catch(function (err) {
-                console.error("Error exportando listas:", err);
-                return t.alert({ message: 'Error al exportar listas.', duration: 6, display: 'error' });
+                console.error("Error exportando clientes:", err);
+                return t.alert({ message: 'Error al exportar clientes.', duration: 6, display: 'error' });
               });
           }
-        }
-      ];
+        });
+      }
+
 
       if (type === 'FACTURACIÓN') {
         buttons.push({
