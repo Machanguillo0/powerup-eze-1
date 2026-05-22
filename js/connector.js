@@ -92,10 +92,10 @@ window.TrelloPowerUp.initialize({
       var buttons = [
         {
           icon: {
-            dark: BASE_URL + 'export_tablero.svg',
-            light: BASE_URL + 'export_tablero.svg'
+            dark: BASE_URL + 'excel_icon.png',
+            light: BASE_URL + 'excel_icon.png'
           },
-          text: 'Exportar Tablero a Excel',
+          text: 'Excel Tablero',
           condition: 'always',
           callback: function (t) {
             t.alert({
@@ -237,10 +237,10 @@ window.TrelloPowerUp.initialize({
         },
         {
           icon: {
-            dark: BASE_URL + 'export_listas.svg',
-            light: BASE_URL + 'export_listas.svg'
+            dark: BASE_URL + 'excel_icon.png',
+            light: BASE_URL + 'excel_icon.png'
           },
-          text: 'Exportar Listas a Excel',
+          text: 'Excel Listas',
           condition: 'always',
           callback: function (t) {
             t.alert({
@@ -364,10 +364,10 @@ window.TrelloPowerUp.initialize({
       if (type === 'FACTURACIÓN') {
         buttons.push({
           icon: {
-            dark: BASE_URL + 'descarga_facturas.svg',
-            light: BASE_URL + 'descarga_facturas.svg'
+            dark: BASE_URL + 'facturas_icon.png',
+            light: BASE_URL + 'facturas_icon.png'
           },
-          text: 'Descarga de facturas',
+          text: 'Descargar Facturas',
           condition: 'always',
           callback: function (t) {
             t.alert({
