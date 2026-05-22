@@ -3,6 +3,7 @@ console.log("Antigravity Power-Up Connector Cargado");
 // Configuración global
 var APP_KEY = '30767998cbb7b57a692e8bb50cfa9a9c';
 var APP_NAME = 'Antigravity';
+var BASE_URL = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
 
 // Función de utilidad inyectada para detectar el tipo de tablero de forma segura
 var getBoardTypeSafe = function(t) {
@@ -91,8 +92,8 @@ window.TrelloPowerUp.initialize({
       var buttons = [
         {
           icon: {
-            dark: './export_tablero.png',
-            light: './export_tablero.png'
+            dark: BASE_URL + 'export_tablero.svg',
+            light: BASE_URL + 'export_tablero.svg'
           },
           text: 'Exportar Tablero a Excel',
           condition: 'always',
@@ -236,8 +237,8 @@ window.TrelloPowerUp.initialize({
         },
         {
           icon: {
-            dark: './export_listas.png',
-            light: './export_listas.png'
+            dark: BASE_URL + 'export_listas.svg',
+            light: BASE_URL + 'export_listas.svg'
           },
           text: 'Exportar Listas a Excel',
           condition: 'always',
@@ -363,8 +364,8 @@ window.TrelloPowerUp.initialize({
       if (type === 'FACTURACIÓN') {
         buttons.push({
           icon: {
-            dark: './icon.svg',
-            light: './icon.svg'
+            dark: BASE_URL + 'descarga_facturas.svg',
+            light: BASE_URL + 'descarga_facturas.svg'
           },
           text: 'Descarga de facturas',
           condition: 'always',
