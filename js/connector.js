@@ -34,8 +34,6 @@ var getBoardTypeSafe = function(t) {
 };
 
 window.TrelloPowerUp.initialize({
-  appKey: APP_KEY,
-  appName: APP_NAME,
   // Capability para añadir botones en el menú derecho de la tarjeta
   'card-buttons': function (t, options) {
     return getBoardTypeSafe(t).then(function(type) {
@@ -604,4 +602,7 @@ window.TrelloPowerUp.initialize({
       return buttons;
     });
   }
+}, {
+  appKey: APP_KEY,
+  appName: APP_NAME
 });
