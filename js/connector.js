@@ -83,7 +83,8 @@ window.TrelloPowerUp.initialize({
       }
     };
   },
-  // Capability para añadir un bo  'board-buttons': function (t, options) {
+  // Capability para añadir un botón a nivel de tablero
+  'board-buttons': function (t, options) {
     return getBoardTypeSafe(t).then(function(type) {
       if (type !== 'CLIENTES' && type !== 'FACTURACIÓN') return [];
 
