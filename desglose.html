@@ -593,36 +593,56 @@
           throw new Error('REQUIRED_AUTHORIZATION');
         }
 
-        // 1. Buscar el tablero configurado como "CLIENTES"
+        // 1. Buscar todos los tableros configurados como "CLIENTES"
         var searchQuery = encodeURIComponent('name:"Tipo tablero"');
         return fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
           .then(function (res) { return res.json(); })
           .then(function (searchData) {
             var cards = searchData.cards || [];
-            var clientesCard = cards.find(function(c) {
+            var clientCards = cards.filter(function(c) {
               var n = c.name.toUpperCase();
               return n.includes('TIPO TABLERO') && n.includes('CLIENTES');
             });
             
-            if (!clientesCard) {
+            if (clientCards.length === 0) {
               throw new Error('No se encontró ningún tablero configurado como "CLIENTES". Asegúrate de tener la tarjeta "Tipo tablero CLIENTES" en el tablero correspondiente.');
             }
-            return clientesCard.idBoard;
+
+            var uniqueBoardIds = [];
+            clientCards.forEach(function(c) {
+              if (uniqueBoardIds.indexOf(c.idBoard) === -1) {
+                uniqueBoardIds.push(c.idBoard);
+              }
+            });
+            return uniqueBoardIds;
           })
-          .then(function (idBoardClientes) {
-            // 2. Obtener listas del tablero de Clientes
-            return fetch(`https://api.trello.com/1/boards/${idBoardClientes}/lists?key=${appKey}&token=${token}`)
-              .then(function (res) { return res.json(); })
-              .then(function (lists) {
-                var clientList = lists.find(function(l) {
-                  return l.name.trim().toLowerCase() === currentListName.trim().toLowerCase();
+          .then(function (idBoardsClientes) {
+            // 2. Obtener listas de todos los tableros de clientes y buscar la lista coincidente
+            var promises = idBoardsClientes.map(function(boardId) {
+              return fetch(`https://api.trello.com/1/boards/${boardId}/lists?key=${appKey}&token=${token}`)
+                .then(function(res) { 
+                  if (!res.ok) return [];
+                  return res.json(); 
+                })
+                .then(function(lists) {
+                  var foundList = lists.find(function(l) {
+                    return l.name.trim().toLowerCase() === currentListName.trim().toLowerCase();
+                  });
+                  return foundList ? { listId: foundList.id, boardId: boardId } : null;
+                })
+                .catch(function(err) {
+                  console.error("Error consultando listas del tablero " + boardId + ":", err);
+                  return null;
                 });
-                
-                if (!clientList) {
-                  throw new Error('No se encontró ninguna lista llamada "' + currentListName + '" en el tablero de Clientes.');
-                }
-                return clientList.id;
-              });
+            });
+            
+            return Promise.all(promises).then(function(results) {
+              var match = results.find(function(r) { return r !== null; });
+              if (!match) {
+                throw new Error('No se encontró ninguna lista llamada "' + currentListName + '" en ninguno de los tableros de Clientes (' + idBoardsClientes.length + ' tableros consultados).');
+              }
+              return match.listId;
+            });
           })
           .then(function (idListClientes) {
             // 3. Obtener tarjetas de esa lista en Clientes
