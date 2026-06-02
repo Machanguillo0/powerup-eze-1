@@ -421,7 +421,7 @@
       border-top: 1px solid #dfe1e6;
     }
     .totalizer-row {
-      margin-top: 10px;
+      margin-top: auto;
       border-top: 2px solid #1f845a;
       padding-top: 8px;
       display: flex;
@@ -3184,7 +3184,7 @@
           e.preventDefault();
           e.stopPropagation();
           t.modal({
-            url: './desglose.html?v=44',
+            url: './desglose.html?v=45',
             height: 600,
             title: 'Desglose de Factura (Colegio LP 2012)',
             accentColor: '#1f845a'
@@ -3311,14 +3311,14 @@
         var valApMismo = Math.round(base35 * 0.5 * 100) / 100;
         var valApOtro = Math.round(base35 * 0.6 * 100) / 100;
 
-        document.getElementById('val-principal-100').textContent = valP100.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
-        document.getElementById('val-principal-demanda').textContent = valDem.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
-        document.getElementById('val-principal-audiencia').textContent = valAud.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
-        document.getElementById('val-principal-juicio').textContent = valJui.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
-        document.getElementById('val-ejecucion-sin').textContent = valSin.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
-        document.getElementById('val-ejecucion-con').textContent = valCon.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
-        document.getElementById('val-apelacion-mismo').textContent = valApMismo.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
-        document.getElementById('val-apelacion-otro').textContent = valApOtro.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-principal-100').textContent = valP100.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-principal-demanda').textContent = valDem.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-principal-audiencia').textContent = valAud.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-principal-juicio').textContent = valJui.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-ejecucion-sin').textContent = valSin.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-ejecucion-con').textContent = valCon.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-apelacion-mismo').textContent = valApMismo.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-apelacion-otro').textContent = valApOtro.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 
         var totalIzquierda = 0;
         var sumaEscalasActivas = 0;
@@ -3333,7 +3333,7 @@
 
         // Recargo de Costas (+15% sobre escalas seleccionadas)
         var valRecargo = Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
-        document.getElementById('val-recargo-costas').textContent = valRecargo.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-recargo-costas').textContent = valRecargo.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
         if (chkRecargoCostas.checked) {
           totalIzquierda += valRecargo;
         }
@@ -3345,44 +3345,44 @@
         }
         var valDescuento30b = Math.round(baseDescuento30b * 0.25 * 100) / 100;
         // chkCriterio30b está definido en la clausura
-        document.getElementById('val-criterio-30b').textContent = '-' + valDescuento30b.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-criterio-30b').textContent = '-' + valDescuento30b.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
         if (chkCriterio30b && chkCriterio30b.checked) {
           totalIzquierda -= valDescuento30b;
         }
 
         // Mostrar total de la izquierda
-        document.getElementById('val-col-izquierda').textContent = totalIzquierda.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-col-izquierda').textContent = totalIzquierda.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 
         // 2. Columna Derecha: Conceptos Fijos con Multiplicador
         var totalDerecha = 0;
         
         var qtySimple = Math.max(parseInt(document.getElementById('qty-consulta-simple').value) || 1, 1);
         var valSimple = parseFloat(chkConsultaSimple.getAttribute('data-val')) * qtySimple;
-        document.getElementById('val-consulta-simple').textContent = valSimple.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-consulta-simple').textContent = valSimple.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
         if (chkConsultaSimple.checked) totalDerecha += valSimple;
 
         var qtyCompleja = Math.max(parseInt(document.getElementById('qty-consulta-compleja').value) || 1, 1);
         var valCompleja = parseFloat(chkConsultaCompleja.getAttribute('data-val')) * qtyCompleja;
-        document.getElementById('val-consulta-compleja').textContent = valCompleja.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-consulta-compleja').textContent = valCompleja.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
         if (chkConsultaCompleja.checked) totalDerecha += valCompleja;
 
         var qtyMisma = Math.max(parseInt(document.getElementById('qty-salida-misma').value) || 1, 1);
         var valMisma = parseFloat(chkSalidaMisma.getAttribute('data-val')) * qtyMisma;
-        document.getElementById('val-salida-misma').textContent = valMisma.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-salida-misma').textContent = valMisma.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
         if (chkSalidaMisma.checked) totalDerecha += valMisma;
 
         var qtyFuera = Math.max(parseInt(document.getElementById('qty-salida-fuera').value) || 1, 1);
         var valFuera = parseFloat(chkSalidaFuera.getAttribute('data-val')) * qtyFuera;
-        document.getElementById('val-salida-fuera').textContent = valFuera.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-salida-fuera').textContent = valFuera.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
         if (chkSalidaFuera.checked) totalDerecha += valFuera;
 
         var qtyMonitorio = Math.max(parseInt(document.getElementById('qty-monitorio').value) || 1, 1);
         var valMonitorioVal = parseFloat(chkMonitorio.getAttribute('data-val')) * qtyMonitorio;
-        document.getElementById('val-monitorio').textContent = valMonitorioVal.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-monitorio').textContent = valMonitorioVal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
         if (chkMonitorio.checked) totalDerecha += valMonitorioVal;
 
         // Mostrar total de la derecha
-        document.getElementById('val-col-derecha').textContent = totalDerecha.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        document.getElementById('val-col-derecha').textContent = totalDerecha.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 
         // 3. Importe Total Definitivo (Suma de ambos totalizadores)
         var finalTotal = totalIzquierda + totalDerecha;
@@ -3399,8 +3399,8 @@
         }
 
         var desgloseResto = document.getElementById('desglose-resto');
-        if (desgloseResto) desgloseResto.textContent = resto.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
-        labelTotal.textContent = finalTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        if (desgloseResto) desgloseResto.textContent = resto.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        labelTotal.textContent = finalTotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
       }
 
       window.toggleCheckbox = function(id) {
