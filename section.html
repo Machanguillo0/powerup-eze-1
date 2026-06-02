@@ -385,9 +385,9 @@
       overflow-y: auto;
     }
     .qty-input {
-      width: 45px;
+      width: 30px;
       height: 24px;
-      padding: 2px 4px;
+      padding: 2px 2px;
       border: 1px solid #ced4da;
       border-radius: 3px;
       font-size: 12px;
@@ -663,39 +663,6 @@
                 <div class="value-badge" id="val-principal-100">0,00 €</div>
               </div>
 
-              <div class="checkbox-item" onclick="toggleCheckbox('chk-principal-demanda')">
-                <div class="checkbox-item-left">
-                  <input type="checkbox" id="chk-principal-demanda" data-scale="35" data-pct="50" data-name="Fase Demanda / Alegaciones (50% Criterio 35)" onclick="event.stopPropagation();">
-                  <div class="checkbox-item-text">
-                    <strong>Fase Demanda / Alegaciones (50%)</strong>
-                    <small>50% de la escala progresiva por pleito principal</small>
-                  </div>
-                </div>
-                <div class="value-badge" id="val-principal-demanda">0,00 €</div>
-              </div>
-
-              <div class="checkbox-item" onclick="toggleCheckbox('chk-principal-audiencia')">
-                <div class="checkbox-item-left">
-                  <input type="checkbox" id="chk-principal-audiencia" data-scale="35" data-pct="10" data-name="Fase Audiencia Previa (10% Criterio 35)" onclick="event.stopPropagation();">
-                  <div class="checkbox-item-text">
-                    <strong>Fase Audiencia Previa (10%)</strong>
-                    <small>10% de la escala progresiva por pleito principal</small>
-                  </div>
-                </div>
-                <div class="value-badge" id="val-principal-audiencia">0,00 €</div>
-              </div>
-
-              <div class="checkbox-item" onclick="toggleCheckbox('chk-principal-juicio')">
-                <div class="checkbox-item-left">
-                  <input type="checkbox" id="chk-principal-juicio" data-scale="35" data-pct="40" data-name="Fase Juicio / Vista (40% Criterio 35)" onclick="event.stopPropagation();">
-                  <div class="checkbox-item-text">
-                    <strong>Fase Juicio / Vista (40%)</strong>
-                    <small>40% de la escala progresiva por pleito principal</small>
-                  </div>
-                </div>
-                <div class="value-badge" id="val-principal-juicio">0,00 €</div>
-              </div>
-
               <div class="checkbox-item" onclick="toggleCheckbox('chk-criterio-30b')">
                 <div class="checkbox-item-left">
                   <input type="checkbox" id="chk-criterio-30b" data-name="Criterio 30B (Descuento -25%)" onclick="event.stopPropagation();">
@@ -722,6 +689,39 @@
               <details class="others-details" open>
                 <summary class="others-summary">Otros Escalables</summary>
                 <div class="others-content">
+                  <div class="checkbox-item" onclick="toggleCheckbox('chk-principal-demanda')">
+                    <div class="checkbox-item-left">
+                      <input type="checkbox" id="chk-principal-demanda" data-scale="35" data-pct="50" data-name="Fase Demanda / Alegaciones (50% Criterio 35)" onclick="event.stopPropagation();">
+                      <div class="checkbox-item-text">
+                        <strong>Fase Demanda / Alegaciones (50%)</strong>
+                        <small>50% de la escala progresiva por pleito principal</small>
+                      </div>
+                    </div>
+                    <div class="value-badge" id="val-principal-demanda">0,00 €</div>
+                  </div>
+
+                  <div class="checkbox-item" onclick="toggleCheckbox('chk-principal-audiencia')">
+                    <div class="checkbox-item-left">
+                      <input type="checkbox" id="chk-principal-audiencia" data-scale="35" data-pct="10" data-name="Fase Audiencia Previa (10% Criterio 35)" onclick="event.stopPropagation();">
+                      <div class="checkbox-item-text">
+                        <strong>Fase Audiencia Previa (10%)</strong>
+                        <small>10% de la escala progresiva por pleito principal</small>
+                      </div>
+                    </div>
+                    <div class="value-badge" id="val-principal-audiencia">0,00 €</div>
+                  </div>
+
+                  <div class="checkbox-item" onclick="toggleCheckbox('chk-principal-juicio')">
+                    <div class="checkbox-item-left">
+                      <input type="checkbox" id="chk-principal-juicio" data-scale="35" data-pct="40" data-name="Fase Juicio / Vista (40% Criterio 35)" onclick="event.stopPropagation();">
+                      <div class="checkbox-item-text">
+                        <strong>Fase Juicio / Vista (40%)</strong>
+                        <small>40% de la escala progresiva por pleito principal</small>
+                      </div>
+                    </div>
+                    <div class="value-badge" id="val-principal-juicio">0,00 €</div>
+                  </div>
+
                   <div class="checkbox-item" onclick="toggleCheckbox('chk-ejecucion-sin')">
                     <div class="checkbox-item-left">
                       <input type="checkbox" id="chk-ejecucion-sin" data-scale="36" data-pct="50" data-name="Ejecución de Sentencia sin Oposición (50% Criterio 36)" onclick="event.stopPropagation();">
@@ -853,9 +853,9 @@
 
         </div>
 
-        <!-- Panel de Resto (Importe base ajustado) -->
+        <!-- Panel de Resto (Descuento especial) -->
         <div class="resto-panel" id="resto-panel" style="display:none;">
-          <div class="resto-label">Importe base ajustado (Resto):</div>
+          <div class="resto-label">Descuento especial:</div>
           <div class="resto-amount" id="desglose-resto">0,00 €</div>
         </div>
 
@@ -3533,7 +3533,7 @@
           var resto = 0;
           if (base > sumatoriaTotal) {
             resto = base - sumatoriaTotal;
-            lines.push('- Importe base ajustado (Resto): ' + resto.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            lines.push('- Descuento especial: ' + resto.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
             itemsSelectedCount++;
           }
 
