@@ -569,10 +569,10 @@
           </div>
 
           <div class="desglose-item" onclick="document.getElementById('chk-criterio-30b').click(); event.stopPropagation();">
-            <input type="checkbox" id="chk-criterio-30b" data-name="Criterio 30B (Descuento -10%)" onclick="event.stopPropagation();">
+            <input type="checkbox" id="chk-criterio-30b" data-name="Criterio 30B (Descuento -20%)" onclick="event.stopPropagation();">
             <div class="desglose-item-text">
-              <strong>Criterio 30B (Descuento -10%)</strong><br>
-              <small>Descuento oficial del 10% sobre los conceptos de escala</small>
+              <strong>Criterio 30B (Descuento -20%)</strong><br>
+              <small>Descuento oficial del 20% sobre los conceptos de escala</small>
             </div>
             <div class="desglose-item-val" id="val-criterio-30b" style="color: #c93b2b;">-0,00 €</div>
           </div>
@@ -3106,10 +3106,10 @@
         var chkCriterio30b = document.getElementById('chk-criterio-30b');
         var valDescuento30b = 0;
         if (chkCriterio30b && chkCriterio30b.checked) {
-          valDescuento30b = Math.round(sumaEscalasActivas * 0.10 * 100) / 100;
+          valDescuento30b = Math.round(sumaEscalasActivas * 0.20 * 100) / 100;
         }
         if (document.getElementById('val-criterio-30b')) {
-          document.getElementById('val-criterio-30b').textContent = '-' + (Math.round(sumaEscalasActivas * 0.10 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+          document.getElementById('val-criterio-30b').textContent = '-' + (Math.round(sumaEscalasActivas * 0.20 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
         }
 
         // 4. Sumar total definitivo
@@ -3234,8 +3234,8 @@
           // Descuento Criterio 30B
           var chkCriterio30b = document.getElementById('chk-criterio-30b');
           if (chkCriterio30b && chkCriterio30b.checked) {
-            var valDescuento30b = Math.round(sumaEscalasActivas * 0.10 * 100) / 100;
-            lines.push('- Criterio 30B (Descuento -10% sobre escalas): -' + valDescuento30b.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            var valDescuento30b = Math.round(sumaEscalasActivas * 0.20 * 100) / 100;
+            lines.push('- Criterio 30B (Descuento -20% sobre escalas): -' + valDescuento30b.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
             itemsSelectedCount++;
           }
 
