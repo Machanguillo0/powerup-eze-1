@@ -220,6 +220,106 @@
       font-size: 15px;
       color: #42526e;
     }
+
+    /* Estilos de Dos Columnas */
+    .desglose-columns {
+      display: flex;
+      gap: 16px;
+      margin-top: 15px;
+    }
+    .desglose-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background-color: #fff;
+      border: 1px solid #ced4da;
+      border-radius: 3px;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    .col-title {
+      font-weight: 700;
+      font-size: 13px;
+      color: #172b4d;
+      margin-bottom: 8px;
+      border-bottom: 2px solid #ebecf0;
+      padding-bottom: 4px;
+    }
+    .col-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+    .qty-input {
+      width: 45px;
+      height: 24px;
+      padding: 2px 4px;
+      border: 1px solid #ced4da;
+      border-radius: 3px;
+      font-size: 12px;
+      text-align: center;
+      margin-right: 8px;
+      box-sizing: border-box;
+    }
+    .others-details {
+      border: 1px solid #dfe1e6;
+      border-radius: 3px;
+      margin-top: 4px;
+      background-color: #fafbfc;
+    }
+    .others-summary {
+      padding: 6px 8px;
+      font-weight: 600;
+      font-size: 12.5px;
+      color: #42526e;
+      cursor: pointer;
+      outline: none;
+      user-select: none;
+    }
+    .others-summary:hover {
+      background-color: #ebecf0;
+    }
+    .others-content {
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      border-top: 1px solid #dfe1e6;
+    }
+    .totalizer-row {
+      margin-top: 10px;
+      border-top: 2px solid #1f845a;
+      padding-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .totalizer-label {
+      border: 1px dashed transparent;
+      background: transparent;
+      font-weight: 700;
+      font-size: 12.5px;
+      color: #1f845a;
+      padding: 2px 4px;
+      flex: 1;
+      height: 28px;
+      box-sizing: border-box;
+    }
+    .totalizer-label:hover, .totalizer-label:focus {
+      border-color: #1f845a;
+      background-color: #fafbfc;
+      outline: none;
+    }
+    .totalizer-amount {
+      font-weight: 700;
+      font-size: 13px;
+      color: #1f845a;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
@@ -239,181 +339,218 @@
     </div>
   </div>
 
-  <!-- Checklist de Conceptos -->
+  <!-- Dos Columnas de Desglose -->
   <div class="checklist-title">Conceptos del Desglose (LP Criterios 2012)</div>
-  <div class="checkbox-group">
+  <div class="desglose-columns">
     
-    <!-- 1. Conceptos Fijos -->
-    <div class="checkbox-item" onclick="toggleCheckbox('chk-consulta-simple')">
-      <div class="checkbox-item-left">
-        <input type="checkbox" id="chk-consulta-simple" data-fixed="true" data-val="76.23" data-name="Consulta simple o telefónica (Criterio 1)" onclick="event.stopPropagation();">
-        <div class="checkbox-item-text">
-          <strong>Consulta simple o telefónica</strong>
-          <small>Fijo recomendado oficial (Criterio 1)</small>
+    <!-- Columna Izquierda: Escalables -->
+    <div class="desglose-col">
+      <div class="col-title">Criterios Escalables</div>
+      <div class="col-content">
+        
+        <div class="checkbox-item" onclick="toggleCheckbox('chk-principal-100')">
+          <div class="checkbox-item-left">
+            <input type="checkbox" id="chk-principal-100" data-scale="35" data-pct="100" data-name="Procedimiento Principal (100% Criterio 35)" onclick="event.stopPropagation();">
+            <div class="checkbox-item-text">
+              <strong>Procedimiento Principal (100%)</strong>
+              <small>Escala progresiva completa (mínimo 240 €)</small>
+            </div>
+          </div>
+          <div class="value-badge" id="val-principal-100">0,00 €</div>
         </div>
-      </div>
-      <div class="value-badge" id="val-consulta-simple">76,23 €</div>
-    </div>
-    
-    <div class="checkbox-item" onclick="toggleCheckbox('chk-consulta-compleja')">
-      <div class="checkbox-item-left">
-        <input type="checkbox" id="chk-consulta-compleja" data-fixed="true" data-val="135.14" data-name="Consulta compleja / examen de documentos (Criterio 2)" onclick="event.stopPropagation();">
-        <div class="checkbox-item-text">
-          <strong>Consulta compleja / examen</strong>
-          <small>Fijo recomendado oficial (Criterio 2)</small>
+
+        <div class="checkbox-item" onclick="toggleCheckbox('chk-principal-demanda')">
+          <div class="checkbox-item-left">
+            <input type="checkbox" id="chk-principal-demanda" data-scale="35" data-pct="50" data-name="Fase Demanda / Alegaciones (50% Criterio 35)" onclick="event.stopPropagation();">
+            <div class="checkbox-item-text">
+              <strong>Fase Demanda / Alegaciones (50%)</strong>
+              <small>50% de la escala progresiva por pleito principal</small>
+            </div>
+          </div>
+          <div class="value-badge" id="val-principal-demanda">0,00 €</div>
         </div>
-      </div>
-      <div class="value-badge" id="val-consulta-compleja">135,14 €</div>
-    </div>
-    
-    <div class="checkbox-item" onclick="toggleCheckbox('chk-salida-misma')">
-      <div class="checkbox-item-left">
-        <input type="checkbox" id="chk-salida-misma" data-fixed="true" data-val="65.84" data-name="Salida de despacho (Misma localidad) (Criterio 7.1)" onclick="event.stopPropagation();">
-        <div class="checkbox-item-text">
-          <strong>Salida despacho (Misma localidad)</strong>
-          <small>Fijo recomendado oficial (Criterio 7.1)</small>
+
+        <div class="checkbox-item" onclick="toggleCheckbox('chk-principal-audiencia')">
+          <div class="checkbox-item-left">
+            <input type="checkbox" id="chk-principal-audiencia" data-scale="35" data-pct="10" data-name="Fase Audiencia Previa (10% Criterio 35)" onclick="event.stopPropagation();">
+            <div class="checkbox-item-text">
+              <strong>Fase Audiencia Previa (10%)</strong>
+              <small>10% de la escala progresiva por pleito principal</small>
+            </div>
+          </div>
+          <div class="value-badge" id="val-principal-audiencia">0,00 €</div>
         </div>
-      </div>
-      <div class="value-badge" id="val-salida-misma">65,84 €</div>
-    </div>
-    
-    <div class="checkbox-item" onclick="toggleCheckbox('chk-salida-fuera')">
-      <div class="checkbox-item-left">
-        <input type="checkbox" id="chk-salida-fuera" data-fixed="true" data-val="117.81" data-name="Salida de despacho (Media jornada fuera) (Criterio 7.2)" onclick="event.stopPropagation();">
-        <div class="checkbox-item-text">
-          <strong>Salida despacho (Fuera de localidad)</strong>
-          <small>Fijo oficial recomendado (Criterio 7.2)</small>
+
+        <div class="checkbox-item" onclick="toggleCheckbox('chk-principal-juicio')">
+          <div class="checkbox-item-left">
+            <input type="checkbox" id="chk-principal-juicio" data-scale="35" data-pct="40" data-name="Fase Juicio / Vista (40% Criterio 35)" onclick="event.stopPropagation();">
+            <div class="checkbox-item-text">
+              <strong>Fase Juicio / Vista (40%)</strong>
+              <small>40% de la escala progresiva por pleito principal</small>
+            </div>
+          </div>
+          <div class="value-badge" id="val-principal-juicio">0,00 €</div>
         </div>
-      </div>
-      <div class="value-badge" id="val-salida-fuera">117,81 €</div>
-    </div>
-    
-    <div class="checkbox-item" onclick="toggleCheckbox('chk-monitorio')">
-      <div class="checkbox-item-left">
-        <input type="checkbox" id="chk-monitorio" data-fixed="true" data-val="165.00" data-name="Petición inicial de Proceso Monitorio (Criterio 38)" onclick="event.stopPropagation();">
-        <div class="checkbox-item-text">
-          <strong>Proceso Monitorio (Petición Inicial)</strong>
-          <small>Fijo recomendado oficial (Criterio 38)</small>
+
+        <div class="checkbox-item" onclick="toggleCheckbox('chk-criterio-30b')">
+          <div class="checkbox-item-left">
+            <input type="checkbox" id="chk-criterio-30b" data-name="Criterio 30B (Descuento -25%)" onclick="event.stopPropagation();">
+            <div class="checkbox-item-text">
+              <strong>Criterio 30B (Descuento -25%)</strong>
+              <small>Descuento oficial del 25% sobre escalas y recargo</small>
+            </div>
+          </div>
+          <div class="value-badge" id="val-criterio-30b" style="color: #c93b2b;">0,00 €</div>
         </div>
+
+        <div class="checkbox-item" onclick="toggleCheckbox('chk-recargo-costas')">
+          <div class="checkbox-item-left">
+            <input type="checkbox" id="chk-recargo-costas" data-name="Recargo Oficial de Costas (+15%)" onclick="event.stopPropagation();">
+            <div class="checkbox-item-text">
+              <strong>Recargo Oficial de Costas (+15%)</strong>
+              <small>Aplica +15% a los conceptos de escala seleccionados</small>
+            </div>
+          </div>
+          <div class="value-badge" id="val-recargo-costas">0,00 €</div>
+        </div>
+
+        <!-- Acordeón Otros -->
+        <details class="others-details" open>
+          <summary class="others-summary">Otros Escalables</summary>
+          <div class="others-content">
+            <div class="checkbox-item" onclick="toggleCheckbox('chk-ejecucion-sin')">
+              <div class="checkbox-item-left">
+                <input type="checkbox" id="chk-ejecucion-sin" data-scale="36" data-pct="50" data-name="Ejecución de Sentencia sin Oposición (50% Criterio 36)" onclick="event.stopPropagation();">
+                <div class="checkbox-item-text">
+                  <strong>Ejecución sin Oposición (50%)</strong>
+                  <small>50% escala Criterio 36 (mínimo 150 €)</small>
+                </div>
+              </div>
+              <div class="value-badge" id="val-ejecucion-sin">0,00 €</div>
+            </div>
+
+            <div class="checkbox-item" onclick="toggleCheckbox('chk-ejecucion-con')">
+              <div class="checkbox-item-left">
+                <input type="checkbox" id="chk-ejecucion-con" data-scale="35" data-pct="100" data-name="Ejecución de Sentencia con Oposición (100% Criterio 35)" onclick="event.stopPropagation();">
+                <div class="checkbox-item-text">
+                  <strong>Ejecución con Oposición (100%)</strong>
+                  <small>100% de la escala Criterio 35 completa</small>
+                </div>
+              </div>
+              <div class="value-badge" id="val-ejecucion-con">0,00 €</div>
+            </div>
+
+            <div class="checkbox-item" onclick="toggleCheckbox('chk-apelacion-mismo')">
+              <div class="checkbox-item-left">
+                <input type="checkbox" id="chk-apelacion-mismo" data-scale="35" data-pct="50" data-name="Recurso de Apelación (Mismo Letrado: 50% Criterio 71)" onclick="event.stopPropagation();">
+                <div class="checkbox-item-text">
+                  <strong>Apelación (Mismo Letrado: 50%)</strong>
+                  <small>50% de la escala progresiva principal</small>
+                </div>
+              </div>
+              <div class="value-badge" id="val-apelacion-mismo">0,00 €</div>
+            </div>
+
+            <div class="checkbox-item" onclick="toggleCheckbox('chk-apelacion-otro')">
+              <div class="checkbox-item-left">
+                <input type="checkbox" id="chk-apelacion-otro" data-scale="35" data-pct="60" data-name="Recurso de Apelación (Otro Letrado: 60% Criterio 71)" onclick="event.stopPropagation();">
+                <div class="checkbox-item-text">
+                  <strong>Apelación (Otro Letrado: 60%)</strong>
+                  <small>60% de la escala progresiva principal</small>
+                </div>
+              </div>
+              <div class="value-badge" id="val-apelacion-otro">0,00 €</div>
+            </div>
+          </div>
+        </details>
+
       </div>
-      <div class="value-badge" id="val-monitorio">165,00 €</div>
+      
+      <!-- Totalizador Izquierda -->
+      <div class="totalizer-row">
+        <input type="text" id="label-col-izquierda" class="totalizer-label" value="Transacción extrajudicial">
+        <span class="totalizer-amount" id="val-col-izquierda">0,00 €</span>
+      </div>
     </div>
 
-    <!-- 2. Conceptos Dinámicos por Escalas -->
-    <div class="checkbox-item" onclick="toggleCheckbox('chk-principal-100')">
-      <div class="checkbox-item-left">
-        <input type="checkbox" id="chk-principal-100" data-scale="35" data-pct="100" data-name="Procedimiento Principal (100% Criterio 35)" onclick="event.stopPropagation();">
-        <div class="checkbox-item-text">
-          <strong>Procedimiento Principal (100%)</strong>
-          <small>Escala progresiva completa (mínimo 240 €)</small>
+    <!-- Columna Derecha: Fijos -->
+    <div class="desglose-col">
+      <div class="col-title">Criterios Fijos / Actuaciones</div>
+      <div class="col-content">
+        
+        <div class="checkbox-item" onclick="toggleCheckbox('chk-consulta-simple')">
+          <div class="checkbox-item-left">
+            <input type="number" id="qty-consulta-simple" class="qty-input" value="1" min="1" onclick="event.stopPropagation();">
+            <input type="checkbox" id="chk-consulta-simple" data-fixed="true" data-val="76.23" data-name="Consulta simple o telefónica (Criterio 1)" onclick="event.stopPropagation();">
+            <div class="checkbox-item-text">
+              <strong>Consulta simple o telefónica</strong>
+              <small>Fijo recomendado oficial (Criterio 1)</small>
+            </div>
+          </div>
+          <div class="value-badge" id="val-consulta-simple">76,23 €</div>
         </div>
-      </div>
-      <div class="value-badge" id="val-principal-100">0,00 €</div>
-    </div>
 
-    <div class="checkbox-item" onclick="toggleCheckbox('chk-principal-demanda')">
-      <div class="checkbox-item-left">
-        <input type="checkbox" id="chk-principal-demanda" data-scale="35" data-pct="50" data-name="Fase Demanda / Alegaciones (50% Criterio 35)" onclick="event.stopPropagation();">
-        <div class="checkbox-item-text">
-          <strong>Fase Demanda / Alegaciones (50%)</strong>
-          <small>50% de la escala progresiva por pleito principal</small>
+        <div class="checkbox-item" onclick="toggleCheckbox('chk-consulta-compleja')">
+          <div class="checkbox-item-left">
+            <input type="number" id="qty-consulta-compleja" class="qty-input" value="1" min="1" onclick="event.stopPropagation();">
+            <input type="checkbox" id="chk-consulta-compleja" data-fixed="true" data-val="135.14" data-name="Consulta compleja / examen de documentos (Criterio 2)" onclick="event.stopPropagation();">
+            <div class="checkbox-item-text">
+              <strong>Consulta compleja / examen</strong>
+              <small>Fijo recomendado oficial (Criterio 2)</small>
+            </div>
+          </div>
+          <div class="value-badge" id="val-consulta-compleja">135,14 €</div>
         </div>
-      </div>
-      <div class="value-badge" id="val-principal-demanda">0,00 €</div>
-    </div>
 
-    <div class="checkbox-item" onclick="toggleCheckbox('chk-principal-audiencia')">
-      <div class="checkbox-item-left">
-        <input type="checkbox" id="chk-principal-audiencia" data-scale="35" data-pct="10" data-name="Fase Audiencia Previa (10% Criterio 35)" onclick="event.stopPropagation();">
-        <div class="checkbox-item-text">
-          <strong>Fase Audiencia Previa (10%)</strong>
-          <small>10% de la escala progresiva por pleito principal</small>
+        <div class="checkbox-item" onclick="toggleCheckbox('chk-salida-misma')">
+          <div class="checkbox-item-left">
+            <input type="number" id="qty-salida-misma" class="qty-input" value="1" min="1" onclick="event.stopPropagation();">
+            <input type="checkbox" id="chk-salida-misma" data-fixed="true" data-val="65.84" data-name="Salida de despacho (Misma localidad) (Criterio 7.1)" onclick="event.stopPropagation();">
+            <div class="checkbox-item-text">
+              <strong>Salida despacho (Misma localidad)</strong>
+              <small>Fijo recomendado oficial (Criterio 7.1)</small>
+            </div>
+          </div>
+          <div class="value-badge" id="val-salida-misma">65,84 €</div>
         </div>
-      </div>
-      <div class="value-badge" id="val-principal-audiencia">0,00 €</div>
-    </div>
 
-    <div class="checkbox-item" onclick="toggleCheckbox('chk-principal-juicio')">
-      <div class="checkbox-item-left">
-        <input type="checkbox" id="chk-principal-juicio" data-scale="35" data-pct="40" data-name="Fase Juicio / Vista (40% Criterio 35)" onclick="event.stopPropagation();">
-        <div class="checkbox-item-text">
-          <strong>Fase Juicio / Vista (40%)</strong>
-          <small>40% de la escala progresiva por pleito principal</small>
+        <div class="checkbox-item" onclick="toggleCheckbox('chk-salida-fuera')">
+          <div class="checkbox-item-left">
+            <input type="number" id="qty-salida-fuera" class="qty-input" value="1" min="1" onclick="event.stopPropagation();">
+            <input type="checkbox" id="chk-salida-fuera" data-fixed="true" data-val="117.81" data-name="Salida de despacho (Media jornada fuera) (Criterio 7.2)" onclick="event.stopPropagation();">
+            <div class="checkbox-item-text">
+              <strong>Salida despacho (Fuera de localidad)</strong>
+              <small>Fijo oficial recomendado (Criterio 7.2)</small>
+            </div>
+          </div>
+          <div class="value-badge" id="val-salida-fuera">117,81 €</div>
         </div>
-      </div>
-      <div class="value-badge" id="val-principal-juicio">0,00 €</div>
-    </div>
 
-    <div class="checkbox-item" onclick="toggleCheckbox('chk-ejecucion-sin')">
-      <div class="checkbox-item-left">
-        <input type="checkbox" id="chk-ejecucion-sin" data-scale="36" data-pct="50" data-name="Ejecución de Sentencia sin Oposición (50% Criterio 36)" onclick="event.stopPropagation();">
-        <div class="checkbox-item-text">
-          <strong>Ejecución sin Oposición (50%)</strong>
-          <small>50% escala Criterio 36 (mínimo 150 €)</small>
+        <div class="checkbox-item" onclick="toggleCheckbox('chk-monitorio')">
+          <div class="checkbox-item-left">
+            <input type="number" id="qty-monitorio" class="qty-input" value="1" min="1" onclick="event.stopPropagation();">
+            <input type="checkbox" id="chk-monitorio" data-fixed="true" data-val="165.00" data-name="Petición inicial de Proceso Monitorio (Criterio 38)" onclick="event.stopPropagation();">
+            <div class="checkbox-item-text">
+              <strong>Proceso Monitorio (Petición Inicial)</strong>
+              <small>Fijo recomendado oficial (Criterio 38)</small>
+            </div>
+          </div>
+          <div class="value-badge" id="val-monitorio">165,00 €</div>
         </div>
-      </div>
-      <div class="value-badge" id="val-ejecucion-sin">0,00 €</div>
-    </div>
 
-    <div class="checkbox-item" onclick="toggleCheckbox('chk-ejecucion-con')">
-      <div class="checkbox-item-left">
-        <input type="checkbox" id="chk-ejecucion-con" data-scale="35" data-pct="100" data-name="Ejecución de Sentencia con Oposición (100% Criterio 35)" onclick="event.stopPropagation();">
-        <div class="checkbox-item-text">
-          <strong>Ejecución con Oposición (100%)</strong>
-          <small>100% de la escala Criterio 35 completa</small>
-        </div>
       </div>
-      <div class="value-badge" id="val-ejecucion-con">0,00 €</div>
-    </div>
-
-    <div class="checkbox-item" onclick="toggleCheckbox('chk-apelacion-mismo')">
-      <div class="checkbox-item-left">
-        <input type="checkbox" id="chk-apelacion-mismo" data-scale="35" data-pct="50" data-name="Recurso de Apelación (Mismo Letrado: 50% Criterio 71)" onclick="event.stopPropagation();">
-        <div class="checkbox-item-text">
-          <strong>Apelación (Mismo Letrado: 50%)</strong>
-          <small>50% de la escala progresiva principal</small>
-        </div>
+      
+      <!-- Totalizador Derecha -->
+      <div class="totalizer-row">
+        <input type="text" id="label-col-derecha" class="totalizer-label" value="Consultas y estudio expediente">
+        <span class="totalizer-amount" id="val-col-derecha">0,00 €</span>
       </div>
-      <div class="value-badge" id="val-apelacion-mismo">0,00 €</div>
-    </div>
-
-    <div class="checkbox-item" onclick="toggleCheckbox('chk-apelacion-otro')">
-      <div class="checkbox-item-left">
-        <input type="checkbox" id="chk-apelacion-otro" data-scale="35" data-pct="60" data-name="Recurso de Apelación (Otro Letrado: 60% Criterio 71)" onclick="event.stopPropagation();">
-        <div class="checkbox-item-text">
-          <strong>Apelación (Otro Letrado: 60%)</strong>
-          <small>60% de la escala progresiva principal</small>
-        </div>
-      </div>
-      <div class="value-badge" id="val-apelacion-otro">0,00 €</div>
-    </div>
-
-    <div class="checkbox-item" onclick="toggleCheckbox('chk-recargo-costas')">
-      <div class="checkbox-item-left">
-        <input type="checkbox" id="chk-recargo-costas" data-name="Recargo Oficial de Costas (+15%)" onclick="event.stopPropagation();">
-        <div class="checkbox-item-text">
-          <strong>Recargo Oficial de Costas (+15%)</strong>
-          <small>Aplica +15% a los conceptos de escala seleccionados</small>
-        </div>
-      </div>
-      <div class="value-badge" id="val-recargo-costas">0,00 €</div>
-    </div>
-
-    <div class="checkbox-item" onclick="toggleCheckbox('chk-criterio-30b')">
-      <div class="checkbox-item-left">
-        <input type="checkbox" id="chk-criterio-30b" data-name="Criterio 30B (Descuento -25%)" onclick="event.stopPropagation();">
-        <div class="checkbox-item-text">
-          <strong>Criterio 30B (Descuento -25%)</strong>
-          <small>Descuento oficial del 25% sobre los conceptos de escala</small>
-        </div>
-      </div>
-      <div class="value-badge" id="val-criterio-30b" style="color: #c93b2b;">0,00 €</div>
     </div>
 
   </div>
 
   <!-- Panel de Resto (Importe base ajustado) -->
-  <div class="resto-panel" id="resto-panel">
+  <div class="resto-panel" id="resto-panel" style="display:none;">
     <div class="resto-label">Importe base ajustado (Resto):</div>
     <div class="resto-amount" id="desglose-resto">0,00 €</div>
   </div>
@@ -1198,15 +1335,7 @@
       var base = parseFloat(inputCuantiva.value) || 0;
       if (base < 0) base = 0;
 
-      // 1. Conceptos Fijos
-      var total = 0;
-      if (chkConsultaSimple.checked) total += parseFloat(chkConsultaSimple.getAttribute('data-val'));
-      if (chkConsultaCompleja.checked) total += parseFloat(chkConsultaCompleja.getAttribute('data-val'));
-      if (chkSalidaMisma.checked) total += parseFloat(chkSalidaMisma.getAttribute('data-val'));
-      if (chkSalidaFuera.checked) total += parseFloat(chkSalidaFuera.getAttribute('data-val'));
-      if (chkMonitorio.checked) total += parseFloat(chkMonitorio.getAttribute('data-val'));
-
-      // 2. Conceptos Dinámicos
+      // 1. Columna Izquierda: Conceptos Dinámicos
       var base35 = calcularEscala35(base);
       var base36 = calcularEscala36(base);
 
@@ -1220,7 +1349,7 @@
       var valApMismo = Math.round(base35 * 0.5 * 100) / 100;
       var valApOtro = Math.round(base35 * 0.6 * 100) / 100;
 
-      // Actualizar visualmente badges de valor
+      // Actualizar visualmente badges de valor de la izquierda
       document.getElementById('val-principal-100').textContent = valP100.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
       document.getElementById('val-principal-demanda').textContent = valDem.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
       document.getElementById('val-principal-audiencia').textContent = valAud.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
@@ -1230,24 +1359,25 @@
       document.getElementById('val-apelacion-mismo').textContent = valApMismo.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
       document.getElementById('val-apelacion-otro').textContent = valApOtro.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
 
+      var totalIzquierda = 0;
       var sumaEscalasActivas = 0;
-      if (chkPrincipal100.checked) { total += valP100; sumaEscalasActivas += valP100; }
-      if (chkPrincipalDemanda.checked) { total += valDem; sumaEscalasActivas += valDem; }
-      if (chkPrincipalAudiencia.checked) { total += valAud; sumaEscalasActivas += valAud; }
-      if (chkPrincipalJuicio.checked) { total += valJui; sumaEscalasActivas += valJui; }
-      if (chkEjecucionSin.checked) { total += valSin; sumaEscalasActivas += valSin; }
-      if (chkEjecucionCon.checked) { total += valCon; sumaEscalasActivas += valCon; }
-      if (chkApelacionMismo.checked) { total += valApMismo; sumaEscalasActivas += valApMismo; }
-      if (chkApelacionOtro.checked) { total += valApOtro; sumaEscalasActivas += valApOtro; }
+      if (chkPrincipal100.checked) { totalIzquierda += valP100; sumaEscalasActivas += valP100; }
+      if (chkPrincipalDemanda.checked) { totalIzquierda += valDem; sumaEscalasActivas += valDem; }
+      if (chkPrincipalAudiencia.checked) { totalIzquierda += valAud; sumaEscalasActivas += valAud; }
+      if (chkPrincipalJuicio.checked) { totalIzquierda += valJui; sumaEscalasActivas += valJui; }
+      if (chkEjecucionSin.checked) { totalIzquierda += valSin; sumaEscalasActivas += valSin; }
+      if (chkEjecucionCon.checked) { totalIzquierda += valCon; sumaEscalasActivas += valCon; }
+      if (chkApelacionMismo.checked) { totalIzquierda += valApMismo; sumaEscalasActivas += valApMismo; }
+      if (chkApelacionOtro.checked) { totalIzquierda += valApOtro; sumaEscalasActivas += valApOtro; }
 
-      // 3. Recargo de Costas (+15% sobre escalas seleccionadas)
+      // Recargo de Costas (+15% sobre escalas seleccionadas)
       var valRecargo = Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
       document.getElementById('val-recargo-costas').textContent = valRecargo.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
       if (chkRecargoCostas.checked) {
-        total += valRecargo;
+        totalIzquierda += valRecargo;
       }
 
-      // 3.5. Criterio 30B (Descuento del 25% sobre escalas seleccionadas + recargo si está activo)
+      // Criterio 30B (Descuento del 25% sobre escalas seleccionadas + recargo si está activo)
       var baseDescuento30b = sumaEscalasActivas;
       if (chkRecargoCostas.checked) {
         baseDescuento30b += valRecargo;
@@ -1255,14 +1385,50 @@
       var valDescuento30b = Math.round(baseDescuento30b * 0.25 * 100) / 100;
       document.getElementById('val-criterio-30b').textContent = '-' + valDescuento30b.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
       if (chkCriterio30b && chkCriterio30b.checked) {
-        total -= valDescuento30b;
+        totalIzquierda -= valDescuento30b;
       }
 
-      // 4. Calcular Importe base ajustado (Resto)
+      // Mostrar total de la izquierda
+      document.getElementById('val-col-izquierda').textContent = totalIzquierda.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+
+      // 2. Columna Derecha: Conceptos Fijos con Multiplicador
+      var totalDerecha = 0;
+      
+      var qtySimple = Math.max(parseInt(document.getElementById('qty-consulta-simple').value) || 1, 1);
+      var valSimple = parseFloat(chkConsultaSimple.getAttribute('data-val')) * qtySimple;
+      document.getElementById('val-consulta-simple').textContent = valSimple.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+      if (chkConsultaSimple.checked) totalDerecha += valSimple;
+
+      var qtyCompleja = Math.max(parseInt(document.getElementById('qty-consulta-compleja').value) || 1, 1);
+      var valCompleja = parseFloat(chkConsultaCompleja.getAttribute('data-val')) * qtyCompleja;
+      document.getElementById('val-consulta-compleja').textContent = valCompleja.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+      if (chkConsultaCompleja.checked) totalDerecha += valCompleja;
+
+      var qtyMisma = Math.max(parseInt(document.getElementById('qty-salida-misma').value) || 1, 1);
+      var valMisma = parseFloat(chkSalidaMisma.getAttribute('data-val')) * qtyMisma;
+      document.getElementById('val-salida-misma').textContent = valMisma.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+      if (chkSalidaMisma.checked) totalDerecha += valMisma;
+
+      var qtyFuera = Math.max(parseInt(document.getElementById('qty-salida-fuera').value) || 1, 1);
+      var valFuera = parseFloat(chkSalidaFuera.getAttribute('data-val')) * qtyFuera;
+      document.getElementById('val-salida-fuera').textContent = valFuera.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+      if (chkSalidaFuera.checked) totalDerecha += valFuera;
+
+      var qtyMonitorio = Math.max(parseInt(document.getElementById('qty-monitorio').value) || 1, 1);
+      var valMonitorioVal = parseFloat(chkMonitorio.getAttribute('data-val')) * qtyMonitorio;
+      document.getElementById('val-monitorio').textContent = valMonitorioVal.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+      if (chkMonitorio.checked) totalDerecha += valMonitorioVal;
+
+      // Mostrar total de la derecha
+      document.getElementById('val-col-derecha').textContent = totalDerecha.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+
+      // 3. Importe Total Definitivo (Suma de ambos totalizadores)
+      var finalTotal = totalIzquierda + totalDerecha;
+      
+      // Ajuste de Cuantía Base (Resto) si aplica sobre el finalTotal
       var resto = 0;
-      var finalTotal = total;
-      if (base > total) {
-        resto = base - total;
+      if (base > finalTotal) {
+        resto = base - finalTotal;
         finalTotal = base;
       }
 
@@ -1270,11 +1436,15 @@
       labelTotal.textContent = finalTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
     }
 
-    // Registrar Eventos de Re-cálculo
+    // Registrar Eventos de Re-cálculo e Inputs de Cantidad/Etiquetas
     var list = [
       inputCuantiva, chkConsultaSimple, chkConsultaCompleja, chkSalidaMisma, chkSalidaFuera, chkMonitorio,
       chkPrincipal100, chkPrincipalDemanda, chkPrincipalAudiencia, chkPrincipalJuicio,
-      chkEjecucionSin, chkEjecucionCon, chkApelacionMismo, chkApelacionOtro, chkRecargoCostas, chkCriterio30b
+      chkEjecucionSin, chkEjecucionCon, chkApelacionMismo, chkApelacionOtro, chkRecargoCostas, chkCriterio30b,
+      document.getElementById('qty-consulta-simple'), document.getElementById('qty-consulta-compleja'),
+      document.getElementById('qty-salida-misma'), document.getElementById('qty-salida-fuera'),
+      document.getElementById('qty-monitorio'), document.getElementById('label-col-izquierda'),
+      document.getElementById('label-col-derecha')
     ];
     list.forEach(function(item) {
       if (item) {
@@ -1480,127 +1650,92 @@
       lines.push('------------------------------------------------');
       lines.push('Conceptos incluidos:');
 
-      var itemsSelectedCount = 0;
-      var sumaConceptos = 0;
+      var labelIzquierdaText = document.getElementById('label-col-izquierda').value.trim() || "Transacción extrajudicial";
+      var labelDerechaText = document.getElementById('label-col-derecha').value.trim() || "Consultas y estudio expediente";
 
-      // 1. Fijos
-      if (chkConsultaSimple.checked) {
-        var val = parseFloat(chkConsultaSimple.getAttribute('data-val'));
-        lines.push('- Consulta simple o telefónica: ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        sumaConceptos += val;
-        itemsSelectedCount++;
-      }
-      if (chkConsultaCompleja.checked) {
-        var val = parseFloat(chkConsultaCompleja.getAttribute('data-val'));
-        lines.push('- Consulta compleja o examen de documentos: ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        sumaConceptos += val;
-        itemsSelectedCount++;
-      }
-      if (chkSalidaMisma.checked) {
-        var val = parseFloat(chkSalidaMisma.getAttribute('data-val'));
-        lines.push('- Salida de despacho (Misma localidad): ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        sumaConceptos += val;
-        itemsSelectedCount++;
-      }
-      if (chkSalidaFuera.checked) {
-        var val = parseFloat(chkSalidaFuera.getAttribute('data-val'));
-        lines.push('- Salida de despacho (Media jornada fuera): ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        sumaConceptos += val;
-        itemsSelectedCount++;
-      }
-      if (chkMonitorio.checked) {
-        var val = parseFloat(chkMonitorio.getAttribute('data-val'));
-        lines.push('- Petición inicial de Proceso Monitorio: ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        sumaConceptos += val;
-        itemsSelectedCount++;
-      }
-
-      // 2. Dinámicos
-      var base35 = calcularEscala35(base);
-      var base36 = calcularEscala36(base);
-
-      if (chkPrincipal100.checked) {
-        lines.push('- Procedimiento Principal (100% Criterio 35): ' + base35.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        sumaConceptos += base35;
-        itemsSelectedCount++;
-      }
-      if (chkPrincipalDemanda.checked) {
-        var valDem = Math.round(base35 * 0.5 * 100) / 100;
-        lines.push('- Fase Demanda (50% Criterio 35): ' + valDem.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        sumaConceptos += valDem;
-        itemsSelectedCount++;
-      }
-      if (chkPrincipalAudiencia.checked) {
-        var valAud = Math.round(base35 * 0.1 * 100) / 100;
-        lines.push('- Fase Audiencia Previa (10% Criterio 35): ' + valAud.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        sumaConceptos += valAud;
-        itemsSelectedCount++;
-      }
-      if (chkPrincipalJuicio.checked) {
-        var valJui = Math.round(base35 * 0.4 * 100) / 100;
-        lines.push('- Fase Juicio/Vista (40% Criterio 35): ' + valJui.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        sumaConceptos += valJui;
-        itemsSelectedCount++;
-      }
-
+      var linesIzquierda = [];
       var sumaEscalasActivas = 0;
-      if (chkPrincipal100.checked) sumaEscalasActivas += base35;
-      if (chkPrincipalDemanda.checked) sumaEscalasActivas += Math.round(base35 * 0.5 * 100) / 100;
-      if (chkPrincipalAudiencia.checked) sumaEscalasActivas += Math.round(base35 * 0.1 * 100) / 100;
-      if (chkPrincipalJuicio.checked) sumaEscalasActivas += Math.round(base35 * 0.4 * 100) / 100;
-      
-      if (chkEjecucionSin.checked) {
-        var valSin = Math.round(base36 * 0.5 * 100) / 100;
-        lines.push('- Ejecución sin Oposición (50% Criterio 36): ' + valSin.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        sumaConceptos += valSin;
-        sumaEscalasActivas += valSin;
-        itemsSelectedCount++;
-      }
-      if (chkEjecucionCon.checked) {
-        lines.push('- Ejecución con Oposición (100% Criterio 35): ' + base35.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        sumaConceptos += base35;
-        sumaEscalasActivas += base35;
-        itemsSelectedCount++;
-      }
+      var totalIzquierda = 0;
 
-      if (chkApelacionMismo.checked) {
-        var valApMismo = Math.round(base35 * 0.5 * 100) / 100;
-        lines.push('- Apelación (Mismo Letrado) (50% Criterio 71): ' + valApMismo.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        sumaConceptos += valApMismo;
-        sumaEscalasActivas += valApMismo;
-        itemsSelectedCount++;
-      }
-      if (chkApelacionOtro.checked) {
-        var valApOtro = Math.round(base35 * 0.6 * 100) / 100;
-        lines.push('- Apelación (Otro Letrado) (60% Criterio 71): ' + valApOtro.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        sumaConceptos += valApOtro;
-        sumaEscalasActivas += valApOtro;
-        itemsSelectedCount++;
-      }
+      if (chkPrincipal100.checked) { linesIzquierda.push('  * Procedimiento Principal (100% Criterio 35): ' + base35.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €'); sumaEscalasActivas += base35; }
+      if (chkPrincipalDemanda.checked) { var val = Math.round(base35 * 0.5 * 100) / 100; linesIzquierda.push('  * Fase Demanda / Alegaciones (50% Criterio 35): ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €'); sumaEscalasActivas += val; }
+      if (chkPrincipalAudiencia.checked) { var val = Math.round(base35 * 0.1 * 100) / 100; linesIzquierda.push('  * Fase Audiencia Previa (10% Criterio 35): ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €'); sumaEscalasActivas += val; }
+      if (chkPrincipalJuicio.checked) { var val = Math.round(base35 * 0.4 * 100) / 100; linesIzquierda.push('  * Fase Juicio / Vista (40% Criterio 35): ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €'); sumaEscalasActivas += val; }
+      if (chkEjecucionSin.checked) { var val = Math.round(base36 * 0.5 * 100) / 100; linesIzquierda.push('  * Ejecución sin Oposición (50% Criterio 36): ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €'); sumaEscalasActivas += val; }
+      if (chkEjecucionCon.checked) { linesIzquierda.push('  * Ejecución con Oposición (100% Criterio 35): ' + base35.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €'); sumaEscalasActivas += base35; }
+      if (chkApelacionMismo.checked) { var val = Math.round(base35 * 0.5 * 100) / 100; linesIzquierda.push('  * Apelación (Mismo Letrado) (50% Criterio 71): ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €'); sumaEscalasActivas += val; }
+      if (chkApelacionOtro.checked) { var val = Math.round(base35 * 0.6 * 100) / 100; linesIzquierda.push('  * Apelación (Otro Letrado) (60% Criterio 71): ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €'); sumaEscalasActivas += val; }
+
+      totalIzquierda = sumaEscalasActivas;
 
       if (chkRecargoCostas.checked) {
         var valRecargo = Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
-        lines.push('- Recargo Oficial de Costas (+15%): ' + valRecargo.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        sumaConceptos += valRecargo;
-        itemsSelectedCount++;
+        linesIzquierda.push('  * Recargo Oficial de Costas (+15%): ' + valRecargo.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        totalIzquierda += valRecargo;
       }
-
-      if (chkCriterio30b && chkCriterio30b.checked) {
+      if (chkCriterio30b.checked) {
         var baseDescuento30b = sumaEscalasActivas;
         if (chkRecargoCostas.checked) {
-          var valRecargo = Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
-          baseDescuento30b += valRecargo;
+          baseDescuento30b += Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
         }
         var valDescuento30b = Math.round(baseDescuento30b * 0.25 * 100) / 100;
-        lines.push('- Criterio 30B (Descuento -25% sobre escalas y recargo): -' + valDescuento30b.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        sumaConceptos -= valDescuento30b;
-        itemsSelectedCount++;
+        linesIzquierda.push('  * Criterio 30B (Descuento -25% sobre escalas y recargo): -' + valDescuento30b.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        totalIzquierda -= valDescuento30b;
       }
 
-      // 3. Importe base ajustado (Resto) si aplica
+      var linesDerecha = [];
+      var totalDerecha = 0;
+
+      if (chkConsultaSimple.checked) {
+        var qty = Math.max(parseInt(document.getElementById('qty-consulta-simple').value) || 1, 1);
+        var val = parseFloat(chkConsultaSimple.getAttribute('data-val')) * qty;
+        linesDerecha.push('  * Consulta simple o telefónica (' + qty + ' u.): ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        totalDerecha += val;
+      }
+      if (chkConsultaCompleja.checked) {
+        var qty = Math.max(parseInt(document.getElementById('qty-consulta-compleja').value) || 1, 1);
+        var val = parseFloat(chkConsultaCompleja.getAttribute('data-val')) * qty;
+        linesDerecha.push('  * Consulta compleja o examen (' + qty + ' u.): ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        totalDerecha += val;
+      }
+      if (chkSalidaMisma.checked) {
+        var qty = Math.max(parseInt(document.getElementById('qty-salida-misma').value) || 1, 1);
+        var val = parseFloat(chkSalidaMisma.getAttribute('data-val')) * qty;
+        linesDerecha.push('  * Salida despacho (Misma localidad) (' + qty + ' u.): ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        totalDerecha += val;
+      }
+      if (chkSalidaFuera.checked) {
+        var qty = Math.max(parseInt(document.getElementById('qty-salida-fuera').value) || 1, 1);
+        var val = parseFloat(chkSalidaFuera.getAttribute('data-val')) * qty;
+        linesDerecha.push('  * Salida despacho (Media jornada fuera) (' + qty + ' u.): ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        totalDerecha += val;
+      }
+      if (chkMonitorio.checked) {
+        var qty = Math.max(parseInt(document.getElementById('qty-monitorio').value) || 1, 1);
+        var val = parseFloat(chkMonitorio.getAttribute('data-val')) * qty;
+        linesDerecha.push('  * Proceso Monitorio (Petición Inicial) (' + qty + ' u.): ' + val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        totalDerecha += val;
+      }
+
+      var itemsSelectedCount = linesIzquierda.length + linesDerecha.length;
+
+      // Agrupar visualmente en el portapapeles
+      if (linesIzquierda.length > 0) {
+        lines.push(labelIzquierdaText + ': ' + totalIzquierda.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        linesIzquierda.forEach(function(l) { lines.push(l); });
+        lines.push('------------------------------------------------');
+      }
+
+      if (linesDerecha.length > 0) {
+        lines.push(labelDerechaText + ': ' + totalDerecha.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        linesDerecha.forEach(function(l) { lines.push(l); });
+        lines.push('------------------------------------------------');
+      }
+
+      var sumatoriaTotal = totalIzquierda + totalDerecha;
       var resto = 0;
-      if (base > sumaConceptos) {
-        resto = base - sumaConceptos;
+      if (base > sumatoriaTotal) {
+        resto = base - sumatoriaTotal;
         lines.push('- Importe base ajustado (Resto): ' + resto.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
         itemsSelectedCount++;
       }
@@ -1694,11 +1829,26 @@
         if (chkRecargoCostas.checked) itemsCount++;
 
         var totalConceptos = 0;
-        if (chkConsultaSimple.checked) totalConceptos += 76.23;
-        if (chkConsultaCompleja.checked) totalConceptos += 135.14;
-        if (chkSalidaMisma.checked) totalConceptos += 65.84;
-        if (chkSalidaFuera.checked) totalConceptos += 117.81;
-        if (chkMonitorio.checked) totalConceptos += 165.00;
+        if (chkConsultaSimple.checked) {
+          var qty = Math.max(parseInt(document.getElementById('qty-consulta-simple').value) || 1, 1);
+          totalConceptos += 76.23 * qty;
+        }
+        if (chkConsultaCompleja.checked) {
+          var qty = Math.max(parseInt(document.getElementById('qty-consulta-compleja').value) || 1, 1);
+          totalConceptos += 135.14 * qty;
+        }
+        if (chkSalidaMisma.checked) {
+          var qty = Math.max(parseInt(document.getElementById('qty-salida-misma').value) || 1, 1);
+          totalConceptos += 65.84 * qty;
+        }
+        if (chkSalidaFuera.checked) {
+          var qty = Math.max(parseInt(document.getElementById('qty-salida-fuera').value) || 1, 1);
+          totalConceptos += 117.81 * qty;
+        }
+        if (chkMonitorio.checked) {
+          var qty = Math.max(parseInt(document.getElementById('qty-monitorio').value) || 1, 1);
+          totalConceptos += 165.00 * qty;
+        }
 
         var base35 = calcularEscala35(base);
         var base36 = calcularEscala36(base);
@@ -1756,78 +1906,77 @@
       
       var conceptosList = [];
       
-      if (chkConsultaSimple.checked) {
-        conceptosList.push({ name: 'Consulta simple o telefónica', val: 76.23 });
-      }
-      if (chkConsultaCompleja.checked) {
-        conceptosList.push({ name: 'Consulta compleja o examen de documentos', val: 135.14 });
-      }
-      if (chkSalidaMisma.checked) {
-        conceptosList.push({ name: 'Salida de despacho (Misma localidad)', val: 65.84 });
-      }
-      if (chkSalidaFuera.checked) {
-        conceptosList.push({ name: 'Salida de despacho (Media jornada fuera)', val: 117.81 });
-      }
-      if (chkMonitorio.checked) {
-        conceptosList.push({ name: 'Petición inicial de Proceso Monitorio', val: 165.00 });
-      }
+      var labelIzquierdaText = document.getElementById('label-col-izquierda').value.trim() || "Transacción extrajudicial";
+      var labelDerechaText = document.getElementById('label-col-derecha').value.trim() || "Consultas y estudio expediente";
 
       var base35 = calcularEscala35(base);
       var base36 = calcularEscala36(base);
+      
+      // Calcular columna izquierda
       var sumaEscalasActivas = 0;
+      var totalIzquierda = 0;
+      var tieneIzquierda = false;
 
-      if (chkPrincipal100.checked) {
-        conceptosList.push({ name: 'Procedimiento Principal (100% Criterio 35)', val: base35 });
-        sumaEscalasActivas += base35;
-      }
-      if (chkPrincipalDemanda.checked) {
-        var val = Math.round(base35 * 0.5 * 100) / 100;
-        conceptosList.push({ name: 'Fase Demanda / Alegaciones (50% Criterio 35)', val: val });
-        sumaEscalasActivas += val;
-      }
-      if (chkPrincipalAudiencia.checked) {
-        var val = Math.round(base35 * 0.1 * 100) / 100;
-        conceptosList.push({ name: 'Fase Audiencia Previa (10% Criterio 35)', val: val });
-        sumaEscalasActivas += val;
-      }
-      if (chkPrincipalJuicio.checked) {
-        var val = Math.round(base35 * 0.4 * 100) / 100;
-        conceptosList.push({ name: 'Fase Juicio / Vista (40% Criterio 35)', val: val });
-        sumaEscalasActivas += val;
-      }
-      if (chkEjecucionSin.checked) {
-        var val = Math.round(base36 * 0.5 * 100) / 100;
-        conceptosList.push({ name: 'Ejecución sin Oposición (50% Criterio 36)', val: val });
-        sumaEscalasActivas += val;
-      }
-      if (chkEjecucionCon.checked) {
-        conceptosList.push({ name: 'Ejecución con Oposición (100% Criterio 35)', val: base35 });
-        sumaEscalasActivas += base35;
-      }
-      if (chkApelacionMismo.checked) {
-        var val = Math.round(base35 * 0.5 * 100) / 100;
-        conceptosList.push({ name: 'Apelación (Mismo Letrado) (50% Criterio 71)', val: val });
-        sumaEscalasActivas += val;
-      }
-      if (chkApelacionOtro.checked) {
-        var val = Math.round(base35 * 0.6 * 100) / 100;
-        conceptosList.push({ name: 'Apelación (Otro Letrado) (60% Criterio 71)', val: val });
-        sumaEscalasActivas += val;
-      }
+      if (chkPrincipal100.checked) { sumaEscalasActivas += base35; tieneIzquierda = true; }
+      if (chkPrincipalDemanda.checked) { sumaEscalasActivas += Math.round(base35 * 0.5 * 100) / 100; tieneIzquierda = true; }
+      if (chkPrincipalAudiencia.checked) { sumaEscalasActivas += Math.round(base35 * 0.1 * 100) / 100; tieneIzquierda = true; }
+      if (chkPrincipalJuicio.checked) { sumaEscalasActivas += Math.round(base35 * 0.4 * 100) / 100; tieneIzquierda = true; }
+      if (chkEjecucionSin.checked) { sumaEscalasActivas += Math.round(base36 * 0.5 * 100) / 100; tieneIzquierda = true; }
+      if (chkEjecucionCon.checked) { sumaEscalasActivas += base35; tieneIzquierda = true; }
+      if (chkApelacionMismo.checked) { sumaEscalasActivas += Math.round(base35 * 0.5 * 100) / 100; tieneIzquierda = true; }
+      if (chkApelacionOtro.checked) { sumaEscalasActivas += Math.round(base35 * 0.6 * 100) / 100; tieneIzquierda = true; }
+
+      totalIzquierda = sumaEscalasActivas;
 
       if (chkRecargoCostas.checked) {
-        var val = Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
-        conceptosList.push({ name: 'Recargo Oficial de Costas (+15%)', val: val });
+        var valRecargo = Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
+        totalIzquierda += valRecargo;
       }
-
-      if (chkCriterio30b && chkCriterio30b.checked) {
+      if (chkCriterio30b.checked) {
         var baseDescuento30b = sumaEscalasActivas;
         if (chkRecargoCostas.checked) {
-          var valRecargo = Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
-          baseDescuento30b += valRecargo;
+          baseDescuento30b += Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
         }
-        var val = Math.round(baseDescuento30b * 0.25 * 100) / 100;
-        conceptosList.push({ name: 'Criterio 30B (Descuento -25%)', val: -val });
+        var valDescuento30b = Math.round(baseDescuento30b * 0.25 * 100) / 100;
+        totalIzquierda -= valDescuento30b;
+      }
+
+      if (tieneIzquierda) {
+        conceptosList.push({ name: labelIzquierdaText, val: totalIzquierda });
+      }
+
+      // Calcular columna derecha
+      var totalDerecha = 0;
+      var tieneDerecha = false;
+
+      if (chkConsultaSimple.checked) {
+        var qty = Math.max(parseInt(document.getElementById('qty-consulta-simple').value) || 1, 1);
+        totalDerecha += 76.23 * qty;
+        tieneDerecha = true;
+      }
+      if (chkConsultaCompleja.checked) {
+        var qty = Math.max(parseInt(document.getElementById('qty-consulta-compleja').value) || 1, 1);
+        totalDerecha += 135.14 * qty;
+        tieneDerecha = true;
+      }
+      if (chkSalidaMisma.checked) {
+        var qty = Math.max(parseInt(document.getElementById('qty-salida-misma').value) || 1, 1);
+        totalDerecha += 65.84 * qty;
+        tieneDerecha = true;
+      }
+      if (chkSalidaFuera.checked) {
+        var qty = Math.max(parseInt(document.getElementById('qty-salida-fuera').value) || 1, 1);
+        totalDerecha += 117.81 * qty;
+        tieneDerecha = true;
+      }
+      if (chkMonitorio.checked) {
+        var qty = Math.max(parseInt(document.getElementById('qty-monitorio').value) || 1, 1);
+        totalDerecha += 165.00 * qty;
+        tieneDerecha = true;
+      }
+
+      if (tieneDerecha) {
+        conceptosList.push({ name: labelDerechaText, val: totalDerecha });
       }
 
       var sumaActual = 0;
