@@ -1247,8 +1247,12 @@
         total += valRecargo;
       }
 
-      // 3.5. Criterio 30B (Descuento del 25% sobre escalas seleccionadas)
-      var valDescuento30b = Math.round(sumaEscalasActivas * 0.25 * 100) / 100;
+      // 3.5. Criterio 30B (Descuento del 25% sobre escalas seleccionadas + recargo si está activo)
+      var baseDescuento30b = sumaEscalasActivas;
+      if (chkRecargoCostas.checked) {
+        baseDescuento30b += valRecargo;
+      }
+      var valDescuento30b = Math.round(baseDescuento30b * 0.25 * 100) / 100;
       document.getElementById('val-criterio-30b').textContent = '-' + valDescuento30b.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
       if (chkCriterio30b && chkCriterio30b.checked) {
         total -= valDescuento30b;
@@ -1582,8 +1586,13 @@
       }
 
       if (chkCriterio30b && chkCriterio30b.checked) {
-        var valDescuento30b = Math.round(sumaEscalasActivas * 0.25 * 100) / 100;
-        lines.push('- Criterio 30B (Descuento -25% sobre escalas): -' + valDescuento30b.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        var baseDescuento30b = sumaEscalasActivas;
+        if (chkRecargoCostas.checked) {
+          var valRecargo = Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
+          baseDescuento30b += valRecargo;
+        }
+        var valDescuento30b = Math.round(baseDescuento30b * 0.25 * 100) / 100;
+        lines.push('- Criterio 30B (Descuento -25% sobre escalas y recargo): -' + valDescuento30b.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
         sumaConceptos -= valDescuento30b;
         itemsSelectedCount++;
       }
@@ -1710,7 +1719,11 @@
 
         if (chkCriterio30b && chkCriterio30b.checked) {
           itemsCount++;
-          totalConceptos -= Math.round(sumaEscalasActivas * 0.25 * 100) / 100;
+          var baseDescuento30b = sumaEscalasActivas;
+          if (chkRecargoCostas.checked) {
+            baseDescuento30b += Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
+          }
+          totalConceptos -= Math.round(baseDescuento30b * 0.25 * 100) / 100;
         }
 
         if (base > totalConceptos) {
@@ -1808,7 +1821,12 @@
       }
 
       if (chkCriterio30b && chkCriterio30b.checked) {
-        var val = Math.round(sumaEscalasActivas * 0.25 * 100) / 100;
+        var baseDescuento30b = sumaEscalasActivas;
+        if (chkRecargoCostas.checked) {
+          var valRecargo = Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
+          baseDescuento30b += valRecargo;
+        }
+        var val = Math.round(baseDescuento30b * 0.25 * 100) / 100;
         conceptosList.push({ name: 'Criterio 30B (Descuento -25%)', val: -val });
       }
 
@@ -1899,7 +1917,11 @@
         fields["Recargo_Costas_Imp"] = chkRecargoCostas.checked ? (Math.round(sumaEscalasActivas * 0.15 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
         
         fields["Criterio_30b"] = (chkCriterio30b && chkCriterio30b.checked) ? "Criterio 30B (Descuento -25%)" : "";
-        fields["Criterio_30b_Imp"] = (chkCriterio30b && chkCriterio30b.checked) ? "-" + (Math.round(sumaEscalasActivas * 0.25 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        var baseDescuento30bExcel = sumaEscalasActivas;
+        if (chkRecargoCostas.checked) {
+          baseDescuento30bExcel += Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
+        }
+        fields["Criterio_30b_Imp"] = (chkCriterio30b && chkCriterio30b.checked) ? "-" + (Math.round(baseDescuento30bExcel * 0.25 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
         
         var restoCalculado = (base > totalConceptos) ? (base - totalConceptos) : 0;
         fields["Base_Ajustada"] = restoCalculado > 0 ? "Importe base ajustado (Resto)" : "";

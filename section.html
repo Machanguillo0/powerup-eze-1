@@ -3105,11 +3105,15 @@
         // Calcular descuento Criterio 30B
         var chkCriterio30b = document.getElementById('chk-criterio-30b');
         var valDescuento30b = 0;
+        var baseDescuento30b = sumaEscalasActivas;
+        if (chkRecargoCostas.checked) {
+          baseDescuento30b += valRecargo;
+        }
         if (chkCriterio30b && chkCriterio30b.checked) {
-          valDescuento30b = Math.round(sumaEscalasActivas * 0.25 * 100) / 100;
+          valDescuento30b = Math.round(baseDescuento30b * 0.25 * 100) / 100;
         }
         if (document.getElementById('val-criterio-30b')) {
-          document.getElementById('val-criterio-30b').textContent = '-' + (Math.round(sumaEscalasActivas * 0.25 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+          document.getElementById('val-criterio-30b').textContent = '-' + (Math.round(baseDescuento30b * 0.25 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
         }
 
         // 4. Sumar total definitivo
@@ -3234,8 +3238,13 @@
           // Descuento Criterio 30B
           var chkCriterio30b = document.getElementById('chk-criterio-30b');
           if (chkCriterio30b && chkCriterio30b.checked) {
-            var valDescuento30b = Math.round(sumaEscalasActivas * 0.25 * 100) / 100;
-            lines.push('- Criterio 30B (Descuento -25% sobre escalas): -' + valDescuento30b.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+            var baseDescuento30b = sumaEscalasActivas;
+            if (chkRecargoCostas.checked) {
+              var valRecargo = Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
+              baseDescuento30b += valRecargo;
+            }
+            var valDescuento30b = Math.round(baseDescuento30b * 0.25 * 100) / 100;
+            lines.push('- Criterio 30B (Descuento -25% sobre escalas y recargo): -' + valDescuento30b.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
             itemsSelectedCount++;
           }
 
