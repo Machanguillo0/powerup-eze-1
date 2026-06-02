@@ -1601,7 +1601,7 @@
         if (data && data.fields) {
           var fields = data.fields;
           var baseAmount = 0;
-          var possibleKeys = ['cuantía', 'cuantia', 'base', 'principal', 'importe reclamado'];
+          var possibleKeys = ['cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado'];
           for (var i = 0; i < possibleKeys.length; i++) {
             var k = possibleKeys[i];
             if (fields[k] && !isNaN(parseFloat(fields[k]))) {
