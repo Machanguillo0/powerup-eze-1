@@ -34,7 +34,7 @@
       color: #5e6c84;
     }
     
-    select, input[type="number"] {
+    select, input[type="number"], input[type="text"] {
       width: 100%;
       padding: 8px 10px;
       border: 1px solid #ced4da;
@@ -46,7 +46,7 @@
       height: 36px;
     }
     
-    select:focus, input[type="number"]:focus {
+    select:focus, input[type="number"]:focus, input[type="text"]:focus {
       outline: none;
       border-color: #1f845a;
       box-shadow: 0 0 0 2px rgba(31, 132, 90, 0.2);
@@ -340,7 +340,7 @@
     
     <div class="form-group">
       <label for="desglose-cuantiva">Cliente Cobra (€)</label>
-      <input type="number" id="desglose-cuantiva" placeholder="Importe base..." value="0" min="0" step="any">
+      <input type="text" id="desglose-cuantiva" placeholder="Importe base..." value="0">
     </div>
   </div>
 
@@ -1335,7 +1335,13 @@
     }
 
     function recalcularDesglose() {
-      var base = parseFloat(inputCuantiva.value) || 0;
+      var rawVal = String(inputCuantiva.value || "0").replace(/[^0-9.,-]/g, '');
+      if (rawVal.indexOf('.') > -1 && rawVal.indexOf(',') > -1) {
+        rawVal = rawVal.replace(/\./g, '').replace(',', '.');
+      } else if (rawVal.indexOf(',') > -1) {
+        rawVal = rawVal.replace(',', '.');
+      }
+      var base = parseFloat(rawVal) || 0;
       if (base < 0) base = 0;
 
       // 1. Columna Izquierda: Conceptos Dinámicos
@@ -1645,7 +1651,13 @@
     // Copiar Desglose al Portapapeles (Formato Tabular Premium)
     btnCopiar.addEventListener('click', function(e) {
       e.preventDefault();
-      var base = parseFloat(inputCuantiva.value) || 0;
+      var rawVal = String(inputCuantiva.value || "0").replace(/[^0-9.,-]/g, '');
+      if (rawVal.indexOf('.') > -1 && rawVal.indexOf(',') > -1) {
+        rawVal = rawVal.replace(/\./g, '').replace(',', '.');
+      } else if (rawVal.indexOf(',') > -1) {
+        rawVal = rawVal.replace(',', '.');
+      }
+      var base = parseFloat(rawVal) || 0;
       var total = parseFloat(labelTotal.textContent.replace(/\./g, '').replace(/,/g, '.').replace(/[^0-9\.]/g, '')) || 0;
       var base35 = calcularEscala35(base);
       var base36 = calcularEscala36(base);
@@ -1828,7 +1840,13 @@
           return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
         }
         
-        var base = parseFloat(inputCuantiva.value) || 0;
+        var rawVal = String(inputCuantiva.value || "0").replace(/[^0-9.,-]/g, '');
+        if (rawVal.indexOf('.') > -1 && rawVal.indexOf(',') > -1) {
+          rawVal = rawVal.replace(/\./g, '').replace(',', '.');
+        } else if (rawVal.indexOf(',') > -1) {
+          rawVal = rawVal.replace(',', '.');
+        }
+        var base = parseFloat(rawVal) || 0;
         
         var itemsCount = 0;
         if (chkConsultaSimple.checked) itemsCount++;
@@ -1915,7 +1933,13 @@
       btnExcel.innerHTML = 'Procesando... ⏳';
       btnExcel.disabled = true;
 
-      var base = parseFloat(inputCuantiva.value) || 0;
+      var rawVal = String(inputCuantiva.value || "0").replace(/[^0-9.,-]/g, '');
+      if (rawVal.indexOf('.') > -1 && rawVal.indexOf(',') > -1) {
+        rawVal = rawVal.replace(/\./g, '').replace(',', '.');
+      } else if (rawVal.indexOf(',') > -1) {
+        rawVal = rawVal.replace(',', '.');
+      }
+      var base = parseFloat(rawVal) || 0;
       var total = parseFloat(labelTotal.textContent.replace(/\./g, '').replace(/,/g, '.').replace(/[^0-9\.]/g, '')) || 0;
       
       var selectedOption = selectFactura.options[selectFactura.selectedIndex];
