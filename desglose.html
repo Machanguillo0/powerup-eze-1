@@ -1604,9 +1604,18 @@
           var possibleKeys = ['cliente cobra', 'ciente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado'];
           for (var i = 0; i < possibleKeys.length; i++) {
             var k = possibleKeys[i];
-            if (fields[k] && !isNaN(parseFloat(fields[k]))) {
-              baseAmount = parseFloat(fields[k]);
-              break;
+            if (fields[k]) {
+              var cleanVal = String(fields[k]).replace(/[^0-9.,-]/g, '');
+              if (cleanVal.indexOf('.') > -1 && cleanVal.indexOf(',') > -1) {
+                cleanVal = cleanVal.replace(/\./g, '').replace(',', '.');
+              } else if (cleanVal.indexOf(',') > -1) {
+                cleanVal = cleanVal.replace(',', '.');
+              }
+              var parsedFloat = parseFloat(cleanVal);
+              if (!isNaN(parsedFloat)) {
+                baseAmount = parsedFloat;
+                break;
+              }
             }
           }
           if (baseAmount > 0) {
