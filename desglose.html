@@ -724,9 +724,12 @@
         var fields = localData.fields;
         var appKey = t.getRestApi().appKey;
 
-        if (!token) {
-          throw new Error('REQUIRED_AUTHORIZATION');
-        }
+        var debugInfo = {
+          currentListName: currentListName,
+          boardsFound: [],
+          listsFound: [],
+          cardsLoaded: []
+        };
 
         // 1. Buscar todos los tableros configurados como "CLIENTES"
         var searchQuery = encodeURIComponent('name:"Tipo tablero"');
@@ -738,6 +741,7 @@
               var n = c.name.toUpperCase();
               return n.includes('TIPO TABLERO') && n.includes('CLIENTES');
             });
+            debugInfo.boardsFound = clientCards.map(function(c) { return c.idBoard; });
             
             if (clientCards.length === 0) {
               throw new Error('No se encontró ningún tablero configurado como "CLIENTES". Asegúrate de tener la tarjeta "Tipo tablero CLIENTES" en el tablero correspondiente.');
@@ -763,6 +767,9 @@
                   var foundList = lists.find(function(l) {
                     return l.name.trim().toLowerCase() === currentListName.trim().toLowerCase();
                   });
+                  if (foundList) {
+                    debugInfo.listsFound.push({ listId: foundList.id, boardId: boardId, name: foundList.name });
+                  }
                   return foundList ? { listId: foundList.id, boardId: boardId } : null;
                 })
                 .catch(function(err) {
@@ -784,6 +791,7 @@
             return fetch(`https://api.trello.com/1/lists/${idListClientes}/cards?fields=name,desc&key=${appKey}&token=${token}`)
               .then(function (res) { return res.json(); })
               .then(function (clientCards) {
+                debugInfo.cardsLoaded = (clientCards || []).map(function(c) { return c.name; });
                 return {
                   idListClientes: idListClientes,
                   clientCards: clientCards
@@ -943,7 +951,8 @@
               targetCardId: localData.targetCardId,
               idList: localData.idList,
               idListClientes: idListClientes,
-              token: token
+              token: token,
+              debugInfo: debugInfo
             };
           });
       });
@@ -1620,9 +1629,17 @@
         var debugDiv = document.getElementById('desglose-debug');
         var debugText = "DEBUG - Data recibida: " + (data ? "Sí" : "No") + "<br>";
         
+        if (data && data.debugInfo) {
+          var info = data.debugInfo;
+          debugText += "<b>Nombre Lista local:</b> " + info.currentListName + "<br>";
+          debugText += "<b>Tableros Clientes encontrados (ID):</b> " + JSON.stringify(info.boardsFound) + "<br>";
+          debugText += "<b>Listas Clientes que coinciden:</b> " + JSON.stringify(info.listsFound) + "<br>";
+          debugText += "<b>Tarjetas leídas de la Lista de Clientes:</b> " + JSON.stringify(info.cardsLoaded) + "<br><br>";
+        }
+
         if (data && data.fields) {
           var fields = data.fields;
-          debugText += "Claves encontradas: " + Object.keys(fields).join(', ') + "<br>";
+          debugText += "<b>Claves en Importes:</b> " + Object.keys(fields).join(', ') + "<br>";
           
           var baseAmount = 0;
           var possibleKeys = ['cliente cobra', 'ciente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado'];
@@ -1644,7 +1661,7 @@
               }
             }
           }
-          debugText += "baseAmount final: " + baseAmount;
+          debugText += "<b>baseAmount final determinado:</b> " + baseAmount;
           if (baseAmount > 0) {
             inputCuantiva.value = baseAmount;
           }
