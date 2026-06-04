@@ -653,40 +653,21 @@
       return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
-    // Función para evaluar expresiones matemáticas de forma segura
+    // Función para evaluar expresiones matemáticas de forma segura si contiene marcadores {{ }}
     function evalFormulaIfNeeded(val) {
       if (!val) return val;
       var trimmed = val.trim();
       
-      // 1. Excluir explícitamente fechas (ej: 18/05/2026 o 18-05-2026)
-      if (/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/.test(trimmed)) {
+      // Solo evaluar si contiene marcadores de llaves dobles, p. ej. {{Cliente Cobra}} * 20%
+      if (trimmed.indexOf('{{') > -1 && trimmed.indexOf('}}') > -1) {
+        // Como las variables dinámicas aún no están en el contexto de evaluación de esta función,
+        // devolvemos la expresión tal cual para que el procesador de plantillas la resuelva o la ignore temporalmente.
         return trimmed;
       }
       
-      // 2. Excluir si contiene letras del abecedario (es texto literal)
-      if (/[a-zA-ZáéíóúÁÉÍÓÚñÑ]/.test(trimmed)) {
-        return trimmed;
-      }
-
-      // 3. Excluir si tiene estructura de número de teléfono (ej. empieza por + y solo tiene espacios y números)
-      if (/^\+[0-9\s]+$/.test(trimmed)) {
-        return trimmed;
-      }
-      
-      // 4. Verificar si es una expresión matemática válida
-      if (/^[0-9\s\+\-\*\/\.\(\)\%]+$/.test(trimmed)) {
-        try {
-          var expr = trimmed.replace(/%/g, '/100');
-          var result = new Function('return ' + expr)();
-          if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
-            // Redondear a 2 decimales para importes
-            return String(Math.round(result * 100) / 100);
-          }
-        } catch (e) {
-          return trimmed;
-        }
-      }
-      
+      // Si no contiene marcadores de fórmulas/llaves dobles, se toma textualmente.
+      // (Convertimos formatos regionales de ES a números JS en la extracción si es necesario, 
+      // pero para las tarjetas estáticas se devuelven textualmente).
       return trimmed;
     }
 
