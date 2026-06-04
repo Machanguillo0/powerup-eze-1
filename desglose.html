@@ -850,7 +850,7 @@
                     clientImportesFields[k.toLowerCase()] = calculatedV;
                     clientImportesFields[cleanKey] = calculatedV;
                     
-                    var normK = k.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                    var normK = k.replace(/:/g, '').replace(/\s+/g, ' ').trim();
                     clientImportesFields[normK] = calculatedV;
                     clientImportesFields[normK.toLowerCase()] = calculatedV;
                   }
@@ -987,7 +987,7 @@
                   unified[k.toLowerCase()] = v;
                   unified[cleanKey] = v;
                   
-                  var normK = k.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                  var normK = k.replace(/:/g, '').replace(/\s+/g, ' ').trim();
                   unified[normK] = v;
                   unified[normK.toLowerCase()] = v;
                 }
