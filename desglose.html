@@ -860,8 +860,22 @@
 
             // 5. Fusionar datos (Priorizando el tablero local de Facturación sobre el tablero cruzado de Clientes para la tarjeta IMPORTES)
             var combinedFields = {};
-            for (var key in clientImportesFields) { combinedFields[key] = clientImportesFields[key]; }
-            for (var key in fields) { combinedFields[key] = fields[key]; }
+            for (var key in clientImportesFields) {
+              if (clientImportesFields.hasOwnProperty(key)) {
+                var cleanK = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+                combinedFields[key] = clientImportesFields[key];
+                combinedFields[key.toLowerCase()] = clientImportesFields[key];
+                combinedFields[cleanK] = clientImportesFields[key];
+              }
+            }
+            for (var key in fields) {
+              if (fields.hasOwnProperty(key)) {
+                var cleanK = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+                combinedFields[key] = fields[key];
+                combinedFields[key.toLowerCase()] = fields[key];
+                combinedFields[cleanK] = fields[key];
+              }
+            }
             combinedFields.nombre = clientFields.nombre;
             combinedFields.dni = clientFields.dni;
             combinedFields.domicilio = clientFields.domicilio;
