@@ -1622,55 +1622,64 @@
       loadInvoicesFromChecklist(t);
 
       // 2. Cargar cuantía inicial desde la tarjeta de Importes si existe (usando getCrossBoardBillingData con fallback a getUnifiedFields)
+      // 2. Cargar cuantía inicial desde la tarjeta de Importes local (Tablero de Facturación)
+      var localFieldsPromise = getUnifiedFields(t).catch(function(err) {
+        console.warn("No se pudieron obtener los campos locales:", err);
+        return { fields: {} };
+      });
+
       return getCrossBoardBillingData(t).catch(function(err) {
         console.warn("No se pudieron obtener datos cruzados para la cuantía inicial, usando locales:", err);
         return getUnifiedFields(t);
       }).then(function(data) {
-        var debugDiv = document.getElementById('desglose-debug');
-        var debugText = "DEBUG - Data recibida: " + (data ? "Sí" : "No") + "<br>";
-        
-        if (data && data.debugInfo) {
-          var info = data.debugInfo;
-          debugText += "<b>Nombre Lista local:</b> " + info.currentListName + "<br>";
-          debugText += "<b>Tableros Clientes encontrados (ID):</b> " + JSON.stringify(info.boardsFound) + "<br>";
-          debugText += "<b>Listas Clientes que coinciden:</b> " + JSON.stringify(info.listsFound) + "<br>";
-          debugText += "<b>Tarjetas leídas de la Lista de Clientes:</b> " + JSON.stringify(info.cardsLoaded) + "<br><br>";
-        }
-
-        if (data && data.fields) {
-          var fields = data.fields;
-          debugText += "<b>Claves en Importes:</b> " + Object.keys(fields).join(', ') + "<br>";
+        return localFieldsPromise.then(function(localData) {
+          var debugDiv = document.getElementById('desglose-debug');
+          var debugText = "DEBUG - Data recibida: " + (data ? "Sí" : "No") + "<br>";
           
-          var baseAmount = 0;
-          var possibleKeys = ['cliente cobra', 'ciente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado'];
-          for (var i = 0; i < possibleKeys.length; i++) {
-            var k = possibleKeys[i];
-            debugText += "Probando clave '" + k + "': " + fields[k] + " (tipo: " + typeof fields[k] + ")<br>";
-            if (fields[k]) {
-              var cleanVal = String(fields[k]).replace(/[^0-9.,-]/g, '');
-              if (cleanVal.indexOf('.') > -1 && cleanVal.indexOf(',') > -1) {
-                cleanVal = cleanVal.replace(/\./g, '').replace(',', '.');
-              } else if (cleanVal.indexOf(',') > -1) {
-                cleanVal = cleanVal.replace(',', '.');
-              }
-              var parsedFloat = parseFloat(cleanVal);
-              debugText += "-> parsedFloat para '" + k + "': " + parsedFloat + "<br>";
-              if (!isNaN(parsedFloat)) {
-                baseAmount = parsedFloat;
-                break;
+          if (data && data.debugInfo) {
+            var info = data.debugInfo;
+            debugText += "<b>Nombre Lista local:</b> " + info.currentListName + "<br>";
+            debugText += "<b>Tableros Clientes encontrados (ID):</b> " + JSON.stringify(info.boardsFound) + "<br>";
+            debugText += "<b>Listas Clientes que coinciden:</b> " + JSON.stringify(info.listsFound) + "<br>";
+            debugText += "<b>Tarjetas leídas de la Lista de Clientes:</b> " + JSON.stringify(info.cardsLoaded) + "<br><br>";
+          }
+
+          // Usar los campos locales (Tablero de Facturación) para inicializar el valor de "Cliente Cobra"
+          var fields = (localData && localData.fields) ? localData.fields : (data ? data.fields : {});
+          
+          if (fields) {
+            debugText += "<b>Claves en Importes local (Tablero Facturación):</b> " + Object.keys(fields).join(', ') + "<br>";
+            
+            var baseAmount = 0;
+            var possibleKeys = ['cliente cobra', 'ciente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado'];
+            for (var i = 0; i < possibleKeys.length; i++) {
+              var k = possibleKeys[i];
+              debugText += "Probando clave '" + k + "': " + fields[k] + " (tipo: " + typeof fields[k] + ")<br>";
+              if (fields[k]) {
+                var cleanVal = String(fields[k]).replace(/[^0-9.,-]/g, '');
+                if (cleanVal.indexOf('.') > -1 && cleanVal.indexOf(',') > -1) {
+                  cleanVal = cleanVal.replace(/\./g, '').replace(',', '.');
+                } else if (cleanVal.indexOf(',') > -1) {
+                  cleanVal = cleanVal.replace(',', '.');
+                }
+                var parsedFloat = parseFloat(cleanVal);
+                debugText += "-> parsedFloat para '" + k + "': " + parsedFloat + "<br>";
+                if (!isNaN(parsedFloat)) {
+                  baseAmount = parsedFloat;
+                  break;
+                }
               }
             }
+            debugText += "<b>baseAmount final determinado:</b> " + baseAmount;
+            if (baseAmount > 0) {
+              inputCuantiva.value = baseAmount;
+            }
+          } else {
+            debugText += "No se encontraron fields locales.";
           }
-          debugText += "<b>baseAmount final determinado:</b> " + baseAmount;
-          if (baseAmount > 0) {
-            inputCuantiva.value = baseAmount;
+          if (debugDiv) {
+            debugDiv.innerHTML = debugText;
           }
-        } else {
-          debugText += "No se encontraron fields.";
-        }
-        if (debugDiv) {
-          debugDiv.innerHTML = debugText;
-        }
 
         recalcularDesglose();
         t.sizeTo(document.body).done();
