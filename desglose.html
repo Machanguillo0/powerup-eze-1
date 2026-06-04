@@ -1604,12 +1604,15 @@
         console.warn("No se pudieron obtener datos cruzados para la cuantía inicial, usando locales:", err);
         return getUnifiedFields(t);
       }).then(function(data) {
+        console.log("DEBUG DESGLOSE - Data recibida:", data);
         if (data && data.fields) {
           var fields = data.fields;
+          console.log("DEBUG DESGLOSE - Todos los campos (fields):", JSON.stringify(fields));
           var baseAmount = 0;
           var possibleKeys = ['cliente cobra', 'ciente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado'];
           for (var i = 0; i < possibleKeys.length; i++) {
             var k = possibleKeys[i];
+            console.log("DEBUG DESGLOSE - Probando clave:", k, "Valor:", fields[k]);
             if (fields[k]) {
               var cleanVal = String(fields[k]).replace(/[^0-9.,-]/g, '');
               if (cleanVal.indexOf('.') > -1 && cleanVal.indexOf(',') > -1) {
@@ -1618,14 +1621,17 @@
                 cleanVal = cleanVal.replace(',', '.');
               }
               var parsedFloat = parseFloat(cleanVal);
+              console.log("DEBUG DESGLOSE - Clave:", k, "Valor original:", fields[k], "Valor limpio:", cleanVal, "Float parseado:", parsedFloat);
               if (!isNaN(parsedFloat)) {
                 baseAmount = parsedFloat;
                 break;
               }
             }
           }
+          console.log("DEBUG DESGLOSE - baseAmount determinado:", baseAmount);
           if (baseAmount > 0) {
             inputCuantiva.value = baseAmount;
+            console.log("DEBUG DESGLOSE - inputCuantiva.value asignado a:", inputCuantiva.value);
           }
         }
 
