@@ -328,6 +328,9 @@
   </style>
 </head>
 <body>
+  <div id="desglose-debug" style="background-color: #deebff; color: #0747a6; padding: 10px; border-radius: 3px; font-family: monospace; font-size: 11px; margin-bottom: 12px; border: 1px solid #b3d4ff; max-height: 100px; overflow-y: auto;">
+    Cargando depuración de campos...
+  </div>
 
   <!-- Dos campos superiores: Seleccionar factura y Cuantía Base -->
   <div class="form-row">
@@ -1614,15 +1617,18 @@
         console.warn("No se pudieron obtener datos cruzados para la cuantía inicial, usando locales:", err);
         return getUnifiedFields(t);
       }).then(function(data) {
-        console.log("DEBUG DESGLOSE - Data recibida:", data);
+        var debugDiv = document.getElementById('desglose-debug');
+        var debugText = "DEBUG - Data recibida: " + (data ? "Sí" : "No") + "<br>";
+        
         if (data && data.fields) {
           var fields = data.fields;
-          console.log("DEBUG DESGLOSE - Todos los campos (fields):", JSON.stringify(fields));
+          debugText += "Claves encontradas: " + Object.keys(fields).join(', ') + "<br>";
+          
           var baseAmount = 0;
           var possibleKeys = ['cliente cobra', 'ciente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado'];
           for (var i = 0; i < possibleKeys.length; i++) {
             var k = possibleKeys[i];
-            console.log("DEBUG DESGLOSE - Probando clave:", k, "Valor:", fields[k]);
+            debugText += "Probando clave '" + k + "': " + fields[k] + " (tipo: " + typeof fields[k] + ")<br>";
             if (fields[k]) {
               var cleanVal = String(fields[k]).replace(/[^0-9.,-]/g, '');
               if (cleanVal.indexOf('.') > -1 && cleanVal.indexOf(',') > -1) {
@@ -1631,18 +1637,22 @@
                 cleanVal = cleanVal.replace(',', '.');
               }
               var parsedFloat = parseFloat(cleanVal);
-              console.log("DEBUG DESGLOSE - Clave:", k, "Valor original:", fields[k], "Valor limpio:", cleanVal, "Float parseado:", parsedFloat);
+              debugText += "-> parsedFloat para '" + k + "': " + parsedFloat + "<br>";
               if (!isNaN(parsedFloat)) {
                 baseAmount = parsedFloat;
                 break;
               }
             }
           }
-          console.log("DEBUG DESGLOSE - baseAmount determinado:", baseAmount);
+          debugText += "baseAmount final: " + baseAmount;
           if (baseAmount > 0) {
             inputCuantiva.value = baseAmount;
-            console.log("DEBUG DESGLOSE - inputCuantiva.value asignado a:", inputCuantiva.value);
           }
+        } else {
+          debugText += "No se encontraron fields.";
+        }
+        if (debugDiv) {
+          debugDiv.innerHTML = debugText;
         }
 
         recalcularDesglose();
