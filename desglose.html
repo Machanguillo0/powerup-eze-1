@@ -328,9 +328,7 @@
   </style>
 </head>
 <body>
-  <div id="desglose-debug" style="background-color: #deebff; color: #0747a6; padding: 10px; border-radius: 3px; font-family: monospace; font-size: 11px; margin-bottom: 12px; border: 1px solid #b3d4ff; max-height: 100px; overflow-y: auto;">
-    Cargando depuración de campos...
-  </div>
+  <div id="desglose-debug" style="display: none;"></div>
 
   <!-- Dos campos superiores: Seleccionar factura y Cuantía Base -->
   <div class="form-row">
@@ -1667,7 +1665,7 @@
             }
             debugText += "<b>baseAmount final determinado:</b> " + baseAmount;
             if (baseAmount > 0) {
-              inputCuantiva.value = baseAmount;
+              inputCuantiva.value = baseAmount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
           } else {
             debugText += "No se encontraron fields locales.";
