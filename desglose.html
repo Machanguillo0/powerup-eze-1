@@ -1636,11 +1636,7 @@
 
     // Acción de seleccionar factura del dropdown
     selectFactura.addEventListener('change', function() {
-      var val = parseFloat(this.value);
-      if (!isNaN(val) && val > 0) {
-        inputCuantiva.value = val;
-        recalcularDesglose();
-      }
+      recalcularDesglose();
     });
 
     // Cerrar modal
