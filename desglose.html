@@ -825,8 +825,43 @@
               if (!found.fecha_apertura && parsed.fecha_apertura !== "___________") { clientFields.fecha_apertura = parsed.fecha_apertura; found.fecha_apertura = true; }
             });
 
-            // Eliminado el parseo de la tarjeta de Importes del tablero de Clientes (se leerá únicamente de la tarjeta local del tablero de Facturación)
+            // 4.5 Extraer y unificar dinámicamente los campos de la tarjeta "Importes" del tablero de Clientes
+            var clientImportesCard = cards.find(function (c) {
+              return c.name.toLowerCase().includes("importes");
+            });
             var clientImportesFields = {};
+            if (clientImportesCard && clientImportesCard.desc) {
+              var lines = clientImportesCard.desc.split('\n');
+              lines.forEach(function (line) {
+                line = line.trim();
+                if (!line) return;
+                
+                var colonIndex = -1;
+                for (var i = line.length - 1; i >= 0; i--) {
+                  if (line[i] === ':' && i < line.length - 1 && /\s/.test(line[i+1])) {
+                    colonIndex = i;
+                    break;
+                  }
+                }
+                if (colonIndex === -1) {
+                  colonIndex = line.indexOf(':');
+                }
+                
+                if (colonIndex > -1) {
+                  var k = line.substring(0, colonIndex).replace(/[*_~`#]/g, '').trim();
+                  var v = line.substring(colonIndex + 1).replace(/[*_~`#]/g, '').trim();
+                  if (k && v) {
+                    var calculatedV = evalFormulaIfNeeded(v);
+                    clientImportesFields[k] = calculatedV;
+                    clientImportesFields[k.toLowerCase()] = calculatedV;
+                    
+                    var normK = k.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                    clientImportesFields[normK] = calculatedV;
+                    clientImportesFields[normK.toLowerCase()] = calculatedV;
+                  }
+                }
+              });
+            }
 
             // 5. Fusionar datos (Priorizando el tablero local de Facturación sobre el tablero cruzado de Clientes para la tarjeta IMPORTES)
             var combinedFields = {};
@@ -920,7 +955,8 @@
     function getUnifiedFields(t) {
       return t.card('id', 'idList').then(function (currentCard) {
         var idList = currentCard.idList;
-        return t.cards('name', 'desc', 'idList').then(function (cardsInList) {
+        return t.cards('name', 'desc', 'idList').then(function (allCards) {
+          var cardsInList = allCards.filter(function(c) { return c.idList === idList; });
           var unified = {
             nombre: "Cliente Desconocido",
             dni: "___________",
@@ -1603,8 +1639,8 @@
             debugText += "<b>Tarjetas leídas de la Lista de Clientes:</b> " + JSON.stringify(info.cardsLoaded) + "<br><br>";
           }
 
-          // Usar los campos locales (Tablero de Facturación) para inicializar el valor de "Cliente Cobra"
-          var fields = (localData && localData.fields) ? localData.fields : (data ? data.fields : {});
+          // Usar los campos de datos cruzados unificados (Tablero de Facturación + Clientes) para inicializar
+          var fields = (data && data.fields) ? data.fields : ((localData && localData.fields) ? localData.fields : {});
           
           if (fields) {
             debugText += "<b>Claves en Importes local (Tablero Facturación):</b> " + Object.keys(fields).join(', ') + "<br>";
