@@ -860,8 +860,14 @@
                   var v = line.substring(colonIndex + 1).replace(/[*_~`#]/g, '').trim();
                   if (k && v) {
                     var calculatedV = evalFormulaIfNeeded(v);
+                    var cleanKey = k.toLowerCase()
+                                    .normalize("NFD")
+                                    .replace(/[\u0300-\u036f]/g, "")
+                                    .replace(/\s+/g, ' ')
+                                    .trim();
                     clientImportesFields[k] = calculatedV;
                     clientImportesFields[k.toLowerCase()] = calculatedV;
+                    clientImportesFields[cleanKey] = calculatedV;
                     
                     var normK = k.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
                     clientImportesFields[normK] = calculatedV;
@@ -989,8 +995,17 @@
                 var k = line.substring(0, colonIndex).replace(/[*_~`#]/g, '').trim();
                 var v = line.substring(colonIndex + 1).replace(/[*_~`#]/g, '').trim();
                 if (k && v) {
+                  // Normalización estándar sin acentos y en minúsculas
+                  var cleanKey = k.toLowerCase()
+                                  .normalize("NFD")
+                                  .replace(/[\u0300-\u036f]/g, "") // Quitar acentos (ej: Cliente Cobrá -> cliente cobra)
+                                  .replace(/\s+/g, ' ')
+                                  .trim();
+                  
                   unified[k] = v;
                   unified[k.toLowerCase()] = v;
+                  unified[cleanKey] = v;
+                  
                   var normK = k.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
                   unified[normK] = v;
                   unified[normK.toLowerCase()] = v;
