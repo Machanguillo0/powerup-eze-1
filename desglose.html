@@ -871,10 +871,10 @@
               });
             }
 
-            // 5. Fusionar datos
+            // 5. Fusionar datos (Priorizando el tablero local de Facturación sobre el tablero cruzado de Clientes para la tarjeta IMPORTES)
             var combinedFields = {};
-            for (var key in fields) { combinedFields[key] = fields[key]; }
             for (var key in clientImportesFields) { combinedFields[key] = clientImportesFields[key]; }
+            for (var key in fields) { combinedFields[key] = fields[key]; }
             combinedFields.nombre = clientFields.nombre;
             combinedFields.dni = clientFields.dni;
             combinedFields.domicilio = clientFields.domicilio;
