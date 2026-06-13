@@ -983,6 +983,45 @@
       return trimmed;
     }
 
+    // Función para evaluar fórmulas dinámicas sustituyendo variables contextuales
+    function evaluateValueWithContext(rawVal, contextMap) {
+      if (!rawVal) return "";
+      var val = rawVal.trim();
+      
+      // Si contiene marcadores {{...}}
+      if (val.indexOf('{{') > -1 && val.indexOf('}}') > -1) {
+        var replaced = val.replace(/\{\{([^}]+)\}\}/g, function(match, keyInside) {
+          var normalizedKey = keyInside.toLowerCase()
+                                       .normalize("NFD")
+                                       .replace(/[\u0300-\u036f]/g, "")
+                                       .replace(/\s+/g, ' ')
+                                       .trim();
+          var resolvedVal = contextMap[normalizedKey];
+          if (resolvedVal === undefined || resolvedVal === null) {
+            resolvedVal = "0";
+          }
+          // Limpiar el valor resuelto para que sea un número JS válido (ej: "2.110,35" -> "2110.35")
+          var cleanedNum = String(resolvedVal).replace(/[^0-9.,-]/g, '');
+          if (cleanedNum.indexOf('.') > -1 && cleanedNum.indexOf(',') > -1) {
+            cleanedNum = cleanedNum.replace(/\./g, '').replace(',', '.');
+          } else if (cleanedNum.indexOf(',') > -1) {
+            cleanedNum = cleanedNum.replace(',', '.');
+          } else if (cleanedNum.indexOf('.') > -1) {
+            var parts = cleanedNum.split('.');
+            var lastPart = parts[parts.length - 1];
+            if (lastPart.length === 3) {
+              cleanedNum = cleanedNum.replace(/\./g, '');
+            }
+          }
+          return cleanedNum || "0";
+        });
+        
+        return evalFormulaIfNeeded(replaced);
+      }
+      
+      return evalFormulaIfNeeded(val);
+    }
+
     // Función auxiliar para extraer campos de la descripción de la tarjeta
     function extractFields(desc) {
       var fields = {
@@ -1250,40 +1289,52 @@
 
           if (importesCard && importesCard.desc) {
             var lines = importesCard.desc.split('\n');
+            var rawMap = {};
+            var parsedPairs = [];
+            
             lines.forEach(function (line) {
               line = line.trim();
               if (!line) return;
               
-              // Buscamos el último ":" que esté seguido por un espacio (ej. ": ") de derecha a izquierda
-              var colonIndex = -1;
+              var sepIndex = -1;
               for (var i = line.length - 1; i >= 0; i--) {
                 if (line[i] === ':' && i < line.length - 1 && /\s/.test(line[i+1])) {
-                  colonIndex = i;
+                  sepIndex = i;
                   break;
                 }
               }
-              
-              // Si no hay espacio, buscamos el primer ":" normal
-              if (colonIndex === -1) {
-                colonIndex = line.indexOf(':');
+              if (sepIndex === -1) {
+                sepIndex = line.indexOf(':');
+              }
+              if (sepIndex === -1) {
+                sepIndex = line.indexOf('=');
               }
               
-              if (colonIndex > -1) {
-                var k = line.substring(0, colonIndex).replace(/[*_~`#]/g, '').trim();
-                var v = line.substring(colonIndex + 1).replace(/[*_~`#]/g, '').trim();
-                if (k && v) {
-                  var calculatedV = evalFormulaIfNeeded(v);
+              if (sepIndex > -1) {
+                var k = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+                var v = line.substring(sepIndex + 1).replace(/[*_~`#]/g, '').trim();
+                if (k) {
+                  parsedPairs.push({ key: k, val: v });
                   
-                  // Registrar con clave original
-                  unified[k] = calculatedV;
-                  unified[k.toLowerCase()] = calculatedV;
-                  
-                  // Registrar con clave normalizada (reemplazando cualquier ":" por un espacio)
-                  var normK = k.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
-                  unified[normK] = calculatedV;
-                  unified[normK.toLowerCase()] = calculatedV;
+                  // Guardar en rawMap con clave normalizada para evaluar luego
+                  var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+                  rawMap[normK] = v;
                 }
               }
+            });
+
+            // Segunda pasada: Evaluar cada valor usando el contexto
+            parsedPairs.forEach(function (pair) {
+              var calculatedV = evaluateValueWithContext(pair.val, rawMap);
+              
+              // Registrar con clave original en unified
+              unified[pair.key] = calculatedV;
+              unified[pair.key.toLowerCase()] = calculatedV;
+              
+              // Registrar con clave normalizada
+              var normK = pair.key.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+              unified[normK] = calculatedV;
+              unified[normK.toLowerCase()] = calculatedV;
             });
           }
 
@@ -2162,34 +2213,47 @@
             var clientImportesFields = {};
             if (clientImportesCard && clientImportesCard.desc) {
               var lines = clientImportesCard.desc.split('\n');
+              var rawMap = {};
+              var parsedPairs = [];
+              
               lines.forEach(function (line) {
                 line = line.trim();
                 if (!line) return;
                 
-                var colonIndex = -1;
+                var sepIndex = -1;
                 for (var i = line.length - 1; i >= 0; i--) {
                   if (line[i] === ':' && i < line.length - 1 && /\s/.test(line[i+1])) {
-                    colonIndex = i;
+                    sepIndex = i;
                     break;
                   }
                 }
-                if (colonIndex === -1) {
-                  colonIndex = line.indexOf(':');
+                if (sepIndex === -1) {
+                  sepIndex = line.indexOf(':');
+                }
+                if (sepIndex === -1) {
+                  sepIndex = line.indexOf('=');
                 }
                 
-                if (colonIndex > -1) {
-                  var k = line.substring(0, colonIndex).replace(/[*_~`#]/g, '').trim();
-                  var v = line.substring(colonIndex + 1).replace(/[*_~`#]/g, '').trim();
-                  if (k && v) {
-                    var calculatedV = evalFormulaIfNeeded(v);
-                    clientImportesFields[k] = calculatedV;
-                    clientImportesFields[k.toLowerCase()] = calculatedV;
+                if (sepIndex > -1) {
+                  var k = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+                  var v = line.substring(sepIndex + 1).replace(/[*_~`#]/g, '').trim();
+                  if (k) {
+                    parsedPairs.push({ key: k, val: v });
                     
-                    var normK = k.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
-                    clientImportesFields[normK] = calculatedV;
-                    clientImportesFields[normK.toLowerCase()] = calculatedV;
+                    var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+                    rawMap[normK] = v;
                   }
                 }
+              });
+
+              parsedPairs.forEach(function (pair) {
+                var calculatedV = evaluateValueWithContext(pair.val, rawMap);
+                clientImportesFields[pair.key] = calculatedV;
+                clientImportesFields[pair.key.toLowerCase()] = calculatedV;
+                
+                var normK = pair.key.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                clientImportesFields[normK] = calculatedV;
+                clientImportesFields[normK.toLowerCase()] = calculatedV;
               });
             }
 
