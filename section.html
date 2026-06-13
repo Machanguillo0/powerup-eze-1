@@ -913,10 +913,7 @@
         if (card && card.name && (card.name.toLowerCase().includes("importes") || card.name.toLowerCase().includes("importe")) && card.desc) {
           console.log("Antigravity Power-up: Tarjeta Importes/Importe detectada en render. Descripción:", card.desc);
           
-          var descChanged = false;
-          if (lastDesc !== null && lastDesc !== card.desc) {
-            descChanged = true;
-          }
+          var descChanged = (lastDesc !== card.desc);
           lastDesc = card.desc;
 
           var lines = card.desc.split('\n');
@@ -985,20 +982,20 @@
             updateImportesCardIfNeeded(t, card.id, card.desc, calculatedAFacturar);
           }
 
-          // Si la descripción ha cambiado (guardado por el usuario), disparamos la actualización visual automáticamente
+          // Si detectamos cambios en la descripción de la tarjeta de importes/importe, hacemos click automático en el botón
           if (descChanged) {
-            console.log("Antigravity Power-up: Descripción modificada. Refrescando visualización.");
+            console.log("Antigravity Power-up: Cambios detectados en descripción. Forzando click de visualización.");
             setTimeout(function() {
-              var clientesSec = document.getElementById('clientes-section');
+              var btnFact = document.getElementById('boton-desc-facturacion');
+              var btnInteres = document.getElementById('boton-desc');
+              
               var factSec = document.getElementById('facturacion-section');
-              if (clientesSec && clientesSec.style.display !== 'none') {
-                var btn = document.getElementById('boton-desc');
-                if (btn) btn.click();
-              } else if (factSec && factSec.style.display !== 'none') {
-                var btn = document.getElementById('boton-desc-facturacion');
-                if (btn) btn.click();
+              if (factSec && factSec.style.display !== 'none' && btnFact) {
+                btnFact.click();
+              } else if (btnInteres) {
+                btnInteres.click();
               }
-            }, 800);
+            }, 600);
           }
         }
       }).catch(function(err) {
