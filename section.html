@@ -935,13 +935,15 @@
       
       // Si la tarjeta actual es "Importes", calcular y actualizar el campo "A facturar" al guardar/renderizar
       return t.card('id', 'name', 'desc').then(function(card) {
-        if (card && card.name && (card.name.toLowerCase().includes("importes") || card.name.toLowerCase().includes("importe")) && card.desc) {
-          console.log("Antigravity Power-up: Tarjeta Importes/Importe detectada en render. Descripción:", card.desc);
+        console.log("Antigravity Power-up: Render de la tarjeta. Nombre:", card ? card.name : "ninguno", "Desc:", card ? card.desc : "ninguna");
+        if (card && card.name && (card.name.toLowerCase().includes("importes") || card.name.toLowerCase().includes("importe"))) {
+          var cardDesc = card.desc || "";
+          console.log("Antigravity Power-up: Tarjeta Importes/Importe detectada en render. Descripción:", cardDesc);
           
-          var descChanged = (lastDesc !== card.desc);
-          lastDesc = card.desc;
+          var descChanged = (lastDesc !== cardDesc);
+          lastDesc = cardDesc;
 
-          var lines = card.desc.split('\n');
+          var lines = cardDesc.split('\n');
           var rawMap = {};
           var parsedPairs = [];
           lines.forEach(function (line) {
@@ -1004,7 +1006,7 @@
               calculatedAFacturar = formatSpanishCurrency(num);
             }
             console.log("Antigravity Power-up: Valor 'A facturar' calculado:", calculatedAFacturar);
-            updateImportesCardIfNeeded(t, card.id, card.desc, calculatedAFacturar);
+            updateImportesCardIfNeeded(t, card.id, cardDesc, calculatedAFacturar);
 
             // Mostrar y actualizar el display visual
             var displayDiv = document.getElementById('afacturar-display');
