@@ -903,6 +903,19 @@
     });
 
     var lastDesc = null;
+    window.pendingVisualRefresh = false;
+
+    function triggerVisualRefresh() {
+      console.log("Antigravity Power-up: Ejecutando refresco visual.");
+      var btnFact = document.getElementById('boton-desc-facturacion');
+      var btnInteres = document.getElementById('boton-desc');
+      var factSec = document.getElementById('facturacion-section');
+      if (factSec && factSec.style.display !== 'none' && btnFact) {
+        btnFact.click();
+      } else if (btnInteres) {
+        btnInteres.click();
+      }
+    }
 
     t.render(function() {
       // Intentar redimensionar al tamaño del contenido de forma segura
@@ -982,20 +995,10 @@
             updateImportesCardIfNeeded(t, card.id, card.desc, calculatedAFacturar);
           }
 
-          // Si detectamos cambios en la descripción de la tarjeta de importes/importe, hacemos click automático en el botón
+          // Si detectamos cambios en la descripción de la tarjeta de importes/importe, marcamos el refresco como pendiente
           if (descChanged) {
-            console.log("Antigravity Power-up: Cambios detectados en descripción. Forzando click de visualización.");
-            setTimeout(function() {
-              var btnFact = document.getElementById('boton-desc-facturacion');
-              var btnInteres = document.getElementById('boton-desc');
-              
-              var factSec = document.getElementById('facturacion-section');
-              if (factSec && factSec.style.display !== 'none' && btnFact) {
-                btnFact.click();
-              } else if (btnInteres) {
-                btnInteres.click();
-              }
-            }, 600);
+            console.log("Antigravity Power-up: Cambios detectados en descripción. Marcando refresco visual como pendiente.");
+            window.pendingVisualRefresh = true;
           }
         }
       }).catch(function(err) {
@@ -1245,20 +1248,18 @@
             }).then(function(res) {
               if (res.ok) {
                 console.log("Tarjeta Importes actualizada con éxito en Trello.");
-                // Simular clic en el botón de visualizar para mostrar los datos actualizados inmediatamente en pantalla
-                var clientesSec = document.getElementById('clientes-section');
-                var factSec = document.getElementById('facturacion-section');
-                if (clientesSec && clientesSec.style.display !== 'none') {
-                  var btn = document.getElementById('boton-desc');
-                  if (btn) btn.click();
-                } else if (factSec && factSec.style.display !== 'none') {
-                  var btn = document.getElementById('boton-desc-facturacion');
-                  if (btn) btn.click();
-                }
+                window.pendingVisualRefresh = false;
+                triggerVisualRefresh();
               }
             }).catch(function(err) {
               console.error("Error al actualizar la tarjeta de Importes:", err);
             });
+          } else {
+            // Si la descripción no cambió pero hay un refresco visual en cola, lo procesamos
+            if (window.pendingVisualRefresh) {
+              window.pendingVisualRefresh = false;
+              triggerVisualRefresh();
+            }
           }
         });
       });
