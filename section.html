@@ -999,29 +999,24 @@
           }
 
           var calculatedAFacturar = resolvedFields["a facturar"];
-          if (calculatedAFacturar && calculatedAFacturar !== "___________") {
-            // Si el valor no tiene formato de moneda (ej: es solo un float), lo formateamos
-            var num = parseFloat(String(calculatedAFacturar).replace(/[^0-9.,-]/g, '').replace(',', '.'));
-            if (!isNaN(num) && String(calculatedAFacturar).indexOf('€') === -1) {
-              calculatedAFacturar = formatSpanishCurrency(num);
-            }
-            console.log("Antigravity Power-up: Valor 'A facturar' calculado:", calculatedAFacturar);
-            updateImportesCardIfNeeded(t, card.id, cardDesc, calculatedAFacturar);
-
-            // Mostrar y actualizar el display visual
-            var displayDiv = document.getElementById('afacturar-display');
-            var valueSpan = document.getElementById('afacturar-value');
-            if (displayDiv && valueSpan) {
+          var displayDiv = document.getElementById('afacturar-display');
+          var valueSpan = document.getElementById('afacturar-value');
+          if (displayDiv && valueSpan) {
+            displayDiv.style.display = 'flex';
+            if (calculatedAFacturar && calculatedAFacturar !== "___________") {
+              // Si el valor no tiene formato de moneda (ej: es solo un float), lo formateamos
+              var num = parseFloat(String(calculatedAFacturar).replace(/[^0-9.,-]/g, '').replace(',', '.'));
+              if (!isNaN(num) && String(calculatedAFacturar).indexOf('€') === -1) {
+                calculatedAFacturar = formatSpanishCurrency(num);
+              }
               valueSpan.textContent = calculatedAFacturar;
-              displayDiv.style.display = 'flex';
-              t.sizeTo(document.body).done();
+              valueSpan.style.backgroundColor = '#1f845a'; // Verde cuando está calculado
+              updateImportesCardIfNeeded(t, card.id, cardDesc, calculatedAFacturar);
+            } else {
+              valueSpan.textContent = "Esperando Cliente Cobra / Porcentaje ⏳";
+              valueSpan.style.backgroundColor = '#d97706'; // Naranja si faltan datos
             }
-          } else {
-            // Ocultar si no hay valor calculado
-            var displayDiv = document.getElementById('afacturar-display');
-            if (displayDiv) {
-              displayDiv.style.display = 'none';
-            }
+            t.sizeTo(document.body).done();
           }
 
           // Si detectamos cambios en la descripción de la tarjeta de importes/importe, marcamos el refresco como pendiente
