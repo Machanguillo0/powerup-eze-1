@@ -902,6 +902,8 @@
       appName: 'Antigravity'
     });
 
+    var lastDesc = null;
+
     t.render(function() {
       // Intentar redimensionar al tamaño del contenido de forma segura
       t.sizeTo(document.body).done();
@@ -910,6 +912,13 @@
       return t.card('id', 'name', 'desc').then(function(card) {
         if (card && card.name && card.name.toLowerCase().includes("importes") && card.desc) {
           console.log("Antigravity Power-up: Tarjeta Importes detectada en render. Descripción:", card.desc);
+          
+          var descChanged = false;
+          if (lastDesc !== null && lastDesc !== card.desc) {
+            descChanged = true;
+          }
+          lastDesc = card.desc;
+
           var lines = card.desc.split('\n');
           var rawMap = {};
           var parsedPairs = [];
@@ -974,6 +983,22 @@
             }
             console.log("Antigravity Power-up: Valor 'A facturar' calculado:", calculatedAFacturar);
             updateImportesCardIfNeeded(t, card.id, card.desc, calculatedAFacturar);
+          }
+
+          // Si la descripción ha cambiado (guardado por el usuario), disparamos la actualización visual automáticamente
+          if (descChanged) {
+            console.log("Antigravity Power-up: Descripción modificada. Refrescando visualización.");
+            setTimeout(function() {
+              var clientesSec = document.getElementById('clientes-section');
+              var factSec = document.getElementById('facturacion-section');
+              if (clientesSec && clientesSec.style.display !== 'none') {
+                var btn = document.getElementById('boton-desc');
+                if (btn) btn.click();
+              } else if (factSec && factSec.style.display !== 'none') {
+                var btn = document.getElementById('boton-desc-facturacion');
+                if (btn) btn.click();
+              }
+            }, 800);
           }
         }
       }).catch(function(err) {
