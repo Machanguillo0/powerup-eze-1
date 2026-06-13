@@ -584,18 +584,6 @@
   </div>
 
   <div class="main-wrapper">
-    <!-- Display visual para el valor calculado de A Facturar -->
-    <div id="afacturar-display" style="display: none; margin-bottom: 12px; padding: 10px; background-color: #e2f5ec; border: 1px solid #1f845a; border-radius: 4px; font-size: 13.5px; color: #1f845a; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.05); align-items: center; justify-content: space-between; box-sizing: border-box;">
-      <span style="display: flex; align-items: center; gap: 6px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="1" x2="12" y2="23"></line>
-          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-        </svg>
-        Valor calculado para "A Facturar":
-      </span>
-      <span id="afacturar-value" style="font-size: 15px; background-color: #1f845a; color: white; padding: 2px 8px; border-radius: 3px; font-family: monospace; font-weight: 800;">0,00 €</span>
-    </div>
-
     <div id="main-content">
     <!-- Seccion de CLIENTES: Visible por defecto -->
     <div id="clientes-section" style="display: block;">
@@ -900,11 +888,6 @@
     <!-- Aquí aparecerá el texto de la descripción -->
     <div id="descripcion-container"></div>
   </div>
-
-  <div style="font-size: 11.5px; color: #5e6c84; margin-top: 15px; text-align: center; font-style: italic; border-top: 1px solid #dfe1e6; padding-top: 8px;" id="detected-card-name">
-    Detectando tarjeta por el Power-Up...
-  </div>
-
   <!-- Modo Diagnóstico (Solo para depuración) -->
   <div id="debug-info" style="margin-top: 20px; padding: 10px; background: #fff9db; border: 1px solid #fab005; font-size: 11px; display: none;">
     <strong>Debug:</strong> <span id="debug-msg">Esperando a Trello...</span>
@@ -934,25 +917,13 @@
     }
 
     t.render(function() {
-      console.log("Antigravity Power-up: t.render ha sido invocado.");
-      var nameDiv = document.getElementById('detected-card-name');
-      if (nameDiv) {
-        nameDiv.textContent = "t.render invocado, obteniendo datos de la tarjeta...";
-      }
       // Intentar redimensionar al tamaño del contenido de forma segura
       t.sizeTo(document.body).done();
       
       // Si la tarjeta actual es "Importes", calcular y actualizar el campo "A facturar" al guardar/renderizar
       return t.card('id', 'name', 'desc').then(function(card) {
-        var cardName = card ? card.name : "Ninguna";
-        var nameDiv = document.getElementById('detected-card-name');
-        if (nameDiv) {
-          nameDiv.textContent = "Tarjeta detectada por el Power-Up: \"" + cardName + "\"";
-        }
-        console.log("Antigravity Power-up: Render de la tarjeta. Nombre:", cardName, "Desc:", card ? card.desc : "ninguna");
         if (card && card.name && (card.name.toLowerCase().includes("importes") || card.name.toLowerCase().includes("importe"))) {
           var cardDesc = card.desc || "";
-          console.log("Antigravity Power-up: Tarjeta Importes/Importe detectada en render. Descripción:", cardDesc);
           
           var descChanged = (lastDesc !== cardDesc);
           lastDesc = cardDesc;
@@ -1013,36 +984,20 @@
           }
 
           var calculatedAFacturar = resolvedFields["a facturar"];
-          var displayDiv = document.getElementById('afacturar-display');
-          var valueSpan = document.getElementById('afacturar-value');
-          if (displayDiv && valueSpan) {
-            displayDiv.style.display = 'flex';
-            if (calculatedAFacturar && calculatedAFacturar !== "___________") {
-              // Si el valor no tiene formato de moneda (ej: es solo un float), lo formateamos
-              var num = parseFloat(String(calculatedAFacturar).replace(/[^0-9.,-]/g, '').replace(',', '.'));
-              if (!isNaN(num) && String(calculatedAFacturar).indexOf('€') === -1) {
-                calculatedAFacturar = formatSpanishCurrency(num);
-              }
-              valueSpan.textContent = calculatedAFacturar;
-              valueSpan.style.backgroundColor = '#1f845a'; // Verde cuando está calculado
-              updateImportesCardIfNeeded(t, card.id, cardDesc, calculatedAFacturar);
-            } else {
-              valueSpan.textContent = "Esperando Cliente Cobra / Porcentaje ⏳";
-              valueSpan.style.backgroundColor = '#d97706'; // Naranja si faltan datos
+          if (calculatedAFacturar && calculatedAFacturar !== "___________") {
+            // Si el valor no tiene formato de moneda (ej: es solo un float), lo formateamos
+            var num = parseFloat(String(calculatedAFacturar).replace(/[^0-9.,-]/g, '').replace(',', '.'));
+            if (!isNaN(num) && String(calculatedAFacturar).indexOf('€') === -1) {
+              calculatedAFacturar = formatSpanishCurrency(num);
             }
-            t.sizeTo(document.body).done();
+            console.log("Antigravity Power-up: Valor 'A facturar' calculado:", calculatedAFacturar);
+            updateImportesCardIfNeeded(t, card.id, cardDesc, calculatedAFacturar);
           }
 
           // Si detectamos cambios en la descripción de la tarjeta de importes/importe, marcamos el refresco como pendiente
           if (descChanged) {
             console.log("Antigravity Power-up: Cambios detectados en descripción. Marcando refresco visual como pendiente.");
             window.pendingVisualRefresh = true;
-          }
-        } else {
-          // Ocultar si no estamos en la tarjeta de Importes
-          var displayDiv = document.getElementById('afacturar-display');
-          if (displayDiv) {
-            displayDiv.style.display = 'none';
           }
         }
       }).catch(function(err) {
