@@ -909,6 +909,7 @@
       // Si la tarjeta actual es "Importes", calcular y actualizar el campo "A facturar" al guardar/renderizar
       return t.card('id', 'name', 'desc').then(function(card) {
         if (card && card.name && card.name.toLowerCase().includes("importes") && card.desc) {
+          console.log("Antigravity Power-up: Tarjeta Importes detectada en render. Descripción:", card.desc);
           var lines = card.desc.split('\n');
           var rawMap = {};
           var parsedPairs = [];
@@ -966,6 +967,12 @@
 
           var calculatedAFacturar = resolvedFields["a facturar"];
           if (calculatedAFacturar && calculatedAFacturar !== "___________") {
+            // Si el valor no tiene formato de moneda (ej: es solo un float), lo formateamos
+            var num = parseFloat(String(calculatedAFacturar).replace(/[^0-9.,-]/g, '').replace(',', '.'));
+            if (!isNaN(num) && String(calculatedAFacturar).indexOf('€') === -1) {
+              calculatedAFacturar = formatSpanishCurrency(num);
+            }
+            console.log("Antigravity Power-up: Valor 'A facturar' calculado:", calculatedAFacturar);
             updateImportesCardIfNeeded(t, card.id, card.desc, calculatedAFacturar);
           }
         }
@@ -1158,7 +1165,16 @@
     function updateImportesCardIfNeeded(t, cardId, currentDesc, calculatedValue) {
       if (!cardId || !currentDesc) return;
       t.getRestApi().isAuthorized().then(function(auth) {
-        if (!auth) return;
+        if (!auth) {
+          console.warn("Power-up no autorizado en Trello REST API para actualizar la tarjeta.");
+          var debugDiv = document.getElementById('debug-info');
+          var debugMsg = document.getElementById('debug-msg');
+          if (debugDiv && debugMsg) {
+            debugMsg.textContent = "El Power-up no está autorizado en Trello REST API. Haz clic en 'Visualizar datos de facturación' para autorizar.";
+            debugDiv.style.display = 'block';
+          }
+          return;
+        }
         t.getRestApi().getToken().then(function(token) {
           if (!token) return;
           var lines = currentDesc.split('\n');
@@ -1207,6 +1223,16 @@
             }).then(function(res) {
               if (res.ok) {
                 console.log("Tarjeta Importes actualizada con éxito en Trello.");
+                // Simular clic en el botón de visualizar para mostrar los datos actualizados inmediatamente en pantalla
+                var clientesSec = document.getElementById('clientes-section');
+                var factSec = document.getElementById('facturacion-section');
+                if (clientesSec && clientesSec.style.display !== 'none') {
+                  var btn = document.getElementById('boton-desc');
+                  if (btn) btn.click();
+                } else if (factSec && factSec.style.display !== 'none') {
+                  var btn = document.getElementById('boton-desc-facturacion');
+                  if (btn) btn.click();
+                }
               }
             }).catch(function(err) {
               console.error("Error al actualizar la tarjeta de Importes:", err);
