@@ -901,6 +901,10 @@
     <div id="descripcion-container"></div>
   </div>
 
+  <div style="font-size: 11.5px; color: #5e6c84; margin-top: 15px; text-align: center; font-style: italic; border-top: 1px solid #dfe1e6; padding-top: 8px;" id="detected-card-name">
+    Detectando tarjeta por el Power-Up...
+  </div>
+
   <!-- Modo Diagnóstico (Solo para depuración) -->
   <div id="debug-info" style="margin-top: 20px; padding: 10px; background: #fff9db; border: 1px solid #fab005; font-size: 11px; display: none;">
     <strong>Debug:</strong> <span id="debug-msg">Esperando a Trello...</span>
@@ -935,7 +939,12 @@
       
       // Si la tarjeta actual es "Importes", calcular y actualizar el campo "A facturar" al guardar/renderizar
       return t.card('id', 'name', 'desc').then(function(card) {
-        console.log("Antigravity Power-up: Render de la tarjeta. Nombre:", card ? card.name : "ninguno", "Desc:", card ? card.desc : "ninguna");
+        var cardName = card ? card.name : "Ninguna";
+        var nameDiv = document.getElementById('detected-card-name');
+        if (nameDiv) {
+          nameDiv.textContent = "Tarjeta detectada por el Power-Up: \"" + cardName + "\"";
+        }
+        console.log("Antigravity Power-up: Render de la tarjeta. Nombre:", cardName, "Desc:", card ? card.desc : "ninguna");
         if (card && card.name && (card.name.toLowerCase().includes("importes") || card.name.toLowerCase().includes("importe"))) {
           var cardDesc = card.desc || "";
           console.log("Antigravity Power-up: Tarjeta Importes/Importe detectada en render. Descripción:", cardDesc);
