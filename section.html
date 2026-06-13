@@ -902,6 +902,78 @@
       appName: 'Antigravity'
     });
 
+    t.render(function() {
+      // Intentar redimensionar al tamaño del contenido de forma segura
+      t.sizeTo(document.body).done();
+      
+      // Si la tarjeta actual es "Importes", calcular y actualizar el campo "A facturar" al guardar/renderizar
+      return t.card('id', 'name', 'desc').then(function(card) {
+        if (card && card.name && card.name.toLowerCase().includes("importes") && card.desc) {
+          var lines = card.desc.split('\n');
+          var rawMap = {};
+          var parsedPairs = [];
+          lines.forEach(function (line) {
+            line = line.trim();
+            if (!line) return;
+            var sepIndex = line.indexOf(':');
+            if (sepIndex === -1) {
+              sepIndex = line.indexOf('=');
+            }
+            if (sepIndex > -1) {
+              var k = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+              var v = line.substring(sepIndex + 1).replace(/[*_~`#]/g, '').trim();
+              if (k) {
+                parsedPairs.push({ key: k, val: v });
+                var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+                rawMap[normK] = v;
+              }
+            }
+          });
+
+          // Resolver variables
+          var resolvedFields = {};
+          parsedPairs.forEach(function (pair) {
+            var calculatedV = evaluateValueWithContext(pair.val, rawMap);
+            resolvedFields[pair.key] = calculatedV;
+            resolvedFields[pair.key.toLowerCase()] = calculatedV;
+            var normK = pair.key.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+            resolvedFields[normK] = calculatedV;
+            resolvedFields[normK.toLowerCase()] = calculatedV;
+          });
+
+          // Fallback auto-calculation of A facturar
+          var hasAFacturar = false;
+          for (var key in resolvedFields) {
+            if (key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim() === "a facturar") {
+              if (resolvedFields[key] && String(resolvedFields[key]).trim().length > 0 && resolvedFields[key] !== "___________") {
+                hasAFacturar = true;
+              }
+            }
+          }
+          if (!hasAFacturar) {
+            var cobraVal = getNumericFieldValue(resolvedFields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']);
+            var pctVal = getNumericFieldValue(resolvedFields, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios']);
+            if (cobraVal !== null && pctVal !== null) {
+              var factor = pctVal;
+              if (factor > 1) {
+                factor = factor / 100;
+              }
+              var calculated = cobraVal * factor;
+              var formatted = calculated.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+              resolvedFields["a facturar"] = formatted;
+            }
+          }
+
+          var calculatedAFacturar = resolvedFields["a facturar"];
+          if (calculatedAFacturar && calculatedAFacturar !== "___________") {
+            updateImportesCardIfNeeded(t, card.id, card.desc, calculatedAFacturar);
+          }
+        }
+      }).catch(function(err) {
+        console.error("Error en render auto-calculo Importes:", err);
+      });
+    });
+
     // Analizador de floats adaptado a localización en español (evita truncamientos por puntos de miles)
     function parseSpanishFloat(str) {
       if (!str) return 0;
