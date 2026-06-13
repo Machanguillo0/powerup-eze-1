@@ -910,8 +910,8 @@
       
       // Si la tarjeta actual es "Importes", calcular y actualizar el campo "A facturar" al guardar/renderizar
       return t.card('id', 'name', 'desc').then(function(card) {
-        if (card && card.name && card.name.toLowerCase().includes("importes") && card.desc) {
-          console.log("Antigravity Power-up: Tarjeta Importes detectada en render. Descripción:", card.desc);
+        if (card && card.name && (card.name.toLowerCase().includes("importes") || card.name.toLowerCase().includes("importe")) && card.desc) {
+          console.log("Antigravity Power-up: Tarjeta Importes/Importe detectada en render. Descripción:", card.desc);
           
           var descChanged = false;
           if (lastDesc !== null && lastDesc !== card.desc) {
