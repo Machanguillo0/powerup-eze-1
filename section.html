@@ -584,6 +584,18 @@
   </div>
 
   <div class="main-wrapper">
+    <!-- Display visual para el valor calculado de A Facturar (Inicialmente visible en gris) -->
+    <div id="afacturar-display" style="margin-bottom: 12px; padding: 10px; background-color: #f4f5f7; border: 1px solid #dfe1e6; border-radius: 4px; font-size: 13.5px; color: #172b4d; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; align-items: center; justify-content: space-between; box-sizing: border-box;">
+      <span style="display: flex; align-items: center; gap: 6px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="1" x2="12" y2="23"></line>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+        </svg>
+        Valor calculado "A Facturar":
+      </span>
+      <span id="afacturar-value" style="font-size: 14px; background-color: #091e420f; color: #172b4d; padding: 2px 8px; border-radius: 3px; font-family: monospace; font-weight: 800;">Cargando... ⏳</span>
+    </div>
+
     <div id="main-content">
     <!-- Seccion de CLIENTES: Visible por defecto -->
     <div id="clientes-section" style="display: block;">
@@ -984,20 +996,47 @@
           }
 
           var calculatedAFacturar = resolvedFields["a facturar"];
-          if (calculatedAFacturar && calculatedAFacturar !== "___________") {
-            // Si el valor no tiene formato de moneda (ej: es solo un float), lo formateamos
-            var num = parseFloat(String(calculatedAFacturar).replace(/[^0-9.,-]/g, '').replace(',', '.'));
-            if (!isNaN(num) && String(calculatedAFacturar).indexOf('€') === -1) {
-              calculatedAFacturar = formatSpanishCurrency(num);
+          var displayDiv = document.getElementById('afacturar-display');
+          var valueSpan = document.getElementById('afacturar-value');
+          if (displayDiv && valueSpan) {
+            displayDiv.style.display = 'flex';
+            if (calculatedAFacturar && calculatedAFacturar !== "___________") {
+              // Si el valor no tiene formato de moneda (ej: es solo un float), lo formateamos
+              var num = parseFloat(String(calculatedAFacturar).replace(/[^0-9.,-]/g, '').replace(',', '.'));
+              if (!isNaN(num) && String(calculatedAFacturar).indexOf('€') === -1) {
+                calculatedAFacturar = formatSpanishCurrency(num);
+              }
+              valueSpan.textContent = calculatedAFacturar;
+              valueSpan.style.backgroundColor = '#1f845a'; // Verde
+              valueSpan.style.color = '#ffffff';
+              
+              displayDiv.style.backgroundColor = '#e2f5ec';
+              displayDiv.style.borderColor = '#1f845a';
+              displayDiv.style.color = '#1f845a';
+              
+              updateImportesCardIfNeeded(t, card.id, cardDesc, calculatedAFacturar);
+            } else {
+              valueSpan.textContent = "Faltan Cliente Cobra / Porcentaje ⏳";
+              valueSpan.style.backgroundColor = '#d97706'; // Naranja
+              valueSpan.style.color = '#ffffff';
+              
+              displayDiv.style.backgroundColor = '#fff7ed';
+              displayDiv.style.borderColor = '#d97706';
+              displayDiv.style.color = '#d97706';
             }
-            console.log("Antigravity Power-up: Valor 'A facturar' calculado:", calculatedAFacturar);
-            updateImportesCardIfNeeded(t, card.id, cardDesc, calculatedAFacturar);
+            t.sizeTo(document.body).done();
           }
 
           // Si detectamos cambios en la descripción de la tarjeta de importes/importe, marcamos el refresco como pendiente
           if (descChanged) {
             console.log("Antigravity Power-up: Cambios detectados en descripción. Marcando refresco visual como pendiente.");
             window.pendingVisualRefresh = true;
+          }
+        } else {
+          // Ocultar si no estamos en la tarjeta de Importes
+          var displayDiv = document.getElementById('afacturar-display');
+          if (displayDiv) {
+            displayDiv.style.display = 'none';
           }
         }
       }).catch(function(err) {
