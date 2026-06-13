@@ -730,6 +730,109 @@
       return evalFormulaIfNeeded(val);
     }
 
+    // Extrae el valor numérico de un campo buscando entre varias posibles claves
+    function getNumericFieldValue(fields, possibleKeys) {
+      for (var i = 0; i < possibleKeys.length; i++) {
+        var rawKey = possibleKeys[i];
+        var cleanKey = rawKey.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+        
+        // Buscar coincidencia en fields
+        var val = null;
+        for (var k in fields) {
+          if (fields.hasOwnProperty(k)) {
+            var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+            if (normK === cleanKey) {
+              val = fields[k];
+              break;
+            }
+          }
+        }
+        
+        if (val !== undefined && val !== null) {
+          var cleanVal = String(val).replace(/[^0-9.,-]/g, '');
+          if (!cleanVal) continue;
+          if (cleanVal.indexOf('.') > -1 && cleanVal.indexOf(',') > -1) {
+            cleanVal = cleanVal.replace(/\./g, '').replace(',', '.');
+          } else if (cleanVal.indexOf(',') > -1) {
+            cleanVal = cleanVal.replace(',', '.');
+          } else if (cleanVal.indexOf('.') > -1) {
+            var parts = cleanVal.split('.');
+            var lastPart = parts[parts.length - 1];
+            if (lastPart.length === 3) {
+              cleanVal = cleanVal.replace(/\./g, '');
+            }
+          }
+          var parsedFloat = parseFloat(cleanVal);
+          if (!isNaN(parsedFloat)) {
+            return parsedFloat;
+          }
+        }
+      }
+      return null;
+    }
+
+    // Actualiza la tarjeta de Importes en Trello escribiendo el valor de A facturar calculado
+    function updateImportesCardIfNeeded(t, cardId, currentDesc, calculatedValue) {
+      if (!cardId || !currentDesc) return;
+      t.getRestApi().isAuthorized().then(function(auth) {
+        if (!auth) return;
+        t.getRestApi().getToken().then(function(token) {
+          if (!token) return;
+          var lines = currentDesc.split('\n');
+          var updated = false;
+          var newLines = lines.map(function(line) {
+            var trimmed = line.trim();
+            var sepIndex = line.indexOf(':');
+            if (sepIndex === -1) {
+              sepIndex = line.indexOf('=');
+            }
+            if (sepIndex > -1) {
+              var key = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+              var keyClean = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+              if (keyClean === "a facturar") {
+                // Si tiene formula (tiene }}), conservamos la formula
+                var formulaPart = line.substring(0, sepIndex + 1).trim(); // "A facturar =" o "A facturar:"
+                var valPart = line.substring(sepIndex + 1).trim();
+                
+                var lastBrace = valPart.lastIndexOf('}}');
+                if (lastBrace > -1) {
+                  var formula = valPart.substring(0, lastBrace + 2).trim();
+                  var newLineText = formulaPart + " " + formula + " = " + calculatedValue;
+                  if (line.trim() !== newLineText.trim()) {
+                    updated = true;
+                    return newLineText;
+                  }
+                } else {
+                  var newLineText = key + ": " + calculatedValue;
+                  if (line.trim() !== newLineText.trim()) {
+                    updated = true;
+                    return newLineText;
+                  }
+                }
+              }
+            }
+            return line;
+          });
+          
+          if (updated) {
+            var newDesc = newLines.join('\n');
+            var appKey = t.getRestApi().appKey;
+            fetch(`https://api.trello.com/1/cards/${cardId}?key=${appKey}&token=${token}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ desc: newDesc })
+            }).then(function(res) {
+              if (res.ok) {
+                console.log("Tarjeta Importes actualizada con éxito en Trello.");
+              }
+            }).catch(function(err) {
+              console.error("Error al actualizar la tarjeta de Importes:", err);
+            });
+          }
+        });
+      });
+    }
+
     // Función auxiliar para obtener o crear la tarjeta "Facturas" en la segunda posición de la lista
     function getOrCreateFacturasCard(t, idList, token) {
       var appKey = t.getRestApi().appKey;
@@ -930,6 +1033,36 @@
                 clientImportesFields[normK] = calculatedV;
                 clientImportesFields[normK.toLowerCase()] = calculatedV;
               });
+
+              // Cálculo automático fallback de "A facturar" si no existe o está vacío
+              var hasAFacturar = false;
+              for (var key in clientImportesFields) {
+                if (key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim() === "a facturar") {
+                  if (clientImportesFields[key] && String(clientImportesFields[key]).trim().length > 0 && clientImportesFields[key] !== "___________") {
+                    hasAFacturar = true;
+                  }
+                }
+              }
+              if (!hasAFacturar) {
+                var cobraVal = getNumericFieldValue(clientImportesFields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']);
+                var pctVal = getNumericFieldValue(clientImportesFields, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios']);
+                if (cobraVal !== null && pctVal !== null) {
+                  var factor = pctVal;
+                  if (factor > 1) {
+                    factor = factor / 100;
+                  }
+                  var calculated = cobraVal * factor;
+                  var formatted = calculated.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+                  
+                  clientImportesFields["A facturar"] = formatted;
+                  clientImportesFields["a facturar"] = formatted;
+                }
+              }
+
+              var calculatedAFacturar = clientImportesFields["a facturar"];
+              if (calculatedAFacturar && calculatedAFacturar !== "___________") {
+                updateImportesCardIfNeeded(t, clientImportesCard.id, clientImportesCard.desc, calculatedAFacturar);
+              }
             }
 
             // 5. Fusionar datos (Priorizando el tablero local de Facturación sobre el tablero cruzado de Clientes para la tarjeta IMPORTES)
@@ -1100,6 +1233,36 @@
               unified[normK] = calculatedV;
               unified[normK.toLowerCase()] = calculatedV;
             });
+
+            // Cálculo automático fallback de "A facturar" si no existe o está vacío
+            var hasAFacturar = false;
+            for (var key in unified) {
+              if (key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim() === "a facturar") {
+                if (unified[key] && String(unified[key]).trim().length > 0 && unified[key] !== "___________") {
+                  hasAFacturar = true;
+                }
+              }
+            }
+            if (!hasAFacturar) {
+              var cobraVal = getNumericFieldValue(unified, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']);
+              var pctVal = getNumericFieldValue(unified, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios']);
+              if (cobraVal !== null && pctVal !== null) {
+                var factor = pctVal;
+                if (factor > 1) {
+                  factor = factor / 100;
+                }
+                var calculated = cobraVal * factor;
+                var formatted = calculated.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+                
+                unified["A facturar"] = formatted;
+                unified["a facturar"] = formatted;
+              }
+            }
+
+            var calculatedAFacturar = unified["a facturar"];
+            if (calculatedAFacturar && calculatedAFacturar !== "___________") {
+              updateImportesCardIfNeeded(t, importesCard.id, importesCard.desc, calculatedAFacturar);
+            }
           }
 
           cardsInList.forEach(function (card) {
