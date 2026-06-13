@@ -907,11 +907,13 @@
 </div>
 
   <script>
+    console.log("Antigravity Power-up: Script de section.html cargándose...");
     // Inicializamos este iframe con Trello indicándole nuestra App Key para poder usar la API
     var t = window.TrelloPowerUp.iframe({
       appKey: '30767998cbb7b57a692e8bb50cfa9a9c',
       appName: 'Antigravity'
     });
+    console.log("Antigravity Power-up: TrelloPowerUp.iframe inicializado.");
 
     var lastDesc = null;
     window.pendingVisualRefresh = false;
@@ -928,121 +930,7 @@
       }
     }
 
-    t.render(function() {
-      // Intentar redimensionar al tamaño del contenido de forma segura
-      t.sizeTo(document.body).done();
-      
-      // Si la tarjeta actual es "Importes", calcular y actualizar el campo "A facturar" al guardar/renderizar
-      return t.card('id', 'name', 'desc').then(function(card) {
-        if (card && card.name && (card.name.toLowerCase().includes("importes") || card.name.toLowerCase().includes("importe"))) {
-          var cardDesc = card.desc || "";
-          
-          var descChanged = (lastDesc !== cardDesc);
-          lastDesc = cardDesc;
-
-          var lines = cardDesc.split('\n');
-          var rawMap = {};
-          var parsedPairs = [];
-          lines.forEach(function (line) {
-            line = line.trim();
-            if (!line) return;
-            var sepIndex = line.indexOf(':');
-            if (sepIndex === -1) {
-              sepIndex = line.indexOf('=');
-            }
-            if (sepIndex > -1) {
-              var k = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
-              var v = line.substring(sepIndex + 1).replace(/[*_~`#]/g, '').trim();
-              if (k) {
-                parsedPairs.push({ key: k, val: v });
-                var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
-                rawMap[normK] = v;
-              }
-            }
-          });
-
-          // Resolver variables
-          var resolvedFields = {};
-          parsedPairs.forEach(function (pair) {
-            var calculatedV = evaluateValueWithContext(pair.val, rawMap);
-            resolvedFields[pair.key] = calculatedV;
-            resolvedFields[pair.key.toLowerCase()] = calculatedV;
-            var normK = pair.key.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
-            resolvedFields[normK] = calculatedV;
-            resolvedFields[normK.toLowerCase()] = calculatedV;
-          });
-
-          // Fallback auto-calculation of A facturar
-          var hasAFacturar = false;
-          for (var key in resolvedFields) {
-            if (key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim() === "a facturar") {
-              if (resolvedFields[key] && String(resolvedFields[key]).trim().length > 0 && resolvedFields[key] !== "___________") {
-                hasAFacturar = true;
-              }
-            }
-          }
-          if (!hasAFacturar) {
-            var cobraVal = getNumericFieldValue(resolvedFields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']);
-            var pctVal = getNumericFieldValue(resolvedFields, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios', 'porcentage facturación', 'porcentage facturacion', 'porcentage', 'porcentage honorarios']);
-            if (cobraVal !== null && pctVal !== null) {
-              var factor = pctVal;
-              if (factor > 1) {
-                factor = factor / 100;
-              }
-              var calculated = cobraVal * factor;
-              var formatted = calculated.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
-              resolvedFields["a facturar"] = formatted;
-            }
-          }
-
-          var calculatedAFacturar = resolvedFields["a facturar"];
-          var displayDiv = document.getElementById('afacturar-display');
-          var valueSpan = document.getElementById('afacturar-value');
-          if (displayDiv && valueSpan) {
-            displayDiv.style.display = 'flex';
-            if (calculatedAFacturar && calculatedAFacturar !== "___________") {
-              // Si el valor no tiene formato de moneda (ej: es solo un float), lo formateamos
-              var num = parseFloat(String(calculatedAFacturar).replace(/[^0-9.,-]/g, '').replace(',', '.'));
-              if (!isNaN(num) && String(calculatedAFacturar).indexOf('€') === -1) {
-                calculatedAFacturar = formatSpanishCurrency(num);
-              }
-              valueSpan.textContent = calculatedAFacturar;
-              valueSpan.style.backgroundColor = '#1f845a'; // Verde
-              valueSpan.style.color = '#ffffff';
-              
-              displayDiv.style.backgroundColor = '#e2f5ec';
-              displayDiv.style.borderColor = '#1f845a';
-              displayDiv.style.color = '#1f845a';
-              
-              updateImportesCardIfNeeded(t, card.id, cardDesc, calculatedAFacturar);
-            } else {
-              valueSpan.textContent = "Faltan Cliente Cobra / Porcentaje ⏳";
-              valueSpan.style.backgroundColor = '#d97706'; // Naranja
-              valueSpan.style.color = '#ffffff';
-              
-              displayDiv.style.backgroundColor = '#fff7ed';
-              displayDiv.style.borderColor = '#d97706';
-              displayDiv.style.color = '#d97706';
-            }
-            t.sizeTo(document.body).done();
-          }
-
-          // Si detectamos cambios en la descripción de la tarjeta de importes/importe, marcamos el refresco como pendiente
-          if (descChanged) {
-            console.log("Antigravity Power-up: Cambios detectados en descripción. Marcando refresco visual como pendiente.");
-            window.pendingVisualRefresh = true;
-          }
-        } else {
-          // Ocultar si no estamos en la tarjeta de Importes
-          var displayDiv = document.getElementById('afacturar-display');
-          if (displayDiv) {
-            displayDiv.style.display = 'none';
-          }
-        }
-      }).catch(function(err) {
-        console.error("Error en render auto-calculo Importes:", err);
-      });
-    });
+    // Primer t.render removido para evitar duplicados. La lógica está unificada al final del script.
 
     // Analizador de floats adaptado a localización en español (evita truncamientos por puntos de miles)
     function parseSpanishFloat(str) {
@@ -3157,6 +3045,7 @@
       // Diagnóstico inicial
       document.getElementById('debug-info').style.display = 'block';
       document.getElementById('debug-msg').textContent = "Consultando tipo de tablero...";
+      t.sizeTo(document.body).done();
 
       getBoardTypeSafe(t).then(function(type) {
         document.getElementById('debug-msg').textContent = "Detectado: " + type;
@@ -3172,30 +3061,145 @@
         
         document.getElementById('unknown-section').style.display = 'none'; 
 
-        if (isClientes) {
-          t.card('name', 'idList').then(function(card) {
-            if (card.name.toLowerCase().includes("historial de procesos") || card.name.toLowerCase().includes("historial de avisos")) {
-              updateHistoryCard(t, card.idList, false);
-            }
-          });
+        // Consultar los datos de la tarjeta actual que necesitamos (id, name, desc, idList)
+        return t.card('id', 'name', 'desc', 'idList').then(function(card) {
+          var promises = [];
+          
+          if (card && card.name) {
+            var nameLower = card.name.toLowerCase();
 
-          // Cargar y mostrar opciones de la demanda en texto plano si existen
-          t.get('card', 'shared', 'demanda_options').then(function(savedData) {
-            if (savedData) {
-              var container = document.getElementById('descripcion-container');
-              var html = "<strong>Opciones seleccionadas para la Demanda Nexo Causal:</strong><br><br>";
-              html += "• Texto informativo: " + (savedData.texto || "(Vacío)") + "<br>" +
-                      "• Incluir parrafada A: " + (savedData.parrafadaA ? "Sí" : "No") + "<br>" +
-                      "• Incluir parrafada B: " + (savedData.parrafadaB ? "Sí" : "No") + "<br>" +
-                      "• Cláusula quinta: " + (savedData.clausula || "media") + "<br>";
-              
-              container.innerHTML = html;
-              container.style.display = 'block';
-              t.sizeTo(document.body).done();
+            // Lógica de cálculo de "A Facturar" para tarjetas "Importes" (solo si NO es tablero CLIENTES)
+            if (!isClientes && (nameLower.includes("importes") || nameLower.includes("importe"))) {
+              var cardDesc = card.desc || "";
+              var descChanged = (lastDesc !== cardDesc);
+              lastDesc = cardDesc;
+
+              var lines = cardDesc.split('\n');
+              var rawMap = {};
+              var parsedPairs = [];
+              lines.forEach(function (line) {
+                line = line.trim();
+                if (!line) return;
+                var sepIndex = line.indexOf(':');
+                if (sepIndex === -1) {
+                  sepIndex = line.indexOf('=');
+                }
+                if (sepIndex > -1) {
+                  var k = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+                  var v = line.substring(sepIndex + 1).replace(/[*_~`#]/g, '').trim();
+                  if (k) {
+                    parsedPairs.push({ key: k, val: v });
+                    var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+                    rawMap[normK] = v;
+                  }
+                }
+              });
+
+              // Resolver variables
+              var resolvedFields = {};
+              parsedPairs.forEach(function (pair) {
+                var calculatedV = evaluateValueWithContext(pair.val, rawMap);
+                resolvedFields[pair.key] = calculatedV;
+                resolvedFields[pair.key.toLowerCase()] = calculatedV;
+                var normK = pair.key.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                resolvedFields[normK] = calculatedV;
+                resolvedFields[normK.toLowerCase()] = calculatedV;
+              });
+
+              // Fallback auto-calculation of A facturar
+              var hasAFacturar = false;
+              for (var key in resolvedFields) {
+                if (key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim() === "a facturar") {
+                  if (resolvedFields[key] && String(resolvedFields[key]).trim().length > 0 && resolvedFields[key] !== "___________") {
+                    hasAFacturar = true;
+                  }
+                }
+              }
+              if (!hasAFacturar) {
+                var cobraVal = getNumericFieldValue(resolvedFields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']);
+                var pctVal = getNumericFieldValue(resolvedFields, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios', 'porcentage facturación', 'porcentage facturacion', 'porcentage', 'porcentage honorarios']);
+                if (cobraVal !== null && pctVal !== null) {
+                  var factor = pctVal;
+                  if (factor > 1) {
+                    factor = factor / 100;
+                  }
+                  var calculated = cobraVal * factor;
+                  var formatted = calculated.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+                  resolvedFields["a facturar"] = formatted;
+                }
+              }
+
+              var calculatedAFacturar = resolvedFields["a facturar"];
+              var displayDiv = document.getElementById('afacturar-display');
+              var valueSpan = document.getElementById('afacturar-value');
+              if (displayDiv && valueSpan) {
+                displayDiv.style.display = 'flex';
+                if (calculatedAFacturar && calculatedAFacturar !== "___________") {
+                  var num = parseFloat(String(calculatedAFacturar).replace(/[^0-9.,-]/g, '').replace(',', '.'));
+                  if (!isNaN(num) && String(calculatedAFacturar).indexOf('€') === -1) {
+                    calculatedAFacturar = formatSpanishCurrency(num);
+                  }
+                  valueSpan.textContent = calculatedAFacturar;
+                  valueSpan.style.backgroundColor = '#1f845a'; // Verde
+                  valueSpan.style.color = '#ffffff';
+                  
+                  displayDiv.style.backgroundColor = '#e2f5ec';
+                  displayDiv.style.borderColor = '#1f845a';
+                  displayDiv.style.color = '#1f845a';
+                  
+                  updateImportesCardIfNeeded(t, card.id, cardDesc, calculatedAFacturar);
+                } else {
+                  valueSpan.textContent = "Faltan Cliente Cobra / Porcentaje ⏳";
+                  valueSpan.style.backgroundColor = '#d97706'; // Naranja
+                  valueSpan.style.color = '#ffffff';
+                  
+                  displayDiv.style.backgroundColor = '#fff7ed';
+                  displayDiv.style.borderColor = '#d97706';
+                  displayDiv.style.color = '#d97706';
+                }
+              }
+
+              if (descChanged) {
+                console.log("Antigravity Power-up: Cambios detectados en descripción. Marcando refresco visual como pendiente.");
+                window.pendingVisualRefresh = true;
+              }
+            } else {
+              // Ocultar si no estamos en la tarjeta de Importes o si es tablero de CLIENTES
+              var displayDiv = document.getElementById('afacturar-display');
+              if (displayDiv) {
+                displayDiv.style.display = 'none';
+              }
             }
+
+            // Lógica original intacta para tableros de CLIENTES
+            if (isClientes) {
+              if (nameLower.includes("historial de procesos") || nameLower.includes("historial de avisos")) {
+                promises.push(updateHistoryCard(t, card.idList, false));
+              }
+
+              // Cargar y mostrar opciones de la demanda en texto plano si existen
+              promises.push(
+                t.get('card', 'shared', 'demanda_options').then(function(savedData) {
+                  if (savedData) {
+                    var container = document.getElementById('descripcion-container');
+                    var html = "<strong>Opciones seleccionadas para la Demanda Nexo Causal:</strong><br><br>";
+                    html += "• Texto informativo: " + (savedData.texto || "(Vacío)") + "<br>" +
+                            "• Incluir parrafada A: " + (savedData.parrafadaA ? "Sí" : "No") + "<br>" +
+                            "• Incluir parrafada B: " + (savedData.parrafadaB ? "Sí" : "No") + "<br>" +
+                            "• Cláusula quinta: " + (savedData.clausula || "media") + "<br>";
+                    
+                    container.innerHTML = html;
+                    container.style.display = 'block';
+                  }
+                })
+              );
+            }
+          }
+          
+          return Promise.all(promises).then(function() {
+            t.sizeTo(document.body).done();
           });
-        }
-        t.sizeTo(document.body).done();
+        });
       }).catch(function(err) {
         document.getElementById('debug-msg').textContent = "Error crítico: " + err;
         document.getElementById('clientes-section').style.display = 'block';
