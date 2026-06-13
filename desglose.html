@@ -1054,7 +1054,7 @@
               }
               if (!hasAFacturar) {
                 var cobraVal = getNumericFieldValue(clientImportesFields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']);
-                var pctVal = getNumericFieldValue(clientImportesFields, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios']);
+                var pctVal = getNumericFieldValue(clientImportesFields, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios', 'porcentage facturación', 'porcentage facturacion', 'porcentage', 'porcentage honorarios']);
                 if (cobraVal !== null && pctVal !== null) {
                   var factor = pctVal;
                   if (factor > 1) {
@@ -1254,7 +1254,7 @@
             }
             if (!hasAFacturar) {
               var cobraVal = getNumericFieldValue(unified, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']);
-              var pctVal = getNumericFieldValue(unified, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios']);
+              var pctVal = getNumericFieldValue(unified, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios', 'porcentage facturación', 'porcentage facturacion', 'porcentage', 'porcentage honorarios']);
               if (cobraVal !== null && pctVal !== null) {
                 var factor = pctVal;
                 if (factor > 1) {
