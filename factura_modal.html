@@ -125,6 +125,16 @@
 
     var cachedData = null;
 
+    // Helper para actualizar el texto de estado en la UI de forma segura
+    function setStatus(msg) {
+      console.log("STATUS: " + msg);
+      var statusDiv = document.getElementById('status');
+      if (statusDiv) {
+        statusDiv.textContent = msg;
+        t.sizeTo(document.body).done();
+      }
+    }
+
     // --- FUNCIONES AUXILIARES DE PARSEO Y FORMATEO ---
     function parseSpanishFloat(str) {
       if (!str) return 0;
@@ -482,9 +492,11 @@
     }
 
     function getUnifiedFields(t) {
+      setStatus("Obteniendo tarjeta actual...");
       return t.card('id', 'idList').then(function (currentCard) {
         var idList = currentCard.idList;
         var currentCardId = currentCard.id;
+        setStatus("Obteniendo tarjetas y listas locales...");
         return Promise.all([
           t.cards('id', 'name', 'desc', 'idList'),
           t.lists('all')
@@ -540,6 +552,7 @@
 
           var importesCard = cardsInList.find(function (c) { return c.name.toLowerCase().includes("importes"); });
           if (importesCard && importesCard.desc) {
+            setStatus("Parseando tarjeta Importes local...");
             var lines = importesCard.desc.split('\n');
             var rawMap = {};
             var parsedPairs = [];
@@ -665,10 +678,11 @@
     }
 
     function getCrossBoardBillingData(t) {
+      setStatus("Iniciando getCrossBoardBillingData...");
       return Promise.all([
         getUnifiedFields(t),
         t.getRestApi().getToken(),
-        t.list('all')
+        t.list('name') // Reemplazado 'all' por 'name' para evitar posibles fallos de campos no soportados en modal
       ]).then(function (results) {
         var localData = results[0];
         var token = results[1];
@@ -676,6 +690,7 @@
         var fields = localData.fields;
         var appKey = t.getRestApi().appKey;
 
+        setStatus("Búsqueda cruzada de tablero de Clientes...");
         if (!token) throw new Error('REQUIRED_AUTHORIZATION');
 
         var searchQuery = encodeURIComponent('name:"Tipo tablero"');
@@ -693,6 +708,7 @@
             return uniqueBoardIds;
           })
           .then(idBoardsClientes => {
+            setStatus("Obteniendo listas de tableros de Clientes (" + idBoardsClientes.length + ")...");
             var promises = idBoardsClientes.map(boardId => {
               return fetch(`https://api.trello.com/1/boards/${boardId}/lists?key=${appKey}&token=${token}`)
                 .then(res => res.ok ? res.json() : [])
@@ -705,9 +721,11 @@
           })
           .then(match => {
             if (!match) throw new Error('No se encontró lista coincidente en Clientes.');
+            setStatus("Obteniendo tarjetas de la lista en Clientes...");
             return fetch(`https://api.trello.com/1/lists/${match.listId}/cards?fields=name,desc&key=${appKey}&token=${token}`)
               .then(res => res.json())
               .then(clientCards => {
+                setStatus("Unificando datos de tarjetas del cliente...");
                 var clientFields = { nombre: "___________", dni: "___________", domicilio: "___________", fecha_apertura: "___________" };
                 var found = { nombre: false, dni: false, domicilio: false, fecha_apertura: false };
                 var cards = clientCards || [];
@@ -724,6 +742,7 @@
                 var clientImportesCard = cards.find(c => c.name.toLowerCase().includes("importes"));
                 var clientImportesFields = {};
                 if (clientImportesCard && clientImportesCard.desc) {
+                  setStatus("Parseando tarjeta Importes cruzada...");
                   var lines = clientImportesCard.desc.split('\n');
                   var rawMap = {};
                   var parsedPairs = [];
@@ -781,6 +800,7 @@
                 combinedFields.domicilio = clientFields.domicilio;
                 combinedFields.fecha_apertura = clientFields.fecha_apertura;
 
+                setStatus("Datos cruzados obtenidos con éxito.");
                 return {
                   fields: combinedFields,
                   count: localData.count,
@@ -1007,13 +1027,11 @@
         return;
       }
 
-      var statusDiv = document.getElementById('status');
-      statusDiv.textContent = "Obteniendo datos del tablero...";
-      t.sizeTo(document.body).done();
+      setStatus("Obteniendo datos del tablero...");
 
       t.getRestApi().isAuthorized().then(function(auth) {
         if (!auth) {
-          statusDiv.textContent = "Por favor, autoriza la API primero.";
+          setStatus("Por favor, autoriza la API primero.");
           return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
         }
         
@@ -1050,13 +1068,11 @@
             }
 
             document.getElementById('importe-factura').value = resolvedValue || "0,00";
-            statusDiv.textContent = "Introduce el importe y concepto, luego haz clic en 'Facturar'.";
-            t.sizeTo(document.body).done();
+            setStatus("Introduce el importe y concepto, luego haz clic en 'Facturar'.");
           });
         });
       }).catch(function(err) {
-        statusDiv.textContent = "Error al inicializar: " + err.message;
-        t.sizeTo(document.body).done();
+        setStatus("Error al inicializar: " + err.message);
       });
     });
 
@@ -1076,9 +1092,8 @@
     document.getElementById('factura-upload').addEventListener('change', function(event) {
       if (!event.target.files || event.target.files.length === 0) return;
       var file = event.target.files[0];
-      var statusDiv = document.getElementById('status');
-      statusDiv.textContent = 'Obteniendo datos cruzados de Clientes...';
-      t.sizeTo(document.body).done();
+      
+      setStatus('Obteniendo datos cruzados de Clientes...');
 
       var inputImporte = document.getElementById('importe-factura').value.trim();
       var inputConcepto = document.getElementById('concepto-contabilidad').value.trim();
@@ -1087,8 +1102,7 @@
         var fields = data.fields;
         var token = data.token;
 
-        statusDiv.textContent = 'Autogenerando número de factura correlativo...';
-        t.sizeTo(document.body).done();
+        setStatus('Autogenerando número de factura correlativo...');
 
         return getAndUpdateInvoiceNumber(t, token).then(function(numFactura) {
           var seqIndex = 1;
@@ -1120,8 +1134,7 @@
           fields.importe_factura = currentAmount;
           fields.concepto_contabilidad = currentConcept;
 
-          statusDiv.textContent = 'Procesando plantilla Excel (' + numFactura + ')...';
-          t.sizeTo(document.body).done();
+          setStatus('Procesando plantilla Excel (' + numFactura + ')...');
 
           var reader = new FileReader();
           reader.onload = async function (e) {
@@ -1154,13 +1167,11 @@
               var cleanInvoiceNum = numFactura.replace(/\//g, "-");
               var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + "_" + cleanInvoiceNum + ".xlsx";
 
-              statusDiv.textContent = 'Obteniendo tarjeta de Facturas...';
-              t.sizeTo(document.body).done();
+              setStatus('Obteniendo tarjeta de Facturas...');
 
               getOrCreateFacturasCard(t, data.idList, token)
                 .then(function(targetCardId) {
-                  statusDiv.textContent = 'Subiendo Factura a Trello...';
-                  t.sizeTo(document.body).done();
+                  setStatus('Subiendo Factura a Trello...');
 
                   var formData = new FormData();
                   formData.append("key", t.getRestApi().appKey);
@@ -1195,35 +1206,30 @@
                   var targetHistoryListId = data.idListClientes || data.idList;
                   return updateHistoryCard(t, targetHistoryListId, true, forced, fields)
                     .then(function() {
-                      statusDiv.textContent = 'Guardando registro histórico de la factura...';
-                      t.sizeTo(document.body).done();
+                      setStatus('Guardando registro histórico de la factura...');
                       return updateInvoicesTableOnCard(t, targetCardIdSaved, token, today, numFactura, fields.nombre, fields.dni, currentAmount, currentTotal);
                     });
                 })
                 .then(function() {
-                  statusDiv.textContent = '¡Factura generada con éxito!';
-                  t.sizeTo(document.body).done();
+                  setStatus('¡Factura generada con éxito!');
                   setTimeout(function() {
                     t.closeModal();
                   }, 1500);
                 }).catch(function (err) {
                   console.error(err);
-                  statusDiv.textContent = 'Error subiendo / actualizando: ' + err.message;
-                  t.sizeTo(document.body).done();
+                  setStatus('Error subiendo / actualizando: ' + err.message);
                 });
 
             } catch (error) {
               console.error(error);
-              statusDiv.textContent = 'Error procesando Excel: ' + error.message;
-              t.sizeTo(document.body).done();
+              setStatus('Error procesando Excel: ' + error.message);
             }
           };
           reader.readAsArrayBuffer(file);
         });
       }).catch(function(err) {
         console.error(err);
-        statusDiv.textContent = 'Error al obtener datos: ' + err.message;
-        t.sizeTo(document.body).done();
+        setStatus('Error al obtener datos: ' + err.message);
       });
     });
   </script>
