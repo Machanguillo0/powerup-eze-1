@@ -125,7 +125,7 @@
 
     var cachedData = null;
 
-    // Utilidades matemáticas y formateo (copiadas de section.html para auto-suficiencia)
+    // --- FUNCIONES AUXILIARES DE PARSEO Y FORMATEO ---
     function parseSpanishFloat(str) {
       if (!str) return 0;
       var cleaned = str.replace(/[^0-9.,]/g, '');
@@ -156,7 +156,7 @@
       });
       if (pctKey) {
         var valStr = String(fields[pctKey]);
-        var cleaned = valStr.replace(/[^0-9.,/]/g, '').replace(',', '.');
+        var cleaned = valStr.replace(/[^0-9.,]/g, '').replace(',', '.');
         var val = parseFloat(cleaned) || 0;
         if (val > 0 && val < 1) {
           val = val * 100;
@@ -166,67 +166,841 @@
       return 0;
     }
 
-    function escapeRegExp(string) {
-      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    function evalFormulaIfNeeded(val) {
+      if (!val) return val;
+      var trimmed = val.trim();
+      if (/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/.test(trimmed)) return trimmed;
+      if (/[a-zA-ZáéíóúÁÉÍÓÚñÑ]/.test(trimmed)) return trimmed;
+      if (/^\+[0-9\s]+$/.test(trimmed)) return trimmed;
+      
+      if (/^[0-9\s\+\-\*\/\.\(\)\%]+$/.test(trimmed)) {
+        try {
+          var expr = trimmed.replace(/%/g, '/100');
+          var result = new Function('return ' + expr)();
+          if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
+            return String(Math.round(result * 100) / 100);
+          }
+        } catch (e) {
+          return trimmed;
+        }
+      }
+      return trimmed;
     }
 
-    function replaceExcelPlaceholders(text, fields, isProforma) {
-      if (!text || typeof text !== 'string') return text;
-      
-      var facturaVal = isProforma ? "___________" : (fields.factura || "___________");
-      
-      var res = text.replace(/\{\{Nombre\}\}/gi, fields.nombre)
-        .replace(/\{\{DNI\}\}/gi, fields.dni)
-        .replace(/\{\{Domicilio\}\}/gi, fields.domicilio)
-        .replace(/\{\{Teléfono\}\}/gi, fields.telefono || "___________")
-        .replace(/\{\{Telefono\}\}/gi, fields.telefono || "___________")
-        .replace(/\{\{Profesión\}\}/gi, fields.profesion || "___________")
-        .replace(/\{\{Observaciones\}\}/gi, fields.observaciones || "___________")
-        .replace(/\{\{Fecha del siniestro\}\}/gi, fields.fecha || "___________")
-        .replace(/\{\{Hora\}\}/gi, fields.hora || "___________")
-        .replace(/\{\{Lugar\}\}/gi, fields.lugar || "___________")
-        .replace(/\{\{Ciudad\}\}/gi, fields.ciudad || "___________")
-        .replace(/\{\{Matrícula1\}\}/gi, fields.matricula1 || "___________")
-        .replace(/\{\{Aseguradora1\}\}/gi, fields.aseguradora1 || "___________")
-        .replace(/\{\{Matrícula2\}\}/gi, fields.matricula2 || "___________")
-        .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2 || "___________")
-        .replace(/\{\{Fecha del sistema\}\}/gi, fields.fecha_sistema || "___________")
-        .replace(/\{\{Fecha última actuación\}\}/gi, fields.fecha_ultima || "___________")
-        .replace(/\{\{Fecha cierre expediente\}\}/gi, fields.fecha_cierre || "___________")
-        .replace(/\{\{Fecha facturación\}\}/gi, fields.fecha_facturacion || "___________")
-        .replace(/\{\{Fecha de resolución\}\}/gi, fields.fecha_resolucion || "___________")
-        .replace(/\{\{Fecha comunicación designa\}\}/gi, fields.fecha_designa || "___________")
-        .replace(/\{\{Fecha reclamación previa\}\}/gi, fields.fecha_reclamacion || "___________")
-        .replace(/\{\{Fecha apertura expediente\}\}/gi, fields.fecha_apertura || "___________")
-        .replace(/\{\{Fecha siniestro\}\}/gi, fields.fecha_siniestro || "___________")
-        .replace(/\{\{Número de factura\}\}/gi, facturaVal)
-        .replace(/\{\{Numero de factura\}\}/gi, facturaVal)
-        .replace(/\{\{Importe final\}\}/gi, fields["importe final"] || fields["Importe final"] || "___________")
-        .replace(/\{\{Importe facturacion\}\}/gi, fields.importe_facturado || fields.importe_facturacion || fields["importe a facturar"] || fields["Importe a facturar"] || fields["importe final"] || fields["Importe final"] || "___________")
-        .replace(/\{\{Total Factura\}\}/gi, fields.total_factura || fields["total factura"] || "___________")
-        .replace(/\{\{Total factura\}\}/gi, fields.total_factura || fields["total factura"] || "___________")
-        .replace(/\{\{DDs\}\}/gi, fields.dds || "___________")
-        .replace(/\{\{Mess\}\}/gi, fields.mess || "___________")
-        .replace(/\{\{AAAAs\}\}/gi, fields.aaaas || "___________")
-        .replace(/\{\{Número de expediente:\}\}/gi, fields.num_expediente || "___________")
-        .replace(/\{\{Numero de expediente:\}\}/gi, fields.num_expediente || "___________")
-        .replace(/\{\{Número de expediente\}\}/gi, fields.num_expediente || "___________")
-        .replace(/\{\{Parrafada\}\}/gi, fields.parrafada || "")
-        // Nuevos marcadores solicitados
-        .replace(/\{\{Importe Factura\}\}/gi, fields.importe_factura || "___________")
-        .replace(/\{\{Concepto interno para contabilidad\}\}/gi, fields.concepto_contabilidad || "___________");
-
-      for (var key in fields) {
-        if (fields.hasOwnProperty(key)) {
-          var regex = new RegExp("\\{\\{" + escapeRegExp(key) + "\\}\\}", "gi");
-          res = res.replace(regex, fields[key] || "");
+    function evaluateValueWithContext(rawVal, contextMap) {
+      if (!rawVal) return "";
+      var val = rawVal.trim();
+      var lastBraceIndex = val.lastIndexOf('}}');
+      if (lastBraceIndex > -1) {
+        var tail = val.substring(lastBraceIndex + 2);
+        var tailEquals = tail.indexOf('=');
+        var tailColon = tail.indexOf(':');
+        var stripIndex = -1;
+        if (tailEquals > -1 && tailColon > -1) {
+          stripIndex = Math.min(tailEquals, tailColon);
+        } else if (tailEquals > -1) {
+          stripIndex = tailEquals;
+        } else if (tailColon > -1) {
+          stripIndex = tailColon;
+        }
+        if (stripIndex > -1) {
+          val = val.substring(0, lastBraceIndex + 2 + stripIndex).trim();
         }
       }
       
-      return res;
+      if (val.indexOf('{{') > -1 && val.indexOf('}}') > -1) {
+        var replaced = val.replace(/\{\{([^}]+)\}\}/g, function(match, keyInside) {
+          var normalizedKey = keyInside.toLowerCase()
+                                       .normalize("NFD")
+                                       .replace(/[\u0300-\u036f]/g, "")
+                                       .replace(/\s+/g, ' ')
+                                       .trim();
+          var resolvedVal = contextMap[normalizedKey];
+          if (resolvedVal === undefined || resolvedVal === null) resolvedVal = "0";
+          var cleanedNum = String(resolvedVal).replace(/[^0-9.,-]/g, '');
+          if (cleanedNum.indexOf('.') > -1 && cleanedNum.indexOf(',') > -1) {
+            cleanedNum = cleanedNum.replace(/\./g, '').replace(',', '.');
+          } else if (cleanedNum.indexOf(',') > -1) {
+            cleanedNum = cleanedNum.replace(',', '.');
+          } else if (cleanedNum.indexOf('.') > -1) {
+            var parts = cleanedNum.split('.');
+            var lastPart = parts[parts.length - 1];
+            if (lastPart.length === 3) {
+              cleanedNum = cleanedNum.replace(/\./g, '');
+            }
+          }
+          return cleanedNum || "0";
+        });
+        return evalFormulaIfNeeded(replaced);
+      }
+      return evalFormulaIfNeeded(val);
     }
 
-    // Al renderizar, cargamos los datos usando la función del padre o re-calculando
+    function getNumericFieldValue(fields, possibleKeys) {
+      for (var i = 0; i < possibleKeys.length; i++) {
+        var rawKey = possibleKeys[i];
+        var cleanKey = rawKey.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+        var val = null;
+        for (var k in fields) {
+          if (fields.hasOwnProperty(k)) {
+            var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+            if (normK === cleanKey) {
+              val = fields[k];
+              break;
+            }
+          }
+        }
+        if (val !== undefined && val !== null) {
+          var cleanVal = String(val).replace(/[^0-9.,-]/g, '');
+          if (!cleanVal) continue;
+          if (cleanVal.indexOf('.') > -1 && cleanVal.indexOf(',') > -1) {
+            cleanVal = cleanVal.replace(/\./g, '').replace(',', '.');
+          } else if (cleanVal.indexOf(',') > -1) {
+            cleanVal = cleanVal.replace(',', '.');
+          } else if (cleanVal.indexOf('.') > -1) {
+            var parts = cleanVal.split('.');
+            var lastPart = parts[parts.length - 1];
+            if (lastPart.length === 3) {
+              cleanVal = cleanVal.replace(/\./g, '');
+            }
+          }
+          var parsedFloat = parseFloat(cleanVal);
+          if (!isNaN(parsedFloat)) return parsedFloat;
+        }
+      }
+      return null;
+    }
+
+    function updateImportesCardIfNeeded(t, cardId, currentDesc, calculatedValue) {
+      if (!cardId || !currentDesc) return;
+      t.getRestApi().isAuthorized().then(function(auth) {
+        if (!auth) return;
+        t.getRestApi().getToken().then(function(token) {
+          if (!token) return;
+          var lines = currentDesc.split('\n');
+          var updated = false;
+          var newLines = lines.map(function(line) {
+            var sepIndex = line.indexOf(':');
+            if (sepIndex === -1) sepIndex = line.indexOf('=');
+            if (sepIndex > -1) {
+              var key = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+              var keyClean = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+              if (keyClean === "a facturar") {
+                var formulaPart = line.substring(0, sepIndex + 1).trim();
+                var valPart = line.substring(sepIndex + 1).trim();
+                var lastBrace = valPart.lastIndexOf('}}');
+                if (lastBrace > -1) {
+                  var formula = valPart.substring(0, lastBrace + 2).trim();
+                  var newLineText = formulaPart + " " + formula + " = " + calculatedValue;
+                  if (line.trim() !== newLineText.trim()) {
+                    updated = true;
+                    return newLineText;
+                  }
+                } else {
+                  var newLineText = key + ": " + calculatedValue;
+                  if (line.trim() !== newLineText.trim()) {
+                    updated = true;
+                    return newLineText;
+                  }
+                }
+              }
+            }
+            return line;
+          });
+          
+          if (updated) {
+            var newDesc = newLines.join('\n');
+            var appKey = t.getRestApi().appKey;
+            fetch(`https://api.trello.com/1/cards/${cardId}?key=${appKey}&token=${token}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ desc: newDesc })
+            });
+          }
+        });
+      });
+    }
+
+    function extractFields(desc) {
+      var fields = {
+        nombre: "Cliente Desconocido",
+        dni: "___________",
+        domicilio: "___________",
+        telefono: "___________",
+        profesion: "___________",
+        observaciones: "___________",
+        fecha: "___________",
+        hora: "___________",
+        lugar: "___________",
+        ciudad: "___________",
+        matricula1: "___________",
+        aseguradora1: "___________",
+        matricula2: "___________",
+        aseguradora2: "___________",
+        parrafada: "",
+        fecha_sistema: "___________",
+        fecha_ultima: "___________",
+        fecha_cierre: "___________",
+        fecha_facturacion: "___________",
+        fecha_resolucion: "___________",
+        fecha_designa: "___________",
+        fecha_reclamacion: "___________",
+        fecha_apertura: "___________",
+        fecha_siniestro: "___________",
+        factura: "___________"
+      };
+
+      if (!desc) return fields;
+
+      var m;
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*NOMBRE Y APELLIDOS\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DNI\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DOMICILIO\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*PROFESI[OÓ]N\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*OBSERVACIONES\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:FECHA DEL SINIESTRO|Fecha)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha = m[1].replace(/[*_~`]/g, '').replace(/\s*\(.*\)\s*$/, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:HORA)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.hora = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:LUGAR)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.lugar = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:CIUDAD)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.ciudad = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha del sistema\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_sistema = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha última actuación\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_ultima = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha cierre expediente\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_cierre = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha(?: de)? facturación\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_facturacion = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha de resolución\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_resolucion = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha de comunicación designa(?:ción)?\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_designa = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha(?: de)? reclamación previa\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_reclamacion = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha (?:apertura|creación) de? expediente\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_apertura = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha siniestro\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_siniestro = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:NÚMERO DE FACTURA|Numero de factura|Nº Factura|Nº de Factura)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.factura = m[1].replace(/[*_~`]/g, '').trim(); }
+
+      var vehicleLookahead = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
+      var propioMatch = desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\\s*VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vehicleLookahead, "i"));
+      if (propioMatch) {
+        var pText = propioMatch[0];
+        if (m = pText.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula1 = m[1].trim(); }
+        if (m = pText.match(/(?:^|\n)[ \t]*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora1 = m[1].trim(); }
+      }
+      var contrarioMatch = desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\\s*VEH[ÍI]CULO CONTRARIO[\\s\\S]*?" + vehicleLookahead, "i"));
+      if (contrarioMatch) {
+        var cText = contrarioMatch[0];
+        if (m = cText.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula2 = m[1].trim(); }
+        if (m = cText.match(/(?:^|\n)[ \t]*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora2 = m[1].trim(); }
+      }
+
+      var parrafadaRegex = /PARRAFADA[^:]*[:\s-]+\s*/i;
+      var startMatch = desc.match(parrafadaRegex);
+      if (startMatch) {
+        var startIndex = startMatch.index + startMatch[0].length;
+        var remainingDesc = desc.substring(startIndex);
+        var nextHeaderIndex = remainingDesc.length;
+        var keywords = ["NOMBRE", "DNI", "DOMICILIO", "TELÉFONO", "TELEFONO", "TLF", "PROFESI[ÓO]N", "OBSERVACIONES", "FECHA", "HORA", "LUGAR", "CIUDAD"];
+        keywords.forEach(function (key) {
+          var regex = new RegExp("\\n\\s*[*_~`#]*\\s*" + key, "i");
+          var match = remainingDesc.match(regex);
+          if (match && match.index < nextHeaderIndex) nextHeaderIndex = match.index;
+        });
+        var genericMatch = remainingDesc.match(/\n\s*[*_~`#]*\\s*[A-ZÁÉÍÓÚÑ ]{3,}\s*[:]/);
+        if (genericMatch && genericMatch.index < nextHeaderIndex) nextHeaderIndex = genericMatch.index;
+        var separatorMatch = remainingDesc.match(/\n\s*[-=_]{3,}/);
+        if (separatorMatch && separatorMatch.index < nextHeaderIndex) nextHeaderIndex = separatorMatch.index;
+
+        fields.parrafada = remainingDesc.substring(0, nextHeaderIndex).replace(/[*_~`]/g, '').trim();
+      }
+      return fields;
+    }
+
+    function parseChecklistsToUnified(checklists, unified) {
+      var ch = checklists.find(function(c) {
+        var n = c.name.trim().toLowerCase();
+        return n === "relación de facturas generadas" || 
+               n === "relacion de facturas generadas" || 
+               n === "relaación de facturas generadas" || 
+               n === "relaacion de facturas generadas" ||
+               n.indexOf("relación de facturas") > -1 ||
+               n.indexOf("relacion de facturas") > -1 ||
+               n.indexOf("relaación de facturas") > -1;
+      });
+      if (ch && ch.checkItems && ch.checkItems.length > 0) {
+        unified._hasChecklistInvoices = true;
+        unified.factura = "___________";
+        unified.fecha_facturacion = "___________";
+        unified.importe_facturacion = "___________";
+        unified.total_factura = "___________";
+        unified.total_facturado = "___________";
+        unified.importe_facturado = "___________";
+        for (var s = 2; s <= 10; s++) {
+          delete unified["factura" + s];
+          delete unified["fecha_facturacion" + s];
+          delete unified["importe_facturacion" + s];
+          delete unified["total_factura" + s];
+        }
+        var checkItems = ch.checkItems.concat().sort(function(a, b) { return a.pos - b.pos; });
+        checkItems.forEach(function(item, index) {
+          var idx = index + 1;
+          var suffix = (idx === 1) ? '' : idx;
+          var parts = item.name.split('|').map(function(s) { return s.trim(); });
+          if (parts.length >= 2) {
+            var fDate = parts[0] || "___________";
+            var fNum = "___________";
+            var numPart = parts.find(function(p) { return /^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)/i.test(p); });
+            if (numPart) {
+              fNum = numPart.replace(/^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)\s*/i, '').trim();
+            } else {
+              fNum = parts[1] || "___________";
+            }
+            var fAmount = "___________";
+            var basePart = parts.find(function(p) { return /^(?:Base:|Importe:)/i.test(p); });
+            if (basePart) {
+              fAmount = basePart.replace(/^(?:Base:|Importe:)\s*/i, '').trim();
+            } else {
+              fAmount = parts[parts.length - 1] || "___________";
+            }
+            var fTotal = "___________";
+            var totalPart = parts.find(function(p) { return /^(?:Total:)/i.test(p); });
+            if (totalPart) {
+              fTotal = totalPart.replace(/^(?:Total:)\s*/i, '').trim();
+            } else {
+              fTotal = fAmount;
+            }
+            unified["factura" + suffix] = fNum;
+            unified["fecha_facturacion" + suffix] = fDate;
+            unified["importe_facturacion" + suffix] = fAmount;
+            unified["total_factura" + suffix] = fTotal;
+            if (idx === 1) {
+              unified.factura = fNum;
+              unified.fecha_facturacion = fDate;
+              unified.importe_facturacion = fAmount;
+              unified.importe_facturado = fAmount;
+              unified.total_factura = fTotal;
+              unified.total_facturado = fTotal;
+              unified["total factura"] = fTotal;
+            }
+          }
+        });
+      }
+    }
+
+    function getUnifiedFields(t) {
+      return t.card('id', 'idList').then(function (currentCard) {
+        var idList = currentCard.idList;
+        var currentCardId = currentCard.id;
+        return Promise.all([
+          t.cards('id', 'name', 'desc', 'idList'),
+          t.lists('all')
+        ]).then(function (results) {
+          var allCards = results[0];
+          var allLists = results[1];
+          var currentList = allLists.find(function(l) { return l.id === idList; });
+          var listName = currentList ? currentList.name : "___________";
+          
+          var numExpediente = "___________";
+          if (listName !== "___________") {
+            var match = listName.match(/(?:expediente|exped|exp)\.?\s*([\d\/\-\.]+)/i);
+            if (match) {
+              numExpediente = match[1].trim();
+            } else {
+              var directMatch = listName.match(/(\d+[\/\-][\d\/\-\.]+)/);
+              numExpediente = directMatch ? directMatch[1] : listName;
+            }
+          }
+
+          var cardsInList = allCards.filter(function (c) { return c.idList === idList; });
+          var unified = {
+            nombre: "Cliente Desconocido",
+            dni: "___________",
+            domicilio: "___________",
+            telefono: "___________",
+            profesion: "___________",
+            observaciones: "___________",
+            fecha: "___________",
+            hora: "___________",
+            lugar: "___________",
+            ciudad: "___________",
+            matricula1: "___________",
+            aseguradora1: "___________",
+            matricula2: "___________",
+            aseguradora2: "___________",
+            parrafada: "",
+            fecha_sistema: new Date().toLocaleDateString('es-ES'),
+            fecha_ultima: new Date().toLocaleDateString('es-ES'),
+            fecha_cierre: "___________",
+            fecha_facturacion: "___________",
+            fecha_resolucion: "___________",
+            fecha_designa: "___________",
+            fecha_reclamacion: "___________",
+            fecha_apertura: "___________",
+            fecha_siniestro: "___________",
+            num_expediente: numExpediente,
+            dds: "___",
+            mess: "_________",
+            aaaas: "____",
+            factura: "___________"
+          };
+
+          var importesCard = cardsInList.find(function (c) { return c.name.toLowerCase().includes("importes"); });
+          if (importesCard && importesCard.desc) {
+            var lines = importesCard.desc.split('\n');
+            var rawMap = {};
+            var parsedPairs = [];
+            lines.forEach(function (line) {
+              line = line.trim();
+              if (!line) return;
+              var sepIndex = line.indexOf(':');
+              if (sepIndex === -1) sepIndex = line.indexOf('=');
+              if (sepIndex > -1) {
+                var k = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+                var v = line.substring(sepIndex + 1).replace(/[*_~`#]/g, '').trim();
+                if (k) {
+                  parsedPairs.push({ key: k, val: v });
+                  var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+                  rawMap[normK] = v;
+                }
+              }
+            });
+
+            parsedPairs.forEach(function (pair) {
+              var calculatedV = evaluateValueWithContext(pair.val, rawMap);
+              unified[pair.key] = calculatedV;
+              unified[pair.key.toLowerCase()] = calculatedV;
+              var normK = pair.key.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+              unified[normK] = calculatedV;
+              unified[normK.toLowerCase()] = calculatedV;
+            });
+
+            // Fallback auto-calculation of A facturar si no contiene fórmula
+            var rawAFacturar = "";
+            for (var key in rawMap) {
+              if (key === "a facturar") {
+                rawAFacturar = rawMap[key] || "";
+              }
+            }
+            var hasFormula = (rawAFacturar.indexOf('{{') > -1 && rawAFacturar.indexOf('}}') > -1);
+            if (!hasFormula) {
+              var cobraVal = getNumericFieldValue(unified, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']);
+              var pctVal = getNumericFieldValue(unified, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios', 'porcentage facturación', 'porcentage facturacion', 'porcentage', 'porcentage honorarios']);
+              if (cobraVal !== null && pctVal !== null) {
+                var factor = pctVal;
+                if (factor > 1) factor = factor / 100;
+                var calculated = cobraVal * factor;
+                var formatted = calculated.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+                unified["A facturar"] = formatted;
+                unified["a facturar"] = formatted;
+              }
+            }
+
+            var calculatedAFacturar = unified["a facturar"];
+            if (calculatedAFacturar && calculatedAFacturar !== "___________") {
+              updateImportesCardIfNeeded(t, importesCard.id, importesCard.desc, calculatedAFacturar);
+            }
+          }
+
+          var found = { nombre: false, dni: false, domicilio: false, telefono: false, profesion: false, observaciones: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false, fecha_sistema: false, fecha_ultima: false, fecha_cierre: false, fecha_facturacion: false, fecha_resolucion: false, fecha_designa: false, fecha_reclamacion: false, fecha_apertura: false, fecha_siniestro: false, factura: false };
+          var targetCardId = null;
+          var maxScore = -1;
+
+          cardsInList.forEach(function (card) {
+            var fields = extractFields(card.desc);
+            var score = 0;
+            if (card.name.toLowerCase().includes("datos personales")) score += 100;
+            if (fields.nombre !== "Cliente Desconocido" && fields.nombre.replace(/[_\s]+/g, '').length > 2) score += 10;
+            if (fields.dni !== "___________" && fields.dni.replace(/[_\s]+/g, '').length > 2) score += 5;
+            if (fields.telefono !== "___________" && fields.telefono.replace(/[_\s]+/g, '').length > 2) score += 3;
+            if (score > maxScore) {
+              maxScore = score;
+              targetCardId = card.id;
+            }
+
+            if (!found.nombre && fields.nombre !== "Cliente Desconocido") { unified.nombre = fields.nombre; found.nombre = true; }
+            if (!found.dni && fields.dni !== "___________") { unified.dni = fields.dni; found.dni = true; }
+            if (!found.domicilio && fields.domicilio !== "___________") { unified.domicilio = fields.domicilio; found.domicilio = true; }
+            if (!found.telefono && fields.telefono !== "___________") { unified.telefono = fields.telefono; found.telefono = true; }
+            if (!found.profesion && fields.profesion !== "___________") { unified.profesion = fields.profesion; found.profesion = true; }
+            if (!found.observaciones && fields.observaciones !== "___________") { unified.observaciones = fields.observaciones; found.observaciones = true; }
+            if (!found.fecha && fields.fecha !== "___________") { unified.fecha = fields.fecha; found.fecha = true; }
+            if (!found.hora && fields.hora !== "___________") { unified.hora = fields.hora; found.hora = true; }
+            if (!found.lugar && fields.lugar !== "___________") { unified.lugar = fields.lugar; found.lugar = true; }
+            if (!found.ciudad && fields.ciudad !== "___________") { unified.ciudad = fields.ciudad; found.ciudad = true; }
+            if (!found.matricula1 && fields.matricula1 !== "___________") { unified.matricula1 = fields.matricula1; found.matricula1 = true; }
+            if (!found.aseguradora1 && fields.aseguradora1 !== "___________") { unified.aseguradora1 = fields.aseguradora1; found.aseguradora1 = true; }
+            if (!found.matricula2 && fields.matricula2 !== "___________") { unified.matricula2 = fields.matricula2; found.matricula2 = true; }
+            if (!found.aseguradora2 && fields.aseguradora2 !== "___________") { unified.aseguradora2 = fields.aseguradora2; found.aseguradora2 = true; }
+            if (!found.fecha_sistema && fields.fecha_sistema !== "___________") { unified.fecha_sistema = fields.fecha_sistema; found.fecha_sistema = true; }
+            if (!found.fecha_ultima && fields.fecha_ultima !== "___________") { unified.fecha_ultima = fields.fecha_ultima; found.fecha_ultima = true; }
+            if (!found.fecha_cierre && fields.fecha_cierre !== "___________") { unified.fecha_cierre = fields.fecha_cierre; found.fecha_cierre = true; }
+            if (!found.fecha_facturacion && fields.fecha_facturacion !== "___________") { unified.fecha_facturacion = fields.fecha_facturacion; found.fecha_facturacion = true; }
+            if (!found.fecha_resolucion && fields.fecha_resolucion !== "___________") { unified.fecha_resolucion = fields.fecha_resolucion; found.fecha_resolucion = true; }
+            if (!found.fecha_designa && fields.fecha_designa !== "___________") { unified.fecha_designa = fields.fecha_designa; found.fecha_designa = true; }
+            if (!found.fecha_reclamacion && fields.fecha_reclamacion !== "___________") { unified.fecha_reclamacion = fields.fecha_reclamacion; found.fecha_reclamacion = true; }
+            if (!found.fecha_apertura && fields.fecha_apertura !== "___________") { unified.fecha_apertura = fields.fecha_apertura; found.fecha_apertura = true; }
+            if (!found.fecha_siniestro && fields.fecha_siniestro !== "___________") { unified.fecha_siniestro = fields.fecha_siniestro; found.fecha_siniestro = true; }
+            if (!found.factura && fields.factura !== "___________") { unified.factura = fields.factura; found.factura = true; }
+
+            var parts = unified.fecha_sistema.split('/');
+            if (parts.length === 3) {
+              unified.dds = parts[0];
+              var monthNames = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+              var monthIndex = parseInt(parts[1], 10) - 1;
+              unified.mess = monthNames[monthIndex] || "_________";
+              unified.aaaas = parts[2];
+            }
+
+            if (fields.parrafada) {
+              if (unified.parrafada) {
+                unified.parrafada += "\n\n---\n\n" + fields.parrafada;
+              } else {
+                unified.parrafada = fields.parrafada;
+              }
+            }
+          });
+
+          return {
+            fields: unified,
+            count: cardsInList.length,
+            targetCardId: targetCardId || currentCardId,
+            idList: idList
+          };
+        });
+      });
+    }
+
+    function getCrossBoardBillingData(t) {
+      return Promise.all([
+        getUnifiedFields(t),
+        t.getRestApi().getToken(),
+        t.list('all')
+      ]).then(function (results) {
+        var localData = results[0];
+        var token = results[1];
+        var currentListName = results[2].name;
+        var fields = localData.fields;
+        var appKey = t.getRestApi().appKey;
+
+        if (!token) throw new Error('REQUIRED_AUTHORIZATION');
+
+        var searchQuery = encodeURIComponent('name:"Tipo tablero"');
+        return fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
+          .then(res => res.json())
+          .then(searchData => {
+            var cards = searchData.cards || [];
+            var clientCards = cards.filter(function(c) {
+              var n = c.name.toUpperCase();
+              return n.includes('TIPO TABLERO') && n.includes('CLIENTES');
+            });
+            if (clientCards.length === 0) throw new Error('No se encontró tableros de CLIENTES');
+            var uniqueBoardIds = [];
+            clientCards.forEach(c => { if (uniqueBoardIds.indexOf(c.idBoard) === -1) uniqueBoardIds.push(c.idBoard); });
+            return uniqueBoardIds;
+          })
+          .then(idBoardsClientes => {
+            var promises = idBoardsClientes.map(boardId => {
+              return fetch(`https://api.trello.com/1/boards/${boardId}/lists?key=${appKey}&token=${token}`)
+                .then(res => res.ok ? res.json() : [])
+                .then(lists => {
+                  var foundList = lists.find(l => l.name.trim().toLowerCase() === currentListName.trim().toLowerCase());
+                  return foundList ? { listId: foundList.id, boardId: boardId } : null;
+                });
+            });
+            return Promise.all(promises).then(res => res.find(r => r !== null));
+          })
+          .then(match => {
+            if (!match) throw new Error('No se encontró lista coincidente en Clientes.');
+            return fetch(`https://api.trello.com/1/lists/${match.listId}/cards?fields=name,desc&key=${appKey}&token=${token}`)
+              .then(res => res.json())
+              .then(clientCards => {
+                var clientFields = { nombre: "___________", dni: "___________", domicilio: "___________", fecha_apertura: "___________" };
+                var found = { nombre: false, dni: false, domicilio: false, fecha_apertura: false };
+                var cards = clientCards || [];
+                cards.sort((a,b) => (b.name.toLowerCase().includes("datos personales") ? 100 : 0) - (a.name.toLowerCase().includes("datos personales") ? 100 : 0));
+                
+                cards.forEach(card => {
+                  var parsed = extractFields(card.desc);
+                  if (!found.nombre && parsed.nombre !== "Cliente Desconocido") { clientFields.nombre = parsed.nombre; found.nombre = true; }
+                  if (!found.dni && parsed.dni !== "___________") { clientFields.dni = parsed.dni; found.dni = true; }
+                  if (!found.domicilio && parsed.domicilio !== "___________") { clientFields.domicilio = parsed.domicilio; found.domicilio = true; }
+                  if (!found.fecha_apertura && parsed.fecha_apertura !== "___________") { clientFields.fecha_apertura = parsed.fecha_apertura; found.fecha_apertura = true; }
+                });
+
+                var clientImportesCard = cards.find(c => c.name.toLowerCase().includes("importes"));
+                var clientImportesFields = {};
+                if (clientImportesCard && clientImportesCard.desc) {
+                  var lines = clientImportesCard.desc.split('\n');
+                  var rawMap = {};
+                  var parsedPairs = [];
+                  lines.forEach(line => {
+                    line = line.trim();
+                    if (!line) return;
+                    var sepIndex = line.indexOf(':');
+                    if (sepIndex === -1) sepIndex = line.indexOf('=');
+                    if (sepIndex > -1) {
+                      var k = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+                      var v = line.substring(sepIndex + 1).replace(/[*_~`#]/g, '').trim();
+                      if (k) {
+                        parsedPairs.push({ key: k, val: v });
+                        var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+                        rawMap[normK] = v;
+                      }
+                    }
+                  });
+                  parsedPairs.forEach(pair => {
+                    var calculatedV = evaluateValueWithContext(pair.val, rawMap);
+                    clientImportesFields[pair.key] = calculatedV;
+                    clientImportesFields[pair.key.toLowerCase()] = calculatedV;
+                    var normK = pair.key.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                    clientImportesFields[normK] = calculatedV;
+                    clientImportesFields[normK.toLowerCase()] = calculatedV;
+                  });
+
+                  var hasAFacturar = false;
+                  for (var key in clientImportesFields) {
+                    if (key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim() === "a facturar") {
+                      if (clientImportesFields[key] && String(clientImportesFields[key]).trim().length > 0 && clientImportesFields[key] !== "___________") {
+                        hasAFacturar = true;
+                      }
+                    }
+                  }
+                  if (!hasAFacturar) {
+                    var cobraVal = getNumericFieldValue(clientImportesFields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']);
+                    var pctVal = getNumericFieldValue(clientImportesFields, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios', 'porcentage facturación', 'porcentage facturacion', 'porcentage', 'porcentage honorarios']);
+                    if (cobraVal !== null && pctVal !== null) {
+                      var factor = pctVal;
+                      if (factor > 1) factor = factor / 100;
+                      var calculated = cobraVal * factor;
+                      var formatted = calculated.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+                      clientImportesFields["A facturar"] = formatted;
+                      clientImportesFields["a facturar"] = formatted;
+                    }
+                  }
+                }
+
+                var combinedFields = {};
+                for (var key in fields) combinedFields[key] = fields[key];
+                for (var key in clientImportesFields) combinedFields[key] = clientImportesFields[key];
+                combinedFields.nombre = clientFields.nombre;
+                combinedFields.dni = clientFields.dni;
+                combinedFields.domicilio = clientFields.domicilio;
+                combinedFields.fecha_apertura = clientFields.fecha_apertura;
+
+                return {
+                  fields: combinedFields,
+                  count: localData.count,
+                  targetCardId: localData.targetCardId,
+                  idList: localData.idList,
+                  idListClientes: match.listId,
+                  token: token
+                };
+              });
+          });
+      });
+    }
+
+    function getAndUpdateInvoiceNumber(t, token) {
+      var appKey = t.getRestApi().appKey;
+      return t.lists('all').then(function(lists) {
+        var paramList = lists.find(l => l.name.toUpperCase() === 'PARÁMETROS' || l.name.toUpperCase() === 'PARAMETROS');
+        if (!paramList) throw new Error("No se encontró la lista 'PARÁMETROS'");
+
+        return t.cards('all').then(openCards => {
+          return t.cards('closed').then(closedCards => {
+            var allCards = openCards.concat(closedCards);
+            var configCard = allCards.find(c => c.idList === paramList.id && (c.name.toLowerCase().includes('gestión de facturas') || c.name.toLowerCase().includes('gestion de facturas')));
+            if (!configCard) throw new Error("No se encontró tarjeta 'Gestión de facturas'");
+            
+            var desc = configCard.desc || "";
+            var lines = desc.split(/\r?\n/);
+            var year = new Date().getFullYear();
+            var seq = 0;
+            var otherLines = [];
+            
+            lines.forEach(line => {
+              var trimmed = line.trim();
+              if (!trimmed) return;
+              if (/año.*factura/i.test(trimmed)) {
+                var m = trimmed.match(/\d+/);
+                if (m) year = parseInt(m[0], 10);
+              } else if (/secuencial.*factura/i.test(trimmed)) {
+                var m = trimmed.match(/\d+/);
+                if (m) seq = Math.max(seq, parseInt(m[0], 10));
+              } else {
+                otherLines.push(line);
+              }
+            });
+            
+            var nextSeq = seq + 1;
+            var numFactura = year + "/" + nextSeq;
+            var newDesc = ["Año de factura: " + year, "Secuencial de factura: " + nextSeq].concat(otherLines).join("\n");
+
+            return fetch(`https://api.trello.com/1/cards/${configCard.id}?key=${appKey}&token=${token}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ desc: newDesc })
+            }).then(res => {
+              if (!res.ok) throw new Error("Error al actualizar correlativo");
+              return numFactura;
+            });
+          });
+        });
+      });
+    }
+
+    function getOrCreateFacturasCard(t, idList, token) {
+      var appKey = t.getRestApi().appKey;
+      return fetch(`https://api.trello.com/1/lists/${idList}/cards?key=${appKey}&token=${token}`)
+        .then(res => res.json())
+        .then(cards => {
+          var facturasCard = cards.find(c => c.name.trim().toLowerCase() === "facturas");
+          if (facturasCard) return facturasCard.id;
+          
+          var newPos = 'top';
+          if (cards.length > 1) newPos = (cards[0].pos + cards[1].pos) / 2;
+          else if (cards.length === 1) newPos = cards[0].pos + 16384;
+          
+          return fetch(`https://api.trello.com/1/cards?idList=${idList}&name=Facturas&pos=${newPos}&key=${appKey}&token=${token}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(newCard => newCard.id);
+        });
+    }
+
+    function updateInvoicesTableOnCard(t, targetCardId, token, today, numFactura, nombreCliente, dniCliente, importeBase, importeTotal) {
+      var appKey = t.getRestApi().appKey;
+      var cleanNombre = (nombreCliente || "Cliente Desconocido").replace(/\|/g, " ");
+      var cleanDni = (dniCliente || "___________").replace(/\|/g, " ");
+      var cleanBase = (importeBase || "___________").replace(/\|/g, " ");
+      var cleanTotal = (importeTotal || "___________").replace(/\|/g, " ");
+
+      return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?key=${appKey}&token=${token}`)
+        .then(res => res.json())
+        .then(checklists => {
+          var targetChecklistName = "Relación de Facturas Generadas";
+          var ch = checklists.find(c => c.name === targetChecklistName);
+          var newItemText = `${today} | Nº: ${numFactura} | ${cleanNombre} | DNI: ${cleanDni} | Base: ${cleanBase} | Total: ${cleanTotal}`;
+
+          if (ch) {
+            var item = ch.checkItems.find(i => i.name.indexOf(`Nº: ${numFactura}`) > -1 || i.name.indexOf(`Nº:  ${numFactura}`) > -1);
+            if (item) {
+              var urlParams = new URLSearchParams({ name: newItemText });
+              return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklist/${ch.id}/checkItem/${item.id}?key=${appKey}&token=${token}&${urlParams.toString()}`, { method: 'PUT' });
+            } else {
+              var urlParams = new URLSearchParams({ name: newItemText });
+              return fetch(`https://api.trello.com/1/checklists/${ch.id}/checkItems?key=${appKey}&token=${token}&${urlParams.toString()}`, { method: 'POST' });
+            }
+          } else {
+            var urlParams = new URLSearchParams({ name: targetChecklistName });
+            return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?key=${appKey}&token=${token}&${urlParams.toString()}`, { method: 'POST' })
+              .then(res => res.json())
+              .then(newCh => {
+                var urlParamsItem = new URLSearchParams({ name: newItemText });
+                return fetch(`https://api.trello.com/1/checklists/${newCh.id}/checkItems?key=${appKey}&token=${token}&${urlParamsItem.toString()}`, { method: 'POST' });
+              });
+          }
+        });
+    }
+
+    function updateHistoryCard(t, idList, isAction, forcedFields, overrideUnifiedFields) {
+      var getFieldsPromise = overrideUnifiedFields ? Promise.resolve({ fields: overrideUnifiedFields }) : getUnifiedFields(t);
+      return getFieldsPromise.then(function (data) {
+        var unified = data.fields;
+        return t.getRestApi().getToken().then(function (token) {
+          if (!token) return;
+          var appKey = t.getRestApi().appKey;
+          var today = new Date().toLocaleDateString('es-ES');
+          return fetch(`https://api.trello.com/1/lists/${idList}/cards?key=${appKey}&token=${token}`)
+            .then(res => res.json())
+            .then(cards => {
+              var personalCard = cards.find(c => c.name.toLowerCase().includes("datos personales"));
+              var historyCard = cards.find(c => c.name.toLowerCase().includes("historial de procesos") || c.name.toLowerCase().includes("historial de avisos"));
+              
+              var historyKeys = [
+                { label: "**Fecha del sistema:**", prop: "fecha_sistema" },
+                { label: "**Fecha última actuación sobre el expediente:**", prop: "fecha_ultima" },
+                { label: "**Fecha cierre expediente:**", prop: "fecha_cierre" },
+                { label: "**Fecha de resolución:**", prop: "fecha_resolucion" },
+                { label: "**Fecha de comunicación designación:**", prop: "fecha_designa" },
+                { label: "**Fecha de reclamación previa:**", prop: "fecha_reclamacion" },
+                { label: "**Fecha creación de expediente:**", prop: "fecha_apertura" },
+                { label: "**Fecha del siniestro:**", prop: "fecha" },
+                { label: "**Fecha de facturación:**", prop: "fecha_facturacion" },
+                { label: "**Número de factura:**", prop: "factura" },
+                { label: "**Importe facturación:**", prop: "importe_facturacion" },
+                { label: "**Total factura:**", prop: "total_factura" }
+              ];
+              for (var idx = 2; idx <= 10; idx++) {
+                historyKeys.push({ label: "**Fecha de facturación " + idx + ":**", prop: "fecha_facturacion" + idx });
+                historyKeys.push({ label: "**Número de factura " + idx + ":**", prop: "factura" + idx });
+                historyKeys.push({ label: "**Importe facturación " + idx + ":**", prop: "importe_facturacion" + idx });
+                historyKeys.push({ label: "**Total factura " + idx + ":**", prop: "total_factura" + idx });
+              }
+
+              if (historyCard) {
+                var desc = historyCard.desc || "";
+                var lines = desc.split('\n');
+                var values = {};
+                var localFacturasCard = cards.find(c => { var n = c.name.trim().toLowerCase(); return n === "facturas" || n === "facturación" || n === "facturacion"; });
+
+                historyKeys.forEach(item => {
+                  var regex = new RegExp(item.label.replace(/\*/g, '\\*') + "\\s*([^\\n]*)", "i");
+                  var match = desc.match(regex);
+                  values[item.prop] = match ? match[1].trim() : "___________";
+                  if (values[item.prop] === "___________" && unified[item.prop] && unified[item.prop] !== "___________") {
+                    values[item.prop] = unified[item.prop];
+                  }
+                  var isInvoiceProp = item.prop === "fecha_facturacion" || item.prop === "factura" || item.prop === "importe_facturacion" || item.prop === "total_factura" || /^(fecha_facturacion|factura|importe_facturacion|total_factura)\d+$/.test(item.prop);
+                  if (isInvoiceProp && (unified._hasChecklistInvoices || !localFacturasCard)) {
+                    values[item.prop] = unified[item.prop] || "___________";
+                  }
+                  if (forcedFields && forcedFields[item.prop]) values[item.prop] = forcedFields[item.prop];
+                });
+
+                var needsUpdate = false;
+                if (values.fecha_sistema !== today) { values.fecha_sistema = today; needsUpdate = true; }
+                if (isAction && values.fecha_ultima !== today) { values.fecha_ultima = today; needsUpdate = true; }
+                if (unified.fecha !== "___________" && values.fecha !== unified.fecha) { values.fecha = unified.fecha; needsUpdate = true; }
+                if (personalCard && values.fecha_apertura === "___________") {
+                  values.fecha_apertura = new Date(1000 * parseInt(personalCard.id.substring(0, 8), 16)).toLocaleDateString('es-ES');
+                  needsUpdate = true;
+                }
+                
+                var newDescLines = [];
+                historyKeys.forEach(item => {
+                  var isSequential = false;
+                  for (var s = 2; s <= 10; s++) {
+                    if (item.prop === "fecha_facturacion" + s || item.prop === "factura" + s || item.prop === "importe_facturacion" + s || item.prop === "total_factura" + s) {
+                      isSequential = true; break;
+                    }
+                  }
+                  if (!isSequential || (values[item.prop] && values[item.prop] !== "___________")) {
+                    newDescLines.push(item.label + " " + values[item.prop]);
+                  }
+                });
+
+                lines.forEach(line => {
+                  var lineLower = line.trim().toLowerCase();
+                  var isKeyLine = historyKeys.some(item => {
+                    var baseLabel = item.label.replace(/\*/g, '').replace(/:$/, '').trim().toLowerCase();
+                    var variations = [baseLabel];
+                    if (baseLabel.includes("creación de expediente")) variations.push("fecha apertura expediente");
+                    if (baseLabel.includes("comunicación designación")) variations.push("fecha comunicación designa");
+                    if (baseLabel.includes("siniestro")) variations.push("fecha siniestro");
+                    return variations.some(v => lineLower.indexOf(v) === 0 || lineLower.includes(v));
+                  });
+                  if (!isKeyLine && line.trim() !== "") newDescLines.push(line);
+                });
+
+                var finalDesc = newDescLines.join('\n');
+                if (needsUpdate || finalDesc !== desc) {
+                  return fetch(`https://api.trello.com/1/cards/${historyCard.id}?key=${appKey}&token=${token}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ desc: finalDesc })
+                  });
+                }
+              }
+            });
+        });
+      });
+    }
+
+    // --- RENDER INICIAL ---
     t.render(function() {
       if (cachedData) {
         t.sizeTo(document.body).done();
@@ -234,8 +1008,6 @@
       }
 
       var statusDiv = document.getElementById('status');
-      var parentWin = window.parent;
-      
       statusDiv.textContent = "Obteniendo datos del tablero...";
       t.sizeTo(document.body).done();
 
@@ -311,31 +1083,14 @@
       var inputImporte = document.getElementById('importe-factura').value.trim();
       var inputConcepto = document.getElementById('concepto-contabilidad').value.trim();
 
-      var parentFrames = window.parent.document.querySelectorAll('iframe');
-      var sectionFrameWindow = null;
-      for (var i = 0; i < parentFrames.length; i++) {
-        try {
-          if (parentFrames[i].contentWindow && parentFrames[i].contentWindow.getCrossBoardBillingData) {
-            sectionFrameWindow = parentFrames[i].contentWindow;
-            break;
-          }
-        } catch(e) {}
-      }
-
-      if (!sectionFrameWindow) {
-        statusDiv.textContent = "Error: No se pudo conectar con la ventana principal del Power-Up.";
-        t.sizeTo(document.body).done();
-        return;
-      }
-
-      sectionFrameWindow.getCrossBoardBillingData(t).then(function(data) {
+      getCrossBoardBillingData(t).then(function(data) {
         var fields = data.fields;
         var token = data.token;
 
         statusDiv.textContent = 'Autogenerando número de factura correlativo...';
         t.sizeTo(document.body).done();
 
-        return sectionFrameWindow.getAndUpdateInvoiceNumber(t, token).then(function(numFactura) {
+        return getAndUpdateInvoiceNumber(t, token).then(function(numFactura) {
           var seqIndex = 1;
           if (fields.factura && fields.factura !== "___________") {
             for (var idx = 2; idx <= 10; idx++) {
@@ -348,7 +1103,6 @@
           }
 
           var today = new Date().toLocaleDateString('es-ES');
-          
           var currentAmount = inputImporte;
           var currentConcept = inputConcepto;
 
@@ -403,7 +1157,7 @@
               statusDiv.textContent = 'Obteniendo tarjeta de Facturas...';
               t.sizeTo(document.body).done();
 
-              sectionFrameWindow.getOrCreateFacturasCard(t, data.idList, token)
+              getOrCreateFacturasCard(t, data.idList, token)
                 .then(function(targetCardId) {
                   statusDiv.textContent = 'Subiendo Factura a Trello...';
                   t.sizeTo(document.body).done();
@@ -439,11 +1193,11 @@
                   }
                   
                   var targetHistoryListId = data.idListClientes || data.idList;
-                  return sectionFrameWindow.updateHistoryCard(t, targetHistoryListId, true, forced, fields)
+                  return updateHistoryCard(t, targetHistoryListId, true, forced, fields)
                     .then(function() {
                       statusDiv.textContent = 'Guardando registro histórico de la factura...';
                       t.sizeTo(document.body).done();
-                      return sectionFrameWindow.updateInvoicesTableOnCard(t, targetCardIdSaved, token, today, numFactura, fields.nombre, fields.dni, currentAmount, currentTotal);
+                      return updateInvoicesTableOnCard(t, targetCardIdSaved, token, today, numFactura, fields.nombre, fields.dni, currentAmount, currentTotal);
                     });
                 })
                 .then(function() {
