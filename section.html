@@ -1506,16 +1506,15 @@
               unified[normK.toLowerCase()] = calculatedV;
             });
 
-            // Cálculo automático fallback de "A facturar" si no existe o está vacío
-            var hasAFacturar = false;
-            for (var key in unified) {
-              if (key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim() === "a facturar") {
-                if (unified[key] && String(unified[key]).trim().length > 0 && unified[key] !== "___________") {
-                  hasAFacturar = true;
-                }
+            // Cálculo automático fallback de "A facturar" si no existe, está vacío o no contiene fórmula
+            var rawAFacturar = "";
+            for (var key in rawMap) {
+              if (key === "a facturar") {
+                rawAFacturar = rawMap[key] || "";
               }
             }
-            if (!hasAFacturar) {
+            var hasFormula = (rawAFacturar.indexOf('{{') > -1 && rawAFacturar.indexOf('}}') > -1);
+            if (!hasFormula) {
               var cobraVal = getNumericFieldValue(unified, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']);
               var pctVal = getNumericFieldValue(unified, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios', 'porcentage facturación', 'porcentage facturacion', 'porcentage', 'porcentage honorarios']);
               if (cobraVal !== null && pctVal !== null) {
@@ -2455,16 +2454,15 @@
                 clientImportesFields[normK.toLowerCase()] = calculatedV;
               });
 
-              // Cálculo automático fallback de "A facturar" si no existe o está vacío
-              var hasAFacturar = false;
-              for (var key in clientImportesFields) {
-                if (key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim() === "a facturar") {
-                  if (clientImportesFields[key] && String(clientImportesFields[key]).trim().length > 0 && clientImportesFields[key] !== "___________") {
-                    hasAFacturar = true;
-                  }
+              // Cálculo automático fallback de "A facturar" si no existe, está vacío o no contiene fórmula
+              var rawAFacturar = "";
+              for (var key in rawMap) {
+                if (key === "a facturar") {
+                  rawAFacturar = rawMap[key] || "";
                 }
               }
-              if (!hasAFacturar) {
+              var hasFormula = (rawAFacturar.indexOf('{{') > -1 && rawAFacturar.indexOf('}}') > -1);
+              if (!hasFormula) {
                 var cobraVal = getNumericFieldValue(clientImportesFields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']);
                 var pctVal = getNumericFieldValue(clientImportesFields, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios', 'porcentage facturación', 'porcentage facturacion', 'porcentage', 'porcentage honorarios']);
                 if (cobraVal !== null && pctVal !== null) {
@@ -3068,8 +3066,8 @@
           if (card && card.name) {
             var nameLower = card.name.toLowerCase();
 
-            // Lógica de cálculo de "A Facturar" para tarjetas "Importes" (solo si NO es tablero CLIENTES)
-            if (!isClientes && (nameLower.includes("importes") || nameLower.includes("importe"))) {
+            // Lógica de cálculo de "A Facturar" para tarjetas "Importes" (solo si es tablero de FACTURACIÓN)
+            if (isFacturacion && (nameLower.includes("importes") || nameLower.includes("importe"))) {
               var cardDesc = card.desc || "";
               var descChanged = (lastDesc !== cardDesc);
               lastDesc = cardDesc;
@@ -3106,16 +3104,15 @@
                 resolvedFields[normK.toLowerCase()] = calculatedV;
               });
 
-              // Fallback auto-calculation of A facturar
-              var hasAFacturar = false;
-              for (var key in resolvedFields) {
-                if (key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim() === "a facturar") {
-                  if (resolvedFields[key] && String(resolvedFields[key]).trim().length > 0 && resolvedFields[key] !== "___________") {
-                    hasAFacturar = true;
-                  }
+              // Fallback auto-calculation of A facturar si no contiene fórmula
+              var rawAFacturar = "";
+              for (var key in rawMap) {
+                if (key === "a facturar") {
+                  rawAFacturar = rawMap[key] || "";
                 }
               }
-              if (!hasAFacturar) {
+              var hasFormula = (rawAFacturar.indexOf('{{') > -1 && rawAFacturar.indexOf('}}') > -1);
+              if (!hasFormula) {
                 var cobraVal = getNumericFieldValue(resolvedFields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']);
                 var pctVal = getNumericFieldValue(resolvedFields, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios', 'porcentage facturación', 'porcentage facturacion', 'porcentage', 'porcentage honorarios']);
                 if (cobraVal !== null && pctVal !== null) {
@@ -3126,6 +3123,7 @@
                   var calculated = cobraVal * factor;
                   var formatted = calculated.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
                   resolvedFields["a facturar"] = formatted;
+                  resolvedFields["A facturar"] = formatted;
                 }
               }
 
@@ -3139,19 +3137,42 @@
                   if (!isNaN(num) && String(calculatedAFacturar).indexOf('€') === -1) {
                     calculatedAFacturar = formatSpanishCurrency(num);
                   }
-                  valueSpan.textContent = calculatedAFacturar;
-                  valueSpan.style.backgroundColor = '#1f845a'; // Verde
-                  valueSpan.style.color = '#ffffff';
-                  
-                  displayDiv.style.backgroundColor = '#e2f5ec';
-                  displayDiv.style.borderColor = '#1f845a';
-                  displayDiv.style.color = '#1f845a';
-                  
-                  updateImportesCardIfNeeded(t, card.id, cardDesc, calculatedAFacturar);
+
+                  // Comprobar autorización en la REST API para guiar al usuario
+                  t.getRestApi().isAuthorized().then(function(authorized) {
+                    if (authorized) {
+                      valueSpan.textContent = calculatedAFacturar;
+                      valueSpan.style.backgroundColor = '#1f845a'; // Verde
+                      valueSpan.style.color = '#ffffff';
+                      valueSpan.style.cursor = 'default';
+                      valueSpan.onclick = null;
+                      
+                      displayDiv.style.backgroundColor = '#e2f5ec';
+                      displayDiv.style.borderColor = '#1f845a';
+                      displayDiv.style.color = '#1f845a';
+                      
+                      updateImportesCardIfNeeded(t, card.id, cardDesc, calculatedAFacturar);
+                    } else {
+                      valueSpan.textContent = calculatedAFacturar + " (Haz clic para guardar en tarjeta 🔑)";
+                      valueSpan.style.backgroundColor = '#d97706'; // Naranja
+                      valueSpan.style.color = '#ffffff';
+                      valueSpan.style.cursor = 'pointer';
+                      valueSpan.title = "Haz clic aquí para autorizar al Power-up a guardar automáticamente este valor en la descripción de la tarjeta";
+                      valueSpan.onclick = function() {
+                        return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
+                      };
+                      
+                      displayDiv.style.backgroundColor = '#fff7ed';
+                      displayDiv.style.borderColor = '#d97706';
+                      displayDiv.style.color = '#d97706';
+                    }
+                  });
                 } else {
                   valueSpan.textContent = "Faltan Cliente Cobra / Porcentaje ⏳";
                   valueSpan.style.backgroundColor = '#d97706'; // Naranja
                   valueSpan.style.color = '#ffffff';
+                  valueSpan.style.cursor = 'default';
+                  valueSpan.onclick = null;
                   
                   displayDiv.style.backgroundColor = '#fff7ed';
                   displayDiv.style.borderColor = '#d97706';
@@ -3164,7 +3185,7 @@
                 window.pendingVisualRefresh = true;
               }
             } else {
-              // Ocultar si no estamos en la tarjeta de Importes o si es tablero de CLIENTES
+              // Ocultar si no estamos en la tarjeta de Importes
               var displayDiv = document.getElementById('afacturar-display');
               if (displayDiv) {
                 displayDiv.style.display = 'none';

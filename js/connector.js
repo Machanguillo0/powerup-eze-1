@@ -79,7 +79,7 @@ window.TrelloPowerUp.initialize({
       icon: './icon.svg', // Recomendado un icono gris, pero el SVG actual servirá
       content: {
         type: 'iframe',
-        url: t.signUrl('./section.html?v=55'), // Apuntamos a un nuevo archivo HTML que vamos a crear
+        url: t.signUrl('./section.html?v=57'), // Apuntamos a un nuevo archivo HTML que vamos a crear
         height: 250 // Altura inicial en píxeles (aumentado para evitar scrollbar)
       }
     };
