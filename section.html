@@ -914,7 +914,8 @@
       var btnInteres = document.getElementById('boton-desc');
       var factSec = document.getElementById('facturacion-section');
       if (factSec && factSec.style.display !== 'none' && btnFact) {
-        btnFact.click();
+        // Clic automático desactivado a petición del usuario
+        // btnFact.click();
       } else if (btnInteres) {
         btnInteres.click();
       }
