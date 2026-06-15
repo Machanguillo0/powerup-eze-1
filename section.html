@@ -622,10 +622,7 @@
             Generar Proforma
             <input type="file" id="proforma-upload" accept=".xlsx" />
           </label>
-          <label class="btn-upload" style="background-color: #1f845a; margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; text-align: center;">
-            Generar Factura
-            <input type="file" id="factura-upload" accept=".xlsx" />
-          </label>
+          <button id="boton-generar-factura-modal" style="background-color: #1f845a; color: white; margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; font-weight: bold; border: none; border-radius: 3px; cursor: pointer; text-align: center;">Generar Factura</button>
           <button id="boton-desglosar" style="background-color: #1f845a; color: white; margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; font-weight: bold; border: none; border-radius: 3px; cursor: pointer; transition: background-color 0.2s; text-align: center;">Desglosar factura</button>
         </div>
       </div>
@@ -2844,164 +2841,20 @@
       });
     });
 
-    // Nuevo event listener para Generar Factura en Facturación (datos cruzados + plantilla Excel)
-    document.getElementById('factura-upload').addEventListener('change', function (event) {
-      if (!event.target.files || event.target.files.length === 0) return;
-      var file = event.target.files[0];
-      var statusDiv = document.getElementById('upload-status');
-      var targetCardIdSaved;
-      statusDiv.textContent = 'Cargando datos cruzados desde el tablero de Clientes...';
-      t.sizeTo(document.body).done();
-
-      getCrossBoardBillingData(t).then(function (data) {
-        var fields = data.fields;
-        var token = data.token;
-        
-        statusDiv.textContent = 'Autogenerando número de factura correlativo...';
-        t.sizeTo(document.body).done();
-
-        return getAndUpdateInvoiceNumber(t, token).then(function(numFactura) {
-          // Determinar qué secuencial de factura corresponde
-          var seqIndex = 1;
-          if (fields.factura && fields.factura !== "___________") {
-            for (var idx = 2; idx <= 10; idx++) {
-              var fKey = "factura" + idx;
-              if (!fields[fKey] || fields[fKey] === "___________") {
-                seqIndex = idx;
-                break;
-              }
-            }
-          }
-
-          var today = new Date().toLocaleDateString('es-ES');
-          var currentAmount = fields["importe a facturar"] || fields["Importe a facturar"] || fields["importe final"] || fields["Importe final"] || "___________";
-
-          // Calcular el total con impuestos
-          var taxPct = getTaxPercentage(fields);
-          var baseNum = parseSpanishFloat(currentAmount);
-          var totalNum = baseNum + (baseNum * taxPct / 100);
-          var currentTotal = formatSpanishCurrency(totalNum);
-
-          // Sincronizar en los campos actuales para la compilación del Excel actual
-          fields.factura = numFactura;
-          fields.fecha_facturacion = today;
-          fields.importe_facturado = currentAmount;
-          fields.importe_facturacion = currentAmount;
-          fields.total_factura = currentTotal;
-          fields["total factura"] = currentTotal;
-
-          statusDiv.textContent = 'Procesando factura ' + file.name + ' (' + numFactura + ')...';
-          t.sizeTo(document.body).done();
-
-          var reader = new FileReader();
-          reader.onload = async function (e) {
-            try {
-              var workbook = new ExcelJS.Workbook();
-              await workbook.xlsx.load(e.target.result);
-              workbook.eachSheet(function (worksheet) {
-                worksheet.eachRow(function (row) {
-                  row.eachCell(function (cell) {
-                    if (cell.value) {
-                      if (cell.value.richText) {
-                        cell.value.richText.forEach(function (rt) {
-                          if (rt.text) {
-                            rt.text = replaceExcelPlaceholders(rt.text, fields, false);
-                          }
-                        });
-                      } else if (typeof cell.value === 'string') {
-                        cell.value = replaceExcelPlaceholders(cell.value, fields, false);
-                        if (fields.parrafada && fields.parrafada.includes('\n')) cell.alignment = { wrapText: true };
-                      }
-                    }
-                  });
-                });
-              });
-
-              var buffer = await workbook.xlsx.writeBuffer();
-              var outContent = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-              var baseTemplateName = file.name.substring(0, file.name.lastIndexOf('.'));
-              
-              // Reemplazar la barra "/" del número de factura por un guion "-" para que sea válido en nombres de archivo
-              var cleanInvoiceNum = numFactura.replace(/\//g, "-");
-              var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + "_" + cleanInvoiceNum + ".xlsx";
-
-              statusDiv.textContent = 'Obteniendo tarjeta de Facturas...';
-              t.sizeTo(document.body).done();
-
-              getOrCreateFacturasCard(t, data.idList, token)
-                .then(function(targetCardId) {
-                  targetCardIdSaved = targetCardId;
-                  statusDiv.textContent = 'Subiendo Factura a la tarjeta Facturas...';
-                  t.sizeTo(document.body).done();
-
-                  var formData = new FormData();
-                  formData.append("key", t.getRestApi().appKey);
-                  formData.append("token", token);
-                  formData.append("file", outContent, nombreFinal);
-                  formData.append("name", nombreFinal);
-
-                  var urlParams = new URLSearchParams();
-                  urlParams.append('key', t.getRestApi().appKey);
-                  urlParams.append('token', token);
-
-                  return fetch(`https://api.trello.com/1/cards/${targetCardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData });
-                })
-                .then(function (response) {
-                  if (!response.ok) throw new Error('Error HTTP ' + response.status);
-                  
-                  // Actualizar historial en el tablero de Clientes (no en el local de Facturación)
-                  var forced = {};
-                  if (seqIndex === 1) {
-                    forced.fecha_facturacion = today;
-                    forced.factura = numFactura;
-                    forced.importe_facturacion = currentAmount;
-                    forced.total_factura = currentTotal;
-                  } else {
-                    forced["fecha_facturacion" + seqIndex] = today;
-                    forced["factura" + seqIndex] = numFactura;
-                    forced["importe_facturacion" + seqIndex] = currentAmount;
-                    forced["total_factura" + seqIndex] = currentTotal;
-                  }
-                  
-                  var targetHistoryListId = data.idListClientes || data.idList;
-                  updateHistoryCard(t, targetHistoryListId, true, forced, fields);
-
-                  // Actualizar la tabla de facturas en la descripción de la tarjeta "Facturas"
-                  if (targetCardIdSaved) {
-                    statusDiv.textContent = 'Guardando registro histórico de la factura ' + numFactura + '...';
-                    t.sizeTo(document.body).done();
-                    return updateInvoicesTableOnCard(t, targetCardIdSaved, token, today, numFactura, fields.nombre, fields.dni, currentAmount, currentTotal);
-                  }
-                })
-                .then(function() {
-                  statusDiv.textContent = '¡Factura ' + numFactura + ' y registro histórico actualizados con éxito!';
-                  event.target.value = '';
-                  t.sizeTo(document.body).done();
-                }).catch(function (err) {
-                  console.error(err);
-                  statusDiv.textContent = 'Fallo en la subida / actualización de tabla.';
-                  t.sizeTo(document.body).done();
-                });
-
-            } catch (error) {
-              console.error(error);
-              statusDiv.textContent = 'Error: ' + error.message;
-              t.sizeTo(document.body).done();
-            }
-          };
-          reader.readAsArrayBuffer(file);
+    // Nuevo event listener para abrir la modal de Generar Factura
+    var btnGenerarFacturaModal = document.getElementById('boton-generar-factura-modal');
+    if (btnGenerarFacturaModal) {
+      btnGenerarFacturaModal.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        t.modal({
+          url: './factura_modal.html?v=78',
+          height: 380,
+          title: 'Generar Factura',
+          accentColor: '#1f845a'
         });
-      }).catch(function (err) {
-        console.error(err);
-        if (err.message === 'REQUIRED_AUTHORIZATION') {
-          statusDiv.textContent = 'Autenticando con Trello API...';
-          t.sizeTo(document.body).done();
-          return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
-        }
-        statusDiv.textContent = 'Error al obtener datos cruzados: ' + err.message;
-        t.sizeTo(document.body).done();
       });
-    });
+    }
 
     var getBoardTypeSafe = function(t) {
       return t.lists('all').then(function(lists) {

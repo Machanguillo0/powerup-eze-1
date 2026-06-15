@@ -83,26 +83,6 @@
       background-color: #091e4224;
     }
 
-    /* Ocultar input file y hacer botón */
-    .btn-upload {
-      background-color: #1f845a;
-      color: white;
-      padding: 8px 16px;
-      border-radius: 3px;
-      font-weight: bold;
-      font-size: 13px;
-      cursor: pointer;
-      display: inline-block;
-      text-align: center;
-      box-sizing: border-box;
-      height: 36px;
-      line-height: 20px;
-    }
-
-    .btn-upload:hover {
-      background-color: #137333;
-    }
-
     input[type="file"] {
       display: none;
     }
@@ -129,10 +109,8 @@
 
   <div class="actions">
     <button id="btn-cancelar" class="btn-secondary">Cancelar</button>
-    <label class="btn-upload">
-      Seleccionar Plantilla Excel
-      <input type="file" id="factura-upload" accept=".xlsx" />
-    </label>
+    <button id="btn-facturar" class="btn-primary">Facturar</button>
+    <input type="file" id="factura-upload" accept=".xlsx" />
   </div>
 
   <div id="status" class="status-msg">Cargando datos del expediente...</div>
@@ -178,7 +156,7 @@
       });
       if (pctKey) {
         var valStr = String(fields[pctKey]);
-        var cleaned = valStr.replace(/[^0-9.,]/g, '').replace(',', '.');
+        var cleaned = valStr.replace(/[^0-9.,/]/g, '').replace(',', '.');
         var val = parseFloat(cleaned) || 0;
         if (val > 0 && val < 1) {
           val = val * 100;
@@ -256,36 +234,20 @@
       }
 
       var statusDiv = document.getElementById('status');
-      // Acceder a la ventana padre para reutilizar getCrossBoardBillingData si es posible
       var parentWin = window.parent;
-      var getBillingDataPromise;
       
-      // Como estamos en iframe modal secundario, podemos consultar directamente las APIs de Trello
-      // de la misma manera que section.html lo hace. Reutilizaremos los mismos flujos asíncronos.
       statusDiv.textContent = "Obteniendo datos del tablero...";
       t.sizeTo(document.body).done();
 
-      // Para ser seguros, importamos/llamamos la lógica directamente usando el objeto 't' de esta modal
-      // Primero obtenemos el token de la REST API
       t.getRestApi().isAuthorized().then(function(auth) {
         if (!auth) {
           statusDiv.textContent = "Por favor, autoriza la API primero.";
           return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
         }
         
-        // Ejecutamos la carga y unificación de datos
-        // En lugar de duplicar todo el código de getCrossBoardBillingData, podemos invocar una función helper
-        // del iframe de origen si está cargado en el documento padre, o simplemente simularla.
-        // Trello nos permite comunicar iframes si leemos los datos compartidos.
-        // Pero para máxima robustez, podemos evaluar el valor de "a facturar" usando t.card y t.lists
-        // o llamando a una función expuesta en el padre si está disponible:
-        
-        var mainIframe = parentWin.frames[0] || parentWin;
-        // Buscamos si el padre tiene la función expuesta
         var resolvedValue = "";
         
         t.card('id', 'idList').then(function(currentCard) {
-          // Buscaremos la tarjeta de importes en la lista actual
           return t.cards('id', 'name', 'desc', 'idList').then(function(cards) {
             var cardsInList = cards.filter(function(c) { return c.idList === currentCard.idList; });
             var importesCard = cardsInList.find(function(c) {
@@ -293,7 +255,6 @@
             });
 
             if (importesCard && importesCard.desc) {
-              // Parseamos "a facturar"
               var lines = importesCard.desc.split('\n');
               lines.forEach(function(line) {
                 var sepIndex = line.indexOf(':');
@@ -308,18 +269,16 @@
               });
             }
             
-            // Si tiene cálculo dinámico (tipo fórmula con resultado), limpiamos el prefijo de la fórmula
             if (resolvedValue) {
               var lastEquals = resolvedValue.lastIndexOf('=');
               if (lastEquals > -1) {
                 resolvedValue = resolvedValue.substring(lastEquals + 1).trim();
               }
-              // Quitar el símbolo de € si lo tiene para dejarlo como número
               resolvedValue = resolvedValue.replace(/€/g, '').trim();
             }
 
             document.getElementById('importe-factura').value = resolvedValue || "0,00";
-            statusDiv.textContent = "Listo. Modifica los campos y selecciona la plantilla Excel.";
+            statusDiv.textContent = "Introduce el importe y concepto, luego haz clic en 'Facturar'.";
             t.sizeTo(document.body).done();
           });
         });
@@ -335,6 +294,12 @@
       t.closeModal();
     });
 
+    // Acción de Clicar Facturar -> Abre el selector de archivos
+    document.getElementById('btn-facturar').addEventListener('click', function(e) {
+      e.preventDefault();
+      document.getElementById('factura-upload').click();
+    });
+
     // Acción de carga de plantilla Excel
     document.getElementById('factura-upload').addEventListener('change', function(event) {
       if (!event.target.files || event.target.files.length === 0) return;
@@ -346,10 +311,6 @@
       var inputImporte = document.getElementById('importe-factura').value.trim();
       var inputConcepto = document.getElementById('concepto-contabilidad').value.trim();
 
-      // Para no duplicar toda la lógica pesada de llamadas fetch a Trello, 
-      // podemos invocar de manera segura la función de la ventana padre (section.html) 
-      // pasándole los parámetros personalizados que ha introducido el usuario.
-      // Buscamos el frame de section.html en el DOM de Trello
       var parentFrames = window.parent.document.querySelectorAll('iframe');
       var sectionFrameWindow = null;
       for (var i = 0; i < parentFrames.length; i++) {
@@ -367,7 +328,6 @@
         return;
       }
 
-      // Ejecutar la unificación usando la función del padre
       sectionFrameWindow.getCrossBoardBillingData(t).then(function(data) {
         var fields = data.fields;
         var token = data.token;
@@ -389,7 +349,6 @@
 
           var today = new Date().toLocaleDateString('es-ES');
           
-          // Usamos los campos introducidos por el usuario en esta ventana modal!
           var currentAmount = inputImporte;
           var currentConcept = inputConcepto;
 
@@ -398,7 +357,6 @@
           var totalNum = baseNum + (baseNum * taxPct / 100);
           var currentTotal = formatSpanishCurrency(totalNum);
 
-          // Inyectamos los nuevos valores en fields para el replaceExcelPlaceholders
           fields.factura = numFactura;
           fields.fecha_facturacion = today;
           fields.importe_facturado = currentAmount;
@@ -467,7 +425,6 @@
                     });
                 })
                 .then(function(targetCardIdSaved) {
-                  // Actualizar historial en el tablero de Clientes
                   var forced = {};
                   if (seqIndex === 1) {
                     forced.fecha_facturacion = today;
@@ -484,7 +441,6 @@
                   var targetHistoryListId = data.idListClientes || data.idList;
                   return sectionFrameWindow.updateHistoryCard(t, targetHistoryListId, true, forced, fields)
                     .then(function() {
-                      // Actualizar registro en tarjeta Facturas
                       statusDiv.textContent = 'Guardando registro histórico de la factura...';
                       t.sizeTo(document.body).done();
                       return sectionFrameWindow.updateInvoicesTableOnCard(t, targetCardIdSaved, token, today, numFactura, fields.nombre, fields.dni, currentAmount, currentTotal);
