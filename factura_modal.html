@@ -814,6 +814,66 @@
       });
     }
 
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& significa el carácter coincidente completo
+    }
+
+    // Helper para centralizar la sustitución de marcadores de posición en Excel (fijos y dinámicos)
+    function replaceExcelPlaceholders(text, fields, isProforma) {
+      if (!text || typeof text !== 'string') return text;
+      
+      var facturaVal = isProforma ? "___________" : (fields.factura || "___________");
+      
+      // 1. Reemplazo de marcadores estructurados fijos
+      var res = text.replace(/\{\{Nombre\}\}/gi, fields.nombre)
+        .replace(/\{\{DNI\}\}/gi, fields.dni)
+        .replace(/\{\{Domicilio\}\}/gi, fields.domicilio)
+        .replace(/\{\{Teléfono\}\}/gi, fields.telefono || "___________")
+        .replace(/\{\{Telefono\}\}/gi, fields.telefono || "___________")
+        .replace(/\{\{Profesión\}\}/gi, fields.profesion || "___________")
+        .replace(/\{\{Observaciones\}\}/gi, fields.observaciones || "___________")
+        .replace(/\{\{Fecha del siniestro\}\}/gi, fields.fecha || "___________")
+        .replace(/\{\{Hora\}\}/gi, fields.hora || "___________")
+        .replace(/\{\{Lugar\}\}/gi, fields.lugar || "___________")
+        .replace(/\{\{Ciudad\}\}/gi, fields.ciudad || "___________")
+        .replace(/\{\{Matrícula1\}\}/gi, fields.matricula1 || "___________")
+        .replace(/\{\{Aseguradora1\}\}/gi, fields.aseguradora1 || "___________")
+        .replace(/\{\{Matrícula2\}\}/gi, fields.matricula2 || "___________")
+        .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2 || "___________")
+        .replace(/\{\{Fecha del sistema\}\}/gi, fields.fecha_sistema || "___________")
+        .replace(/\{\{Fecha última actuación\}\}/gi, fields.fecha_ultima || "___________")
+        .replace(/\{\{Fecha cierre expediente\}\}/gi, fields.fecha_cierre || "___________")
+        .replace(/\{\{Fecha facturación\}\}/gi, fields.fecha_facturacion || "___________")
+        .replace(/\{\{Fecha de resolución\}\}/gi, fields.fecha_resolucion || "___________")
+        .replace(/\{\{Fecha comunicación designa\}\}/gi, fields.fecha_designa || "___________")
+        .replace(/\{\{Fecha reclamación previa\}\}/gi, fields.fecha_reclamacion || "___________")
+        .replace(/\{\{Fecha apertura expediente\}\}/gi, fields.fecha_apertura || "___________")
+        .replace(/\{\{Fecha siniestro\}\}/gi, fields.fecha_siniestro || "___________")
+        .replace(/\{\{Número de factura\}\}/gi, facturaVal)
+        .replace(/\{\{Numero de factura\}\}/gi, facturaVal)
+        .replace(/\{\{Importe final\}\}/gi, fields["importe final"] || fields["Importe final"] || "___________")
+        .replace(/\{\{Importe facturacion\}\}/gi, fields.importe_facturado || fields.importe_facturacion || fields["importe a facturar"] || fields["Importe a facturar"] || fields["importe final"] || fields["Importe final"] || "___________")
+        .replace(/\{\{Total Factura\}\}/gi, fields.total_factura || fields["total factura"] || "___________")
+        .replace(/\{\{Total factura\}\}/gi, fields.total_factura || fields["total factura"] || "___________")
+        .replace(/\{\{DDs\}\}/gi, fields.dds || "___________")
+        .replace(/\{\{Mess\}\}/gi, fields.mess || "___________")
+        .replace(/\{\{AAAAs\}\}/gi, fields.aaaas || "___________")
+        .replace(/\{\{Número de expediente:\}\}/gi, fields.num_expediente || "___________")
+        .replace(/\{\{Numero de expediente:\}\}/gi, fields.num_expediente || "___________")
+        .replace(/\{\{Número de expediente\}\}/gi, fields.num_expediente || "___________")
+        .replace(/\{\{Parrafada\}\}/gi, fields.parrafada || "");
+
+      // 2. Reemplazo dinámico para cualquier otro marcador adicional (Honorarios, Gastos, Total, etc)
+      for (var key in fields) {
+        if (fields.hasOwnProperty(key)) {
+          var regex = new RegExp("\\{\\{\\s*" + escapeRegExp(key) + "\\s*\\}\\}", "gi");
+          res = res.replace(regex, fields[key] || "");
+        }
+      }
+      
+      return res;
+    }
+
     function getAndUpdateInvoiceNumber(t, token) {
       var appKey = t.getRestApi().appKey;
       return t.lists('all').then(function(lists) {
