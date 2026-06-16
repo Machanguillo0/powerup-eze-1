@@ -1744,6 +1744,7 @@
                           return l.name.trim().toLowerCase() === listName.trim().toLowerCase();
                         });
                         if (!billingList) {
+                          unified._hasChecklistInvoices = false;
                           return { 
                             fields: unified, 
                             count: cardsInList.length,
@@ -1762,6 +1763,7 @@
                               return nameLower === "facturas" || nameLower === "facturación" || nameLower === "facturacion";
                             });
                             if (!facturasCardCross) {
+                              unified._hasChecklistInvoices = false;
                               return { 
                                 fields: unified, 
                                 count: cardsInList.length,
