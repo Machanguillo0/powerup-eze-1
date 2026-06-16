@@ -556,6 +556,21 @@
             }
           }
         });
+      } else {
+        unified._hasChecklistInvoices = false;
+        unified.factura = "___________";
+        unified.fecha_facturacion = "___________";
+        unified.importe_facturacion = "___________";
+        unified.total_factura = "___________";
+        unified.total_facturado = "___________";
+        unified.importe_facturado = "___________";
+        for (var s = 2; s <= 10; s++) {
+          delete unified["factura" + s];
+          delete unified["fecha_facturacion" + s];
+          delete unified["importe_facturacion" + s];
+          delete unified["total_factura" + s];
+        }
+      }
       }
     }
 
