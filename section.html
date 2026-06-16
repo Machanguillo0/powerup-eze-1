@@ -2495,7 +2495,7 @@
               return n.includes("historial de procesos") || n.includes("historial de avisos");
             });
 
-            if (!combinedFields._hasChecklistInvoices && historyCard && historyCard.desc) {
+            if (combinedFields._hasChecklistInvoices === undefined && historyCard && historyCard.desc) {
               var lines = historyCard.desc.split('\n');
               lines.forEach(function (line) {
                 line = line.trim();
@@ -3155,7 +3155,7 @@
                                       item.prop === "importe_facturacion" || item.prop === "total_factura" ||
                                       /^(fecha_facturacion|factura|importe_facturacion|total_factura)\d+$/.test(item.prop);
                   
-                  if (isInvoiceProp && (unified._hasChecklistInvoices || !localFacturasCard)) {
+                  if (isInvoiceProp && localFacturasCard) {
                     values[item.prop] = unified[item.prop] || "___________";
                   }
                   
