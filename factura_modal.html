@@ -107,6 +107,17 @@
     <input type="text" id="concepto-contabilidad" value="Negociación">
   </div>
 
+  <div id="warning-exceso" style="display: none; background-color: #ffebe6; border-left: 4px solid #de350b; padding: 12px; margin-bottom: 16px; border-radius: 3px;">
+    <div style="color: #ae2a02; font-weight: bold; font-size: 13px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+      <span>Importe supera previsto facturar</span>
+    </div>
+    <div style="font-size: 12px; color: #5e6c84; margin-bottom: 8px; line-height: 1.4;">
+      El importe acumulado facturado superará la previsión "A Facturar" de la tarjeta de Importes. ¿Deseas validar y continuar de todas formas?
+    </div>
+    <button id="btn-validar-exceso" style="background-color: #de350b; color: white; height: 32px; padding: 0 12px; font-size: 12px; font-weight: bold; border-radius: 3px; border: none; cursor: pointer; line-height: 32px;">Aceptar y Continuar</button>
+  </div>
+
   <div class="actions">
     <button id="btn-cancelar" class="btn-secondary">Cancelar</button>
     <button id="btn-facturar" class="btn-primary">Facturar</button>
@@ -124,6 +135,8 @@
     });
 
     var cachedData = null;
+    var globalAFacturar = 0;
+    var globalFacturado = 0;
 
     // Helper para actualizar el texto de estado en la UI de forma segura
     function setStatus(msg) {
@@ -327,6 +340,61 @@
               body: JSON.stringify({ desc: newDesc })
             });
           }
+        });
+      });
+    }
+
+    function updateFacturadoInImportesCard(t, token, newTotalFacturado) {
+      return t.card('idList').then(function(currentCard) {
+        return t.cards('id', 'name', 'desc', 'idList').then(function(cards) {
+          var cardsInList = cards.filter(function(c) { return c.idList === currentCard.idList; });
+          var importesCard = cardsInList.find(function(c) {
+            return c.name.toLowerCase().includes("importes");
+          });
+          if (!importesCard) return;
+
+          var appKey = t.getRestApi().appKey;
+          var currentDesc = importesCard.desc || "";
+          var lines = currentDesc.split(/\r?\n/);
+          var updated = false;
+          var formattedVal = newTotalFacturado.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+          
+          var newLines = lines.map(function(line) {
+            var sepIndex = line.indexOf(':');
+            if (sepIndex === -1) sepIndex = line.indexOf('=');
+            if (sepIndex > -1) {
+              var key = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+              var keyClean = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+              if (keyClean === "facturado") {
+                var formulaPart = line.substring(0, sepIndex + 1).trim();
+                var valPart = line.substring(sepIndex + 1).trim();
+                var lastBrace = valPart.lastIndexOf('}}');
+                if (lastBrace > -1) {
+                  var formula = valPart.substring(0, lastBrace + 2).trim();
+                  var newLineText = formulaPart + " " + formula + " = " + formattedVal;
+                  updated = true;
+                  return newLineText;
+                } else {
+                  var newLineText = key + ": " + formattedVal;
+                  updated = true;
+                  return newLineText;
+                }
+              }
+            }
+            return line;
+          });
+
+          if (!updated) {
+            newLines.push("Facturado: " + formattedVal);
+            updated = true;
+          }
+
+          var newDesc = newLines.join('\n');
+          return fetch(`https://api.trello.com/1/cards/${importesCard.id}?key=${appKey}&token=${token}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ desc: newDesc })
+          });
         });
       });
     }
@@ -667,12 +735,149 @@
             }
           });
 
-          return {
-            fields: unified,
-            count: cardsInList.length,
-            targetCardId: targetCardId || currentCardId,
-            idList: idList
-          };
+          var taxPct = getTaxPercentage(unified);
+          for (var idx = 1; idx <= 10; idx++) {
+            var suffix = (idx === 1) ? '' : idx;
+            var baseKey = 'importe_facturacion' + suffix;
+            var totalKey = 'total_factura' + suffix;
+            
+            var baseVal = unified[baseKey];
+            if (baseVal && baseVal !== '___________') {
+              var baseAmount = parseSpanishFloat(baseVal);
+              var totalAmount = baseAmount + (baseAmount * taxPct / 100);
+              unified[totalKey] = formatSpanishCurrency(totalAmount);
+              if (idx === 1) {
+                unified['total_factura'] = unified[totalKey];
+                unified['total factura'] = unified[totalKey];
+              }
+            } else {
+              unified[totalKey] = '___________';
+              if (idx === 1) {
+                unified['total_factura'] = '___________';
+                unified['total factura'] = '___________';
+              }
+            }
+          }
+
+          var appKey = t.getRestApi().appKey;
+          return t.getRestApi().isAuthorized().then(function(auth) {
+            if (!auth) {
+              return { 
+                fields: unified, 
+                count: cardsInList.length,
+                targetCardId: targetCardId || currentCardId,
+                idList: idList
+              };
+            }
+            
+            return t.getRestApi().getToken().then(function(token) {
+              var facturasCard = cardsInList.find(function(c) {
+                var nameLower = c.name.trim().toLowerCase();
+                return nameLower === "facturas" || nameLower === "facturación" || nameLower === "facturacion";
+              });
+              
+              if (!facturasCard) {
+                // Búsqueda cruzada en el tablero de FACTURACIÓN
+                var searchQuery = encodeURIComponent('name:"Tipo tablero"');
+                return fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
+                  .then(function(res) {
+                    if (!res.ok) throw new Error("Search failed");
+                    return res.json();
+                  })
+                  .then(function(searchData) {
+                    var cards = searchData.cards || [];
+                    var facturacionCard = cards.find(function(c) {
+                      var n = c.name.toUpperCase();
+                      return n.includes('TIPO TABLERO') && (n.includes('FACTURACIÓN') || n.includes('FACTURACION'));
+                    });
+                    if (!facturacionCard) {
+                      return { 
+                        fields: unified, 
+                        count: cardsInList.length,
+                        targetCardId: targetCardId || currentCardId,
+                        idList: idList
+                      };
+                    }
+                    var idBoardFacturacion = facturacionCard.idBoard;
+                    return fetch(`https://api.trello.com/1/boards/${idBoardFacturacion}/lists?key=${appKey}&token=${token}`)
+                      .then(function(res) {
+                        if (!res.ok) throw new Error("Boards lists fetch failed");
+                        return res.json();
+                      })
+                      .then(function(lists) {
+                        var billingList = lists.find(function(l) {
+                          return l.name.trim().toLowerCase() === listName.trim().toLowerCase();
+                        });
+                        if (!billingList) {
+                          return { 
+                            fields: unified, 
+                            count: cardsInList.length,
+                            targetCardId: targetCardId || currentCardId,
+                            idList: idList
+                          };
+                        }
+                        return fetch(`https://api.trello.com/1/lists/${billingList.id}/cards?key=${appKey}&token=${token}`)
+                          .then(function(res) {
+                            if (!res.ok) throw new Error("List cards fetch failed");
+                            return res.json();
+                          })
+                          .then(function(billingCards) {
+                            var facturasCardCross = billingCards.find(function(c) {
+                              var nameLower = c.name.trim().toLowerCase();
+                              return nameLower === "facturas" || nameLower === "facturación" || nameLower === "facturacion";
+                            });
+                            if (!facturasCardCross) {
+                              return { 
+                                fields: unified, 
+                                count: cardsInList.length,
+                                targetCardId: targetCardId || currentCardId,
+                                idList: idList
+                              };
+                            }
+                            return fetch(`https://api.trello.com/1/cards/${facturasCardCross.id}/checklists?key=${appKey}&token=${token}`)
+                              .then(function(res) {
+                                if (!res.ok) throw new Error("Checklists fetch failed");
+                                return res.json();
+                              })
+                              .then(function(checklists) {
+                                parseChecklistsToUnified(checklists, unified);
+                                return { 
+                                  fields: unified, 
+                                  count: cardsInList.length,
+                                  targetCardId: targetCardId || currentCardId,
+                                  idList: idList
+                                };
+                              });
+                          });
+                      });
+                  })
+                  .catch(function(err) {
+                    console.error("Error al buscar checklist cruzada de Facturación:", err);
+                    return { 
+                      fields: unified, 
+                      count: cardsInList.length,
+                      targetCardId: targetCardId || currentCardId,
+                      idList: idList
+                    };
+                  });
+              }
+              
+              return fetch(`https://api.trello.com/1/cards/${facturasCard.id}/checklists?key=${appKey}&token=${token}`)
+                .then(function(res) {
+                  if (!res.ok) throw new Error("Error fetching checklists");
+                  return res.json();
+                })
+                .then(function(checklists) {
+                  parseChecklistsToUnified(checklists, unified);
+                  return { 
+                    fields: unified, 
+                    count: cardsInList.length,
+                    targetCardId: targetCardId || currentCardId,
+                    idList: idList
+                  };
+                });
+            });
+          });
         });
       });
     }
@@ -1096,41 +1301,42 @@
           return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
         }
         
-        var resolvedValue = "";
-        
-        t.card('id', 'idList').then(function(currentCard) {
-          return t.cards('id', 'name', 'desc', 'idList').then(function(cards) {
-            var cardsInList = cards.filter(function(c) { return c.idList === currentCard.idList; });
-            var importesCard = cardsInList.find(function(c) {
-              return c.name.toLowerCase().includes("importes");
-            });
-
-            if (importesCard && importesCard.desc) {
-              var lines = importesCard.desc.split('\n');
-              lines.forEach(function(line) {
-                var sepIndex = line.indexOf(':');
-                if (sepIndex === -1) sepIndex = line.indexOf('=');
-                if (sepIndex > -1) {
-                  var k = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim().toLowerCase();
-                  var v = line.substring(sepIndex + 1).replace(/[*_~`#]/g, '').trim();
-                  if (k.indexOf("a facturar") > -1) {
-                    resolvedValue = v;
-                  }
-                }
-              });
+        getUnifiedFields(t).then(function(data) {
+          var fields = data.fields;
+          
+          var hasChecklistInvoices = false;
+          var sumFacturado = 0;
+          if (fields.importe_facturacion && fields.importe_facturacion !== "___________") {
+            sumFacturado += parseSpanishFloat(fields.importe_facturacion);
+            hasChecklistInvoices = true;
+          }
+          for (var s = 2; s <= 10; s++) {
+            var valKey = "importe_facturacion" + s;
+            if (fields[valKey] && fields[valKey] !== "___________") {
+              sumFacturado += parseSpanishFloat(fields[valKey]);
+              hasChecklistInvoices = true;
             }
-            
-            if (resolvedValue) {
-              var lastEquals = resolvedValue.lastIndexOf('=');
-              if (lastEquals > -1) {
-                resolvedValue = resolvedValue.substring(lastEquals + 1).trim();
-              }
-              resolvedValue = resolvedValue.replace(/€/g, '').trim();
-            }
+          }
 
-            document.getElementById('importe-factura').value = resolvedValue || "0,00";
-            setStatus("Introduce el importe y concepto, luego haz clic en 'Facturar'.");
-          });
+          var resolvedValue = fields["a facturar"] || fields["A facturar"] || "";
+          if (resolvedValue) {
+            var lastEquals = resolvedValue.lastIndexOf('=');
+            if (lastEquals > -1) {
+              resolvedValue = resolvedValue.substring(lastEquals + 1).trim();
+            }
+            resolvedValue = resolvedValue.replace(/€/g, '').trim();
+          }
+
+          // Si NO existen facturas en la checklist, el acumulado facturado debe ser 0
+          if (!hasChecklistInvoices) {
+            globalFacturado = 0;
+          } else {
+            globalFacturado = sumFacturado;
+          }
+          globalAFacturar = parseSpanishFloat(resolvedValue);
+
+          document.getElementById('importe-factura').value = resolvedValue || "0,00";
+          setStatus("Introduce el importe y concepto, luego haz clic en 'Facturar'.");
         });
       }).catch(function(err) {
         setStatus("Error al inicializar: " + err.message);
@@ -1143,9 +1349,29 @@
       t.closeModal();
     });
 
-    // Acción de Clicar Facturar -> Abre el selector de archivos
+    // Acción de Clicar Facturar -> Abre el selector de archivos o muestra advertencia
     document.getElementById('btn-facturar').addEventListener('click', function(e) {
       e.preventDefault();
+      
+      var inputImporte = document.getElementById('importe-factura').value.trim();
+      var baseNum = parseSpanishFloat(inputImporte);
+      var totalFacturadoAcumulado = globalFacturado + baseNum;
+      
+      if (globalAFacturar > 0 && totalFacturadoAcumulado > globalAFacturar) {
+        // Mostrar advertencia de exceso de importe
+        document.getElementById('warning-exceso').style.display = 'block';
+        t.sizeTo(document.body).done();
+      } else {
+        // Proceder directamente
+        document.getElementById('warning-exceso').style.display = 'none';
+        document.getElementById('factura-upload').click();
+      }
+    });
+
+    // Acción del botón de validar exceso en el aviso
+    document.getElementById('btn-validar-exceso').addEventListener('click', function(e) {
+      e.preventDefault();
+      document.getElementById('warning-exceso').style.display = 'none';
       document.getElementById('factura-upload').click();
     });
 
@@ -1158,10 +1384,24 @@
 
       var inputImporte = document.getElementById('importe-factura').value.trim();
       var inputConcepto = document.getElementById('concepto-contabilidad').value.trim();
+      var baseNum = parseSpanishFloat(inputImporte);
 
       getCrossBoardBillingData(t).then(function(data) {
         var fields = data.fields;
         var token = data.token;
+
+        var sumFacturadoExistente = 0;
+        if (fields.importe_facturacion) {
+          sumFacturadoExistente += parseSpanishFloat(fields.importe_facturacion);
+        }
+        for (var s = 2; s <= 10; s++) {
+          var valKey = "importe_facturacion" + s;
+          if (fields[valKey]) {
+            sumFacturadoExistente += parseSpanishFloat(fields[valKey]);
+          }
+        }
+        
+        var newTotalFacturado = (sumFacturadoExistente > 0) ? (sumFacturadoExistente + baseNum) : (globalFacturado + baseNum);
 
         setStatus('Autogenerando número de factura correlativo...');
 
@@ -1179,7 +1419,6 @@
 
           var today = new Date().toLocaleDateString('es-ES');
           var taxPct = getTaxPercentage(fields);
-          var baseNum = parseSpanishFloat(inputImporte);
           
           // Formatear importe a sistema europeo estándar (con puntos para miles y coma para decimales)
           var formattedAmount = baseNum.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1281,6 +1520,10 @@
                     .then(function() {
                       setStatus('Guardando registro histórico de la factura...');
                       return updateInvoicesTableOnCard(t, targetCardIdSaved, token, today, numFactura, fields.nombre, fields.dni, currentAmount, currentTotal);
+                    })
+                    .then(function() {
+                      setStatus('Actualizando acumulado facturado en Importes...');
+                      return updateFacturadoInImportesCard(t, token, newTotalFacturado);
                     });
                 })
                 .then(function() {
