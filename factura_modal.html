@@ -1216,18 +1216,8 @@
                 { label: "**Fecha de comunicación designación:**", prop: "fecha_designa" },
                 { label: "**Fecha de reclamación previa:**", prop: "fecha_reclamacion" },
                 { label: "**Fecha creación de expediente:**", prop: "fecha_apertura" },
-                { label: "**Fecha del siniestro:**", prop: "fecha" },
-                { label: "**Fecha de facturación:**", prop: "fecha_facturacion" },
-                { label: "**Número de factura:**", prop: "factura" },
-                { label: "**Importe facturación:**", prop: "importe_facturacion" },
-                { label: "**Total factura:**", prop: "total_factura" }
+                { label: "**Fecha del siniestro:**", prop: "fecha" }
               ];
-              for (var idx = 2; idx <= 10; idx++) {
-                historyKeys.push({ label: "**Fecha de facturación " + idx + ":**", prop: "fecha_facturacion" + idx });
-                historyKeys.push({ label: "**Número de factura " + idx + ":**", prop: "factura" + idx });
-                historyKeys.push({ label: "**Importe facturación " + idx + ":**", prop: "importe_facturacion" + idx });
-                historyKeys.push({ label: "**Total factura " + idx + ":**", prop: "total_factura" + idx });
-              }
 
               if (historyCard) {
                 var desc = historyCard.desc || "";
@@ -1258,21 +1248,18 @@
                   needsUpdate = true;
                 }
                 
+                // Reconstruir descripción sin acumular campos de facturas
                 var newDescLines = [];
                 historyKeys.forEach(item => {
-                  var isSequential = false;
-                  for (var s = 2; s <= 10; s++) {
-                    if (item.prop === "fecha_facturacion" + s || item.prop === "factura" + s || item.prop === "importe_facturacion" + s || item.prop === "total_factura" + s) {
-                      isSequential = true; break;
-                    }
-                  }
-                  if (!isSequential || (values[item.prop] && values[item.prop] !== "___________")) {
-                    newDescLines.push(item.label + " " + values[item.prop]);
-                  }
+                  newDescLines.push(item.label + " " + values[item.prop]);
                 });
 
                 lines.forEach(line => {
                   var lineLower = line.trim().toLowerCase();
+                  // Excluir cualquier línea que contenga "factura" o "facturacion"
+                  if (lineLower.includes("factura") || lineLower.includes("facturacion") || lineLower.includes("facturación")) {
+                    return;
+                  }
                   var isKeyLine = historyKeys.some(item => {
                     var baseLabel = item.label.replace(/\*/g, '').replace(/:$/, '').trim().toLowerCase();
                     var variations = [baseLabel];
