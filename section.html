@@ -2192,7 +2192,7 @@
     // Función auxiliar para obtener, incrementar y guardar el número secuencial de factura (evita duplicados de forma inteligente)
     function getAndUpdateInvoiceNumber(t, token) {
       var appKey = t.getRestApi().appKey;
-      return t.lists('all').then(function(lists) {
+      return t.lists('id', 'name').then(function(lists) {
         var paramList = lists.find(function(l) { 
           var n = l.name.toUpperCase();
           return n === 'PARÁMETROS' || n === 'PARAMETROS'; 
@@ -2201,70 +2201,67 @@
           throw new Error("No se encontró la lista 'PARÁMETROS' en el tablero.");
         }
 
-        return t.cards('all').then(function(openCards) {
-          return t.cards('closed').then(function(closedCards) {
-            var allCards = openCards.concat(closedCards);
-            var configCard = allCards.find(function(c) {
-              var n = c.name.toLowerCase();
-              return c.idList === paramList.id && (n.includes('gestión de facturas') || n.includes('gestion de facturas'));
-            });
+        return t.cards('id', 'name', 'desc', 'idList').then(function(openCards) {
+          var configCard = openCards.find(function(c) {
+            var n = c.name.toLowerCase();
+            return c.idList === paramList.id && (n.includes('gestión de facturas') || n.includes('gestion de facturas'));
+          });
+          
+          if (!configCard) {
+            throw new Error("No se encontró la tarjeta 'Gestión de facturas' en la lista 'PARÁMETROS'.");
+          }
+          
+          var desc = configCard.desc || "";
+          var lines = desc.split(/\r?\n/);
+          var year = new Date().getFullYear();
+          var seq = 0;
+          var otherLines = [];
+          
+          lines.forEach(function(line) {
+            var trimmed = line.trim();
+            if (!trimmed) return;
             
-            if (!configCard) {
-              throw new Error("No se encontró la tarjeta 'Gestión de facturas' en la lista 'PARÁMETROS'.");
-            }
-            
-            var desc = configCard.desc || "";
-            var lines = desc.split(/\r?\n/);
-            var year = new Date().getFullYear();
-            var seq = 0;
-            var otherLines = [];
-            
-            lines.forEach(function(line) {
-              var trimmed = line.trim();
-              if (!trimmed) return;
-              
-              if (/año.*factura/i.test(trimmed)) {
-                var m = trimmed.match(/\d+/);
-                if (m) {
-                  year = parseInt(m[0], 10);
-                }
-              } else if (/secuencial.*factura/i.test(trimmed)) {
-                var m = trimmed.match(/\d+/);
-                if (m) {
-                  var parsedSeq = parseInt(m[0], 10);
-                  seq = Math.max(seq, parsedSeq);
-                }
-              } else {
-                otherLines.push(line);
+            if (/año.*factura/i.test(trimmed)) {
+              var m = trimmed.match(/\d+/);
+              if (m) {
+                year = parseInt(m[0], 10);
               }
-            });
-            
-            var nextSeq = seq + 1;
-            var numFactura = year + "/" + nextSeq;
-            
-            // Reconstruir la descripción de forma limpia eliminando duplicados
-            var newDescLines = [
-              "Año de factura: " + year,
-              "Secuencial de factura: " + nextSeq
-            ];
-            
-            if (otherLines.length > 0) {
-              newDescLines.push("");
-              newDescLines = newDescLines.concat(otherLines);
+            } else if (/secuencial.*factura/i.test(trimmed)) {
+              var m = trimmed.match(/\d+/);
+              if (m) {
+                var parsedSeq = parseInt(m[0], 10);
+                seq = Math.max(seq, parsedSeq);
+              }
+            } else {
+              otherLines.push(line);
             }
-            
-            var newDesc = newDescLines.join("\n");
+          });
+          
+          var nextSeq = seq + 1;
+          var numFactura = year + "/" + nextSeq;
+          
+          // Reconstruir la descripción de forma limpia eliminando duplicados
+          var newDescLines = [
+            "Año de factura: " + year,
+            "Secuencial de factura: " + nextSeq
+          ];
+          
+          if (otherLines.length > 0) {
+            newDescLines.push("");
+            newDescLines = newDescLines.concat(otherLines);
+          }
+          
+          var newDesc = newDescLines.join("\n");
 
-            // Actualizar la tarjeta en Trello
-            return fetch(`https://api.trello.com/1/cards/${configCard.id}?key=${appKey}&token=${token}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ desc: newDesc })
-            })
-            .then(function(res) {
-              if (!res.ok) throw new Error("Error al actualizar la tarjeta de Gestión de facturas.");
-              return numFactura;
-            });
+          // Actualizar la tarjeta en Trello
+          return fetch(`https://api.trello.com/1/cards/${configCard.id}?key=${appKey}&token=${token}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ desc: newDesc })
+          })
+          .then(function(res) {
+            if (!res.ok) throw new Error("Error al actualizar la tarjeta de Gestión de facturas.");
+            return numFactura;
           });
         });
       });
@@ -2272,22 +2269,19 @@
 
     // Función auxiliar para obtener la descripción de la tarjeta "Gestión de facturas"
     function getInvoiceConfig(t) {
-      return t.lists('all').then(function(lists) {
+      return t.lists('id', 'name').then(function(lists) {
         var paramList = lists.find(function(l) { 
           var n = l.name.toUpperCase();
           return n === 'PARÁMETROS' || n === 'PARAMETROS'; 
         });
         if (!paramList) return null;
 
-        return t.cards('all').then(function(openCards) {
-          return t.cards('closed').then(function(closedCards) {
-            var allCards = openCards.concat(closedCards);
-            var configCard = allCards.find(function(c) {
-              var n = c.name.toLowerCase();
-              return c.idList === paramList.id && (n.includes('gestión de facturas') || n.includes('gestion de facturas'));
-            });
-            return configCard ? configCard.desc : null;
+        return t.cards('id', 'name', 'desc', 'idList').then(function(openCards) {
+          var configCard = openCards.find(function(c) {
+            var n = c.name.toLowerCase();
+            return c.idList === paramList.id && (n.includes('gestión de facturas') || n.includes('gestion de facturas'));
           });
+          return configCard ? configCard.desc : null;
         });
       }).catch(function(err) {
         console.error("Error al obtener la configuración de facturas:", err);
@@ -2871,26 +2865,23 @@
     }
 
     var getBoardTypeSafe = function(t) {
-      return t.lists('all').then(function(lists) {
+      return t.lists('id', 'name').then(function(lists) {
         var paramList = lists.find(function(l) { 
           var n = l.name.toUpperCase();
           return n === 'PARÁMETROS' || n === 'PARAMETROS'; 
         });
         if (!paramList) return 'CLIENTES';
 
-        return t.cards('all').then(function(openCards) {
-          return t.cards('closed').then(function(closedCards) {
-            var allCards = openCards.concat(closedCards);
-            var typeCard = allCards.find(function(c) {
-              return c.idList === paramList.id && c.name.toLowerCase().startsWith('tipo tablero');
-            });
-            if (!typeCard) return 'CLIENTES';
-
-            var name = typeCard.name.toUpperCase();
-            if (name.includes('PLANNING')) return 'PLANNING';
-            if (name.includes('FACTURACIÓN') || name.includes('FACTURACION')) return 'FACTURACIÓN';
-            return 'CLIENTES';
+        return t.cards('id', 'name', 'idList').then(function(openCards) {
+          var typeCard = openCards.find(function(c) {
+            return c.idList === paramList.id && c.name && c.name.toLowerCase().startsWith('tipo tablero');
           });
+          if (!typeCard) return 'CLIENTES';
+
+          var name = typeCard.name.toUpperCase();
+          if (name.includes('PLANNING')) return 'PLANNING';
+          if (name.includes('FACTURACIÓN') || name.includes('FACTURACION')) return 'FACTURACIÓN';
+          return 'CLIENTES';
         });
       }).catch(function(err) {
         return 'ERROR: ' + (err.message || err);

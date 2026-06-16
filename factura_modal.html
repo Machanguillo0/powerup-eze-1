@@ -1095,15 +1095,13 @@
 
     function getAndUpdateInvoiceNumber(t, token) {
       var appKey = t.getRestApi().appKey;
-      return t.lists('all').then(function(lists) {
+      return t.lists('id', 'name').then(function(lists) {
         var paramList = lists.find(l => l.name.toUpperCase() === 'PARÁMETROS' || l.name.toUpperCase() === 'PARAMETROS');
         if (!paramList) throw new Error("No se encontró la lista 'PARÁMETROS'");
 
-        return t.cards('all').then(openCards => {
-          return t.cards('closed').then(closedCards => {
-            var allCards = openCards.concat(closedCards);
-            var configCard = allCards.find(c => c.idList === paramList.id && (c.name.toLowerCase().includes('gestión de facturas') || c.name.toLowerCase().includes('gestion de facturas')));
-            if (!configCard) throw new Error("No se encontró tarjeta 'Gestión de facturas'");
+        return t.cards('id', 'name', 'desc', 'idList').then(openCards => {
+          var configCard = openCards.find(c => c.idList === paramList.id && c.name && (c.name.toLowerCase().includes('gestión de facturas') || c.name.toLowerCase().includes('gestion de facturas')));
+          if (!configCard) throw new Error("No se encontró tarjeta 'Gestión de facturas'");
             
             var desc = configCard.desc || "";
             var lines = desc.split(/\r?\n/);
@@ -1139,7 +1137,6 @@
             });
           });
         });
-      });
     }
 
     function getOrCreateFacturasCard(t, idList, token) {

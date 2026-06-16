@@ -7,26 +7,23 @@ var BASE_URL = window.location.href.substring(0, window.location.href.lastIndexO
 
 // Función de utilidad inyectada para detectar el tipo de tablero de forma segura
 var getBoardTypeSafe = function(t) {
-  return t.lists('all').then(function(lists) {
+  return t.lists('id', 'name').then(function(lists) {
     var paramList = lists.find(function(l) { 
       var n = l.name.toUpperCase();
       return n === 'PARÁMETROS' || n === 'PARAMETROS'; 
     });
     if (!paramList) return 'CLIENTES';
 
-    return t.cards('all').then(function(openCards) {
-      return t.cards('closed').then(function(closedCards) {
-        var allCards = openCards.concat(closedCards);
-        var typeCard = allCards.find(function(c) {
-          return c.idList === paramList.id && c.name.toLowerCase().startsWith('tipo tablero');
-        });
-        if (!typeCard) return 'CLIENTES';
-
-        var name = typeCard.name.toUpperCase();
-        if (name.includes('PLANNING')) return 'PLANNING';
-        if (name.includes('FACTURACIÓN') || name.includes('FACTURACION')) return 'FACTURACIÓN';
-        return 'CLIENTES';
+    return t.cards('id', 'name', 'idList').then(function(openCards) {
+      var typeCard = openCards.find(function(c) {
+        return c.idList === paramList.id && c.name && c.name.toLowerCase().startsWith('tipo tablero');
       });
+      if (!typeCard) return 'CLIENTES';
+
+      var name = typeCard.name.toUpperCase();
+      if (name.includes('PLANNING')) return 'PLANNING';
+      if (name.includes('FACTURACIÓN') || name.includes('FACTURACION')) return 'FACTURACIÓN';
+      return 'CLIENTES';
     });
   }).catch(function(err) {
     console.error("Error detectando tablero:", err);
