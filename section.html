@@ -3155,7 +3155,7 @@
                                       item.prop === "importe_facturacion" || item.prop === "total_factura" ||
                                       /^(fecha_facturacion|factura|importe_facturacion|total_factura)\d+$/.test(item.prop);
                   
-                  if (isInvoiceProp && localFacturasCard) {
+                  if (isInvoiceProp && unified._hasChecklistInvoices !== undefined) {
                     values[item.prop] = unified[item.prop] || "___________";
                   }
                   
