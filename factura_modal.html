@@ -93,9 +93,67 @@
       color: #5e6c84;
       font-style: italic;
     }
+    .billing-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .summary-card {
+      background-color: #ffffff;
+      border: 1px solid #dfe1e6;
+      border-radius: 4px;
+      padding: 8px 6px;
+      text-align: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .summary-card.highlighted {
+      background-color: #e6fcf5;
+      border-color: #c3f6e3;
+    }
+    .summary-card.warning-style {
+      background-color: #ffebe6;
+      border-color: #ffbdad;
+    }
+    .summary-label {
+      display: block;
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #6b778c;
+      margin-bottom: 4px;
+      letter-spacing: 0.5px;
+    }
+    .summary-value {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: #172b4d;
+    }
+    .summary-card.highlighted .summary-value {
+      color: #0e6245;
+    }
+    .summary-card.warning-style .summary-value {
+      color: #bf2600;
+    }
   </style>
 </head>
 <body>
+
+  <div class="billing-summary-grid">
+    <div class="summary-card">
+      <span class="summary-label">A Facturar</span>
+      <span class="summary-value" id="summary-a-facturar">0,00 €</span>
+    </div>
+    <div class="summary-card">
+      <span class="summary-label">Facturado</span>
+      <span class="summary-value" id="summary-facturado">0,00 €</span>
+    </div>
+    <div class="summary-card" id="card-pendiente">
+      <span class="summary-label">Pendiente</span>
+      <span class="summary-value" id="summary-pendiente">0,00 €</span>
+    </div>
+  </div>
 
   <div class="form-group">
     <label for="importe-factura">Importe Factura (€)</label>
@@ -1334,6 +1392,26 @@
             globalFacturado = sumFacturado;
           }
           globalAFacturar = parseSpanishFloat(resolvedValue);
+
+          // Actualizar tarjetas resumen
+          var pendiente = globalAFacturar - globalFacturado;
+          document.getElementById('summary-a-facturar').textContent = formatSpanishCurrency(globalAFacturar);
+          document.getElementById('summary-facturado').textContent = formatSpanishCurrency(globalFacturado);
+          
+          var pCard = document.getElementById('card-pendiente');
+          var pVal = document.getElementById('summary-pendiente');
+          if (pVal) {
+            pVal.textContent = formatSpanishCurrency(pendiente);
+          }
+          if (pCard) {
+            if (pendiente <= 0) {
+              pCard.classList.add('warning-style');
+              pCard.classList.remove('highlighted');
+            } else {
+              pCard.classList.add('highlighted');
+              pCard.classList.remove('warning-style');
+            }
+          }
 
           document.getElementById('importe-factura').value = resolvedValue || "0,00";
           setStatus("Introduce el importe y concepto, luego haz clic en 'Facturar'.");
