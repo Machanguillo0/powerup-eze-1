@@ -1748,15 +1748,22 @@
       var resto = 0;
       var restoPanel = document.getElementById('resto-panel');
       
-      if (targetVal > finalTotal) {
+      if (targetVal > 0 && Math.abs(targetVal - finalTotal) >= 0.01) {
         resto = targetVal - finalTotal;
         finalTotal = targetVal;
         if (restoPanel) restoPanel.style.display = 'flex';
+        var labelResto = document.getElementById('desglose-resto');
+        if (labelResto) {
+          if (resto < 0) {
+            labelResto.textContent = '-' + Math.abs(resto).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+          } else {
+            labelResto.textContent = resto.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+          }
+        }
       } else {
         if (restoPanel) restoPanel.style.display = 'none';
       }
 
-      document.getElementById('desglose-resto').textContent = resto.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
       labelTotal.textContent = finalTotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
     }
 
@@ -2108,10 +2115,16 @@
       }
 
       var sumatoriaTotal = totalIzquierda + totalDerecha;
+      var targetVal = globalFacturado > 0 ? globalFacturado : globalAFacturar;
+
       var resto = 0;
-      if (base > sumatoriaTotal) {
-        resto = base - sumatoriaTotal;
-        lines.push('- Descuento especial: ' + resto.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+      if (targetVal > 0 && Math.abs(targetVal - sumatoriaTotal) >= 0.01) {
+        resto = targetVal - sumatoriaTotal;
+        if (resto < 0) {
+          lines.push('  * Descuento especial: -' + Math.abs(resto).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        } else {
+          lines.push('  * Descuento especial: ' + resto.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+        }
         itemsSelectedCount++;
       }
 
@@ -2120,6 +2133,7 @@
         return;
       }
 
+      var total = targetVal > 0 ? targetVal : sumatoriaTotal;
       lines.push('------------------------------------------------');
       lines.push('IMPORTE TOTAL: ' + total.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
       lines.push('================================================');
@@ -2257,7 +2271,9 @@
           totalConceptos -= Math.round(baseDescuento30b * 0.25 * 100) / 100;
         }
 
-        if (base > totalConceptos) {
+        var targetVal = globalFacturado > 0 ? globalFacturado : globalAFacturar;
+
+        if (targetVal > 0 && Math.abs(targetVal - totalConceptos) >= 0.01) {
           itemsCount++;
         }
 
@@ -2372,9 +2388,11 @@
       });
       var totalConceptos = sumaActual;
 
+      var targetVal = globalFacturado > 0 ? globalFacturado : globalAFacturar;
+
       var restoVal = 0;
-      if (base > sumaActual) {
-        restoVal = base - sumaActual;
+      if (targetVal > 0 && Math.abs(targetVal - totalConceptos) >= 0.01) {
+        restoVal = targetVal - totalConceptos;
         conceptosList.push({ name: 'Descuento especial', val: restoVal });
       }
 
@@ -2398,8 +2416,9 @@
         }
 
         // Asignar el importe base ajustado (Resto) a Concepto_0 e Importe_0
-        fields["Concepto_0"] = restoVal > 0 ? "Descuento especial" : "";
-        fields["Importe_0"] = restoVal > 0 ? restoVal.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €' : "";
+        fields["Concepto_0"] = restoVal !== 0 ? "Descuento especial" : "";
+        fields["Importe_0"] = restoVal !== 0 ? 
+          (restoVal < 0 ? '-' + Math.abs(restoVal).toLocaleString('es-ES', { minimumFractionDigits: 2 }) : restoVal.toLocaleString('es-ES', { minimumFractionDigits: 2 })) + ' €' : "";
 
         // Asignar fecha y número de la factura seleccionada a marcadores
         fields["Fecha_Factura"] = selectedDate;
@@ -2411,6 +2430,7 @@
         fields["Nº_Factura"] = selectedNum;
         fields["NºFactura"] = selectedNum;
 
+        var total = targetVal > 0 ? targetVal : totalConceptos;
         fields["Total_Desglose_Imp"] = total.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
 
         // Marcadores de sumatorios y descripciones de las columnas para la plantilla Excel
@@ -2487,9 +2507,13 @@
         }
         fields["Criterio_30b_Imp"] = (chkCriterio30b && chkCriterio30b.checked) ? "-" + (Math.round(baseDescuento30bExcel * 0.25 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
         
-        var restoCalculado = (base > totalConceptos) ? (base - totalConceptos) : 0;
-        fields["Base_Ajustada"] = restoCalculado > 0 ? "Descuento especial" : "";
-        fields["Base_Ajustada_Imp"] = restoCalculado > 0 ? restoCalculado.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        var restoCalculado = 0;
+        if (targetVal > 0 && Math.abs(targetVal - totalConceptos) >= 0.01) {
+          restoCalculado = targetVal - totalConceptos;
+        }
+        fields["Base_Ajustada"] = restoCalculado !== 0 ? "Descuento especial" : "";
+        fields["Base_Ajustada_Imp"] = restoCalculado !== 0 ? 
+          (restoCalculado < 0 ? '-' + Math.abs(restoCalculado).toLocaleString('es-ES', { minimumFractionDigits: 2 }) : restoCalculado.toLocaleString('es-ES', { minimumFractionDigits: 2 })) + " €" : "";
 
         function escapeRegExp(string) {
           return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
