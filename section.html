@@ -2890,6 +2890,153 @@
       });
     };
 
+    // Función para sincronizar de manera automática el acumulado "Facturado" de la tarjeta de Importes
+    // con la suma de las facturas que realmente existen en el checklist de la tarjeta de Facturas.
+    function syncFacturadoFromChecklist(t, idList) {
+      return t.getRestApi().isAuthorized().then(function(authorized) {
+        if (!authorized) return;
+        return t.getRestApi().getToken().then(function(token) {
+          if (!token) return;
+          var appKey = t.getRestApi().appKey;
+
+          // 1. Obtener todas las tarjetas de la lista
+          return fetch(`https://api.trello.com/1/lists/${idList}/cards?key=${appKey}&token=${token}`)
+            .then(function(res) {
+              if (!res.ok) throw new Error("Error obteniendo tarjetas de la lista");
+              return res.json();
+            })
+            .then(function(cards) {
+              // Buscar tarjeta "Facturas" e "Importes"
+              var facturasCard = cards.find(function(c) {
+                var n = c.name.trim().toLowerCase();
+                return n === "facturas" || n === "facturación" || n === "facturacion";
+              });
+              var importesCard = cards.find(function(c) {
+                return c.name.toLowerCase().includes("importes");
+              });
+
+              if (!facturasCard || !importesCard) return;
+
+              // 2. Obtener checklists de la tarjeta de Facturas
+              return fetch(`https://api.trello.com/1/cards/${facturasCard.id}/checklists?key=${appKey}&token=${token}`)
+                .then(function(res) {
+                  if (!res.ok) throw new Error("Error obteniendo checklists");
+                  return res.json();
+                })
+                .then(function(checklists) {
+                  // Encontrar checklist de relación de facturas
+                  var ch = checklists.find(function(c) {
+                    var n = c.name.trim().toLowerCase();
+                    return n === "relación de facturas generadas" || 
+                           n === "relacion de facturas generadas" || 
+                           n.indexOf("relación de facturas") > -1 ||
+                           n.indexOf("relacion de facturas") > -1;
+                  });
+
+                  var sumFacturado = 0;
+                  var hasChecklistInvoices = false;
+                  if (ch && ch.checkItems && ch.checkItems.length > 0) {
+                    hasChecklistInvoices = true;
+                    ch.checkItems.forEach(function(item) {
+                      var parts = item.name.split('|').map(function(s) { return s.trim(); });
+                      if (parts.length >= 2) {
+                        var fAmount = "0";
+                        var basePart = parts.find(function(p) { return /^(?:Base:|Importe:)/i.test(p); });
+                        if (basePart) {
+                          fAmount = basePart.replace(/^(?:Base:|Importe:)\s*/i, '').trim();
+                        } else {
+                          fAmount = parts[parts.length - 1] || "0";
+                        }
+                        sumFacturado += parseSpanishFloat(fAmount);
+                      }
+                    });
+                  }
+
+                  // 3. Comparar con el valor actual de "Facturado" en la tarjeta de Importes
+                  var desc = importesCard.desc || "";
+                  var lines = desc.split(/\r?\n/);
+                  var currentFacturado = 0;
+                  var sepIndexLine = -1;
+                  var keyLineName = "Facturado";
+                  var lineFound = false;
+
+                  for (var idx = 0; idx < lines.length; idx++) {
+                    var line = lines[idx];
+                    var sepIndex = line.indexOf(':');
+                    if (sepIndex === -1) sepIndex = line.indexOf('=');
+                    if (sepIndex > -1) {
+                      var key = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+                      var keyClean = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+                      if (keyClean === "facturado") {
+                        lineFound = true;
+                        var valPart = line.substring(sepIndex + 1).trim();
+                        var lastEquals = valPart.lastIndexOf('=');
+                        if (lastEquals > -1) {
+                          valPart = valPart.substring(lastEquals + 1).trim();
+                        }
+                        valPart = valPart.replace(/€/g, '').trim();
+                        currentFacturado = parseSpanishFloat(valPart);
+                        break;
+                      }
+                    }
+                  }
+
+                  // Si el valor calculado de la checklist difiere del valor actual de la tarjeta, actualizamos la tarjeta
+                  var diff = Math.abs(currentFacturado - sumFacturado);
+                  if (diff > 0.01 || (!lineFound && sumFacturado > 0)) {
+                    console.log(`Antigravity Power-up: Desajuste de Facturado detectado. Local: ${currentFacturado}, Real: ${sumFacturado}. Actualizando...`);
+                    
+                    var formattedVal = sumFacturado.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+                    var updated = false;
+
+                    var newLines = newLines = lines.map(function(line) {
+                      var sepIndex = line.indexOf(':');
+                      if (sepIndex === -1) sepIndex = line.indexOf('=');
+                      if (sepIndex > -1) {
+                        var key = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+                        var keyClean = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+                        if (keyClean === "facturado") {
+                          var formulaPart = line.substring(0, sepIndex + 1).trim();
+                          var valPart = line.substring(sepIndex + 1).trim();
+                          var lastBrace = valPart.lastIndexOf('}}');
+                          if (lastBrace > -1) {
+                            var formula = valPart.substring(0, lastBrace + 2).trim();
+                            var newLineText = formulaPart + " " + formula + " = " + formattedVal;
+                            updated = true;
+                            return newLineText;
+                          } else {
+                            var newLineText = key + ": " + formattedVal;
+                            updated = true;
+                            return newLineText;
+                          }
+                        }
+                      }
+                      return line;
+                    });
+
+                    if (!updated) {
+                      newLines.push("Facturado: " + formattedVal);
+                    }
+
+                    var newDesc = newLines.join('\n');
+                    return fetch(`https://api.trello.com/1/cards/${importesCard.id}?key=${appKey}&token=${token}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ desc: newDesc })
+                    }).then(function(putRes) {
+                      if (putRes.ok) {
+                        console.log("Antigravity Power-up: Acumulado Facturado sincronizado con éxito.");
+                      }
+                    });
+                  }
+                });
+            });
+        });
+      }).catch(function(err) {
+        console.error("Error en sincronización automática de Facturado:", err);
+      });
+    }
+
     t.render(function () {
       // Diagnóstico inicial
       document.getElementById('debug-info').style.display = 'block';
@@ -2913,6 +3060,10 @@
         // Consultar los datos de la tarjeta actual que necesitamos (id, name, desc, idList)
         return t.card('id', 'name', 'desc', 'idList').then(function(card) {
           var promises = [];
+          
+          if (isFacturacion && card && card.idList) {
+            promises.push(syncFacturadoFromChecklist(t, card.idList));
+          }
           
           if (card && card.name) {
             var nameLower = card.name.toLowerCase();
