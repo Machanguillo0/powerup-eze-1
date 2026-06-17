@@ -590,6 +590,39 @@
       appName: 'Antigravity'
     });
 
+    // --- VARIABLES GLOBALES PARA CÁLCULOS DE SALDO ---
+    var globalFacturado = 0;
+    var globalAFacturar = 0;
+
+    function parseSpanishFloat(str) {
+      if (!str) return 0;
+      var cleaned = str.replace(/[^0-9.,-]/g, '');
+      if (!cleaned) return 0;
+      if (cleaned.indexOf('.') > -1 && cleaned.indexOf(',') > -1) {
+        cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+      } else if (cleaned.indexOf(',') > -1) {
+        cleaned = cleaned.replace(',', '.');
+      } else if (cleaned.indexOf('.') > -1) {
+        var parts = cleaned.split('.');
+        var lastPart = parts[parts.length - 1];
+        if (lastPart.length === 3) {
+          cleaned = cleaned.replace(/\./g, '');
+        }
+      }
+      return parseFloat(cleaned) || 0;
+    }
+
+    function cleanAndParseFloat(val) {
+      if (!val) return 0;
+      var str = String(val);
+      var lastEquals = str.lastIndexOf('=');
+      if (lastEquals > -1) {
+        str = str.substring(lastEquals + 1).trim();
+      }
+      str = str.replace(/€/g, '').trim();
+      return parseSpanishFloat(str);
+    }
+
     // --- RECOPILACIÓN Y EXTRACCIÓN DE DATOS DE TRELLO ---
     function extractFields(desc) {
       var fields = {
@@ -1709,12 +1742,15 @@
       // 3. Importe Total Definitivo (Suma de ambos totalizadores)
       var finalTotal = totalIzquierda + totalDerecha;
       
-      // Ajuste de Cuantía Base (Resto) si aplica sobre el finalTotal
+      // Ajuste del Resto (Ajuste) basado en la diferencia entre el campo "Facturado" (o en su defecto "A facturar")
+      // y la suma de los conceptos seleccionados en la pantalla
+      var targetVal = globalFacturado > 0 ? globalFacturado : globalAFacturar;
       var resto = 0;
       var restoPanel = document.getElementById('resto-panel');
-      if (base > finalTotal) {
-        resto = base - finalTotal;
-        finalTotal = base;
+      
+      if (targetVal > finalTotal) {
+        resto = targetVal - finalTotal;
+        finalTotal = targetVal;
         if (restoPanel) restoPanel.style.display = 'flex';
       } else {
         if (restoPanel) restoPanel.style.display = 'none';
@@ -1903,8 +1939,13 @@
           if (fields) {
             debugText += "<b>Claves en Importes local (Tablero Facturación):</b> " + Object.keys(fields).join(', ') + "<br>";
             
+            // Extraer y parsear valores de Facturado y A facturar para el descuento especial
+            globalFacturado = cleanAndParseFloat(fields["facturado"] || fields["Facturado"] || "");
+            globalAFacturar = cleanAndParseFloat(fields["a facturar"] || fields["A facturar"] || "");
+            
             var baseAmount = 0;
-            var possibleKeys = ['cliente cobra', 'ciente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado'];
+            // Buscar exclusivamente Cliente Cobra en base a la puntualización del usuario
+            var possibleKeys = ['cliente cobra', 'ciente cobra', 'cliente cobra acumulado'];
             for (var i = 0; i < possibleKeys.length; i++) {
               var k = possibleKeys[i];
               debugText += "Probando clave '" + k + "': " + fields[k] + " (tipo: " + typeof fields[k] + ")<br>";
@@ -1929,6 +1970,8 @@
             }
           } else {
             debugText += "No se encontraron fields locales.";
+            globalFacturado = 0;
+            globalAFacturar = 0;
           }
           if (debugDiv) {
             debugDiv.innerHTML = debugText;
@@ -2369,6 +2412,34 @@
         fields["NºFactura"] = selectedNum;
 
         fields["Total_Desglose_Imp"] = total.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+
+        // Marcadores de sumatorios y descripciones de las columnas para la plantilla Excel
+        var sumEscalables = totalIzquierda.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        var sumFijos = totalDerecha.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        
+        fields["Sumatorio criterios escalables"] = sumEscalables;
+        fields["Sumatorio_criterios_escalables"] = sumEscalables;
+        fields["sumatorio_criterios_escalables"] = sumEscalables;
+        
+        fields["Sumatorio criterios fijos"] = sumFijos;
+        fields["Sumatorio_criterios_fijos"] = sumFijos;
+        fields["sumatorio_criterios_fijos"] = sumFijos;
+
+        var descEscalables = (document.getElementById('label-col-izquierda').value || "").trim();
+        var descFijos = (document.getElementById('label-col-derecha').value || "").trim();
+
+        fields["Descripción criterios escalables"] = descEscalables;
+        fields["Descripción_criterios_escalables"] = descEscalables;
+        fields["descripción_criterios_escalables"] = descEscalables;
+
+        fields["Descripción criterios fijos"] = descFijos;
+        fields["Descripción_criterios_fijos"] = descFijos;
+        fields["descripción_criterios_fijos"] = descFijos;
+
+        // Soporte a la variante por errata de tipeo "Descrición"
+        fields["Descrición criterios fijos"] = descFijos;
+        fields["Descrición_criterios_fijos"] = descFijos;
+        fields["descrición_criterios_fijos"] = descFijos;
 
         // Marcadores estáticos individuales
         fields["Consulta_Simple"] = chkConsultaSimple.checked ? "Consulta simple o telefónica" : "";
