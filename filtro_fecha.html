@@ -20,7 +20,7 @@
       background-color: transparent;
       padding: 10px;
       margin: 0;
-      overflow: hidden;
+      overflow: visible;
     }
     
     .filter-container {
@@ -238,12 +238,6 @@
       dateFormat: "d/m/Y",
       defaultDate: "today",
       disableMobile: true,
-      onOpen: function(selectedDates, dateStr, instance) {
-        t.sizeTo(document.body).done();
-      },
-      onClose: function(selectedDates, dateStr, instance) {
-        t.sizeTo(document.body).done();
-      },
       onChange: function(selectedDates, dateStr, instance) {
         errorFecha.style.display = 'none';
         btnDescargar.disabled = false;

@@ -350,7 +350,7 @@ window.TrelloPowerUp.initialize({
             return t.popup({
               title: 'Descargar Facturas',
               url: t.signUrl('./filtro_fecha.html'),
-              height: 180
+              height: 380
             });
           }
         });
