@@ -58,6 +58,19 @@
       font-weight: 500;
       box-sizing: border-box;
       transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+      position: relative;
+    }
+    
+    .date-input::-webkit-calendar-picker-indicator {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
     }
     
     .date-input:focus {
@@ -152,9 +165,9 @@
             <line x1="3" y1="10" x2="21" y2="10"></line>
           </svg>
         </span>
-        <input type="text" id="fecha-filtro" class="date-input" placeholder="dd/mm/aaaa" maxlength="10">
+        <input type="date" id="fecha-filtro" class="date-input">
       </div>
-      <div id="error-fecha" class="error-msg">Por favor, introduce una fecha válida (dd/mm/aaaa).</div>
+      <div id="error-fecha" class="error-msg">Por favor, introduce una fecha válida.</div>
     </div>
     
     <div class="actions">
@@ -185,17 +198,9 @@
     var btnDescargar = document.getElementById('btn-descargar');
     var statusMsg = document.getElementById('status');
 
-    // --- FORMATEO AUTOMÁTICO DE LA ENTRADA DE FECHA ---
-    inputFecha.addEventListener('input', function(e) {
-      var val = e.target.value.replace(/[^0-9]/g, '');
-      if (val.length > 2 && val.length <= 4) {
-        val = val.slice(0, 2) + '/' + val.slice(2);
-      } else if (val.length > 4) {
-        val = val.slice(0, 2) + '/' + val.slice(2, 4) + '/' + val.slice(4, 8);
-      }
-      e.target.value = val;
-      
-      // Ocultar error al escribir
+    // --- COMPORTAMIENTO DE ENTRADA DE FECHA ---
+    inputFecha.addEventListener('change', function(e) {
+      // Ocultar error al cambiar la fecha
       errorFecha.style.display = 'none';
       btnDescargar.disabled = false;
     });
@@ -206,14 +211,14 @@
       var dd = String(today.getDate()).padStart(2, '0');
       var mm = String(today.getMonth() + 1).padStart(2, '0');
       var yyyy = today.getFullYear();
-      inputFecha.value = dd + '/' + mm + '/' + yyyy;
+      inputFecha.value = yyyy + '-' + mm + '-' + dd;
     }
     setTodayDate();
 
-    // --- ANALIZAR Y VALIDAR FECHA ---
-    function parseDateString(str) {
+    // --- ANALIZAR Y VALIDAR FECHA EN FORMATO ESPAÑOL (dd/mm/aaaa) ---
+    function parseSpanishDateString(str) {
       if (!str) return null;
-      var match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      var match = str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
       if (!match) return null;
       var day = parseInt(match[1], 10);
       var month = parseInt(match[2], 10) - 1; // 0-indexed en JS
@@ -221,15 +226,41 @@
       
       var date = new Date(year, month, day);
       if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) {
-        return null; // Fecha no real (ej: 31/02/2026)
+        return null;
       }
       return date;
+    }
+
+    // --- ANALIZAR Y VALIDAR FECHA EN FORMATO ISO (yyyy-mm-dd) ---
+    function parseInputDateString(str) {
+      if (!str) return null;
+      var match = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!match) return null;
+      var year = parseInt(match[1], 10);
+      var month = parseInt(match[2], 10) - 1; // 0-indexed en JS
+      var day = parseInt(match[3], 10);
+      
+      var date = new Date(year, month, day);
+      if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) {
+        return null;
+      }
+      return date;
+    }
+
+    // --- FORMATEAR FECHA ISO (yyyy-mm-dd) A ESPAÑOL (dd/mm/aaaa) ---
+    function formatDateStringToSpanish(str) {
+      if (!str) return "";
+      var parts = str.split('-');
+      if (parts.length === 3) {
+        return parts[2] + '/' + parts[1] + '/' + parts[0];
+      }
+      return str;
     }
 
     // --- ACCIÓN DE DESCARGA ---
     btnDescargar.addEventListener('click', function() {
       var dateStr = inputFecha.value;
-      var filterDate = parseDateString(dateStr);
+      var filterDate = parseInputDateString(dateStr);
       
       if (!filterDate) {
         errorFecha.style.display = 'block';
@@ -397,7 +428,7 @@
                     }
 
                     // --- FILTRADO POR FECHA DE LA FACTURA ---
-                    var itemDate = parseDateString(fDate);
+                    var itemDate = parseSpanishDateString(fDate);
                     // Solo agregamos la factura si tiene fecha válida y es igual o posterior a la del filtro
                     if (itemDate && itemDate >= filterDate) {
                       invoiceRows.push({
@@ -420,7 +451,7 @@
                 inputFecha.disabled = false;
                 t.closePopup();
                 return t.alert({
-                  message: 'No se encontraron facturas con fecha igual o posterior al ' + dateStr,
+                  message: 'No se encontraron facturas con fecha igual o posterior al ' + formatDateStringToSpanish(dateStr),
                   duration: 5,
                   display: 'warning'
                 });
@@ -478,7 +509,7 @@
                 var blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
                 
                 // Formatear la fecha para incluirla en el nombre del archivo
-                var cleanDate = dateStr.replace(/\//g, '-');
+                var cleanDate = formatDateStringToSpanish(dateStr).replace(/\//g, '-');
                 window.saveAs(blob, "Relacion_Facturas_desde_" + cleanDate + ".xlsx");
                 
                 statusMsg.style.display = 'none';
