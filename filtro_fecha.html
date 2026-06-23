@@ -9,6 +9,10 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
   <!-- Librería para forzar la descarga de archivos locales -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <!-- Flatpickr CSS y JS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/es.min.js"></script>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Noto Sans", "Ubuntu", "Droid Sans", "Helvetica Neue", sans-serif;
@@ -49,27 +53,15 @@
     .date-input {
       width: 100%;
       height: 36px;
-      padding: 8px 10px 8px 34px;
+      padding: 8px 10px 8px 36px !important;
       border: 2px solid #ced4da;
       border-radius: 4px;
-      background-color: #fff;
+      background-color: #fff !important;
       color: #172b4d;
       font-size: 13px;
       font-weight: 500;
       box-sizing: border-box;
       transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-      position: relative;
-    }
-    
-    .date-input::-webkit-calendar-picker-indicator {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      width: 100%;
-      height: 100%;
-      opacity: 0;
       cursor: pointer;
     }
     
@@ -77,6 +69,32 @@
       outline: none;
       border-color: #1f845a;
       box-shadow: 0 0 0 2px rgba(31, 132, 90, 0.2);
+    }
+    
+    .calendar-icon {
+      z-index: 10;
+    }
+    
+    /* Estilos Premium para Flatpickr integrados con Trello */
+    .flatpickr-calendar {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+      border: 1px solid #ced4da !important;
+      border-radius: 4px !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Noto Sans", "Ubuntu", "Droid Sans", "Helvetica Neue", sans-serif;
+    }
+    .flatpickr-day.selected, .flatpickr-day.selected:hover {
+      background: #1f845a !important;
+      border-color: #1f845a !important;
+    }
+    .flatpickr-day.today {
+      border-color: #1f845a !important;
+    }
+    .flatpickr-months .flatpickr-month {
+      background: #f4f5f7 !important;
+      color: #172b4d !important;
+    }
+    .flatpickr-current-month .flatpickr-monthDropdown-months {
+      font-weight: 600 !important;
     }
     
     .calendar-icon {
@@ -165,9 +183,9 @@
             <line x1="3" y1="10" x2="21" y2="10"></line>
           </svg>
         </span>
-        <input type="date" id="fecha-filtro" class="date-input">
+        <input type="text" id="fecha-filtro" class="date-input" placeholder="dd/mm/aaaa" readonly>
       </div>
-      <div id="error-fecha" class="error-msg">Por favor, introduce una fecha válida.</div>
+      <div id="error-fecha" class="error-msg">Por favor, introduce una fecha válida (dd/mm/aaaa).</div>
     </div>
     
     <div class="actions">
@@ -198,25 +216,8 @@
     var btnDescargar = document.getElementById('btn-descargar');
     var statusMsg = document.getElementById('status');
 
-    // --- COMPORTAMIENTO DE ENTRADA DE FECHA ---
-    inputFecha.addEventListener('change', function(e) {
-      // Ocultar error al cambiar la fecha
-      errorFecha.style.display = 'none';
-      btnDescargar.disabled = false;
-    });
-
-    // --- ESTABLECER LA FECHA POR DEFECTO AL CARGAR (HOY) ---
-    function setTodayDate() {
-      var today = new Date();
-      var dd = String(today.getDate()).padStart(2, '0');
-      var mm = String(today.getMonth() + 1).padStart(2, '0');
-      var yyyy = today.getFullYear();
-      inputFecha.value = yyyy + '-' + mm + '-' + dd;
-    }
-    setTodayDate();
-
-    // --- ANALIZAR Y VALIDAR FECHA EN FORMATO ESPAÑOL (dd/mm/aaaa) ---
-    function parseSpanishDateString(str) {
+    // --- ANALIZAR Y VALIDAR FECHA (dd/mm/aaaa) ---
+    function parseDateString(str) {
       if (!str) return null;
       var match = str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
       if (!match) return null;
@@ -231,36 +232,28 @@
       return date;
     }
 
-    // --- ANALIZAR Y VALIDAR FECHA EN FORMATO ISO (yyyy-mm-dd) ---
-    function parseInputDateString(str) {
-      if (!str) return null;
-      var match = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if (!match) return null;
-      var year = parseInt(match[1], 10);
-      var month = parseInt(match[2], 10) - 1; // 0-indexed en JS
-      var day = parseInt(match[3], 10);
-      
-      var date = new Date(year, month, day);
-      if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) {
-        return null;
+    // --- INICIALIZAR CALENDARIO FLATPICKR ---
+    var fp = flatpickr(inputFecha, {
+      locale: "es",
+      dateFormat: "d/m/Y",
+      defaultDate: "today",
+      disableMobile: true,
+      onOpen: function(selectedDates, dateStr, instance) {
+        t.sizeTo(document.body).done();
+      },
+      onClose: function(selectedDates, dateStr, instance) {
+        t.sizeTo(document.body).done();
+      },
+      onChange: function(selectedDates, dateStr, instance) {
+        errorFecha.style.display = 'none';
+        btnDescargar.disabled = false;
       }
-      return date;
-    }
-
-    // --- FORMATEAR FECHA ISO (yyyy-mm-dd) A ESPAÑOL (dd/mm/aaaa) ---
-    function formatDateStringToSpanish(str) {
-      if (!str) return "";
-      var parts = str.split('-');
-      if (parts.length === 3) {
-        return parts[2] + '/' + parts[1] + '/' + parts[0];
-      }
-      return str;
-    }
+    });
 
     // --- ACCIÓN DE DESCARGA ---
     btnDescargar.addEventListener('click', function() {
       var dateStr = inputFecha.value;
-      var filterDate = parseInputDateString(dateStr);
+      var filterDate = parseDateString(dateStr);
       
       if (!filterDate) {
         errorFecha.style.display = 'block';
@@ -428,7 +421,7 @@
                     }
 
                     // --- FILTRADO POR FECHA DE LA FACTURA ---
-                    var itemDate = parseSpanishDateString(fDate);
+                    var itemDate = parseDateString(fDate);
                     // Solo agregamos la factura si tiene fecha válida y es igual o posterior a la del filtro
                     if (itemDate && itemDate >= filterDate) {
                       invoiceRows.push({
@@ -451,7 +444,7 @@
                 inputFecha.disabled = false;
                 t.closePopup();
                 return t.alert({
-                  message: 'No se encontraron facturas con fecha igual o posterior al ' + formatDateStringToSpanish(dateStr),
+                  message: 'No se encontraron facturas con fecha igual o posterior al ' + dateStr,
                   duration: 5,
                   display: 'warning'
                 });
@@ -509,7 +502,7 @@
                 var blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
                 
                 // Formatear la fecha para incluirla en el nombre del archivo
-                var cleanDate = formatDateStringToSpanish(dateStr).replace(/\//g, '-');
+                var cleanDate = dateStr.replace(/\//g, '-');
                 window.saveAs(blob, "Relacion_Facturas_desde_" + cleanDate + ".xlsx");
                 
                 statusMsg.style.display = 'none';
