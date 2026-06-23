@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Filtrar Descarga de Facturas</title>
+  <!-- Estilo estándar de Trello para Power-Up -->
+  <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
+  <!-- Librería para manipular Excel en el navegador -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+  <!-- Librería para forzar la descarga de archivos locales -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Noto Sans", "Ubuntu", "Droid Sans", "Helvetica Neue", sans-serif;
+      color: #172b4d;
+      background-color: transparent;
+      padding: 10px;
+      margin: 0;
+      overflow: hidden;
+    }
+    
+    .filter-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-sizing: border-box;
+    }
+    
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    label {
+      font-weight: 600;
+      font-size: 12px;
+      color: #5e6c84;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    
+    .date-input {
+      width: 100%;
+      height: 36px;
+      padding: 8px 10px 8px 34px;
+      border: 2px solid #ced4da;
+      border-radius: 4px;
+      background-color: #fff;
+      color: #172b4d;
+      font-size: 13px;
+      font-weight: 500;
+      box-sizing: border-box;
+      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+    
+    .date-input:focus {
+      outline: none;
+      border-color: #1f845a;
+      box-shadow: 0 0 0 2px rgba(31, 132, 90, 0.2);
+    }
+    
+    .calendar-icon {
+      position: absolute;
+      left: 10px;
+      color: #6b778c;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .error-msg {
+      font-size: 11px;
+      color: #bf2600;
+      font-weight: 600;
+      margin-top: 2px;
+      display: none;
+    }
+    
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    
+    button {
+      height: 36px;
+      padding: 0 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 13px;
+      border: none;
+      box-sizing: border-box;
+      transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+    }
+    
+    button:active {
+      transform: scale(0.97);
+    }
+    
+    button.primary {
+      background-color: #1f845a;
+      color: white;
+      flex-grow: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    
+    button.primary:hover {
+      background-color: #166b44;
+      box-shadow: 0 4px 6px rgba(31, 132, 90, 0.15);
+    }
+    
+    button.primary:disabled {
+      background-color: #ebecf0;
+      color: #a5adba;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    
+    .status-msg {
+      font-size: 11px;
+      color: #5e6c84;
+      font-style: italic;
+      text-align: center;
+      margin-top: 4px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="filter-container">
+    <div class="input-group">
+      <label for="fecha-filtro">Descargar desde fecha:</label>
+      <div class="input-wrapper">
+        <span class="calendar-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+        </span>
+        <input type="text" id="fecha-filtro" class="date-input" placeholder="dd/mm/aaaa" maxlength="10">
+      </div>
+      <div id="error-fecha" class="error-msg">Por favor, introduce una fecha válida (dd/mm/aaaa).</div>
+    </div>
+    
+    <div class="actions">
+      <button id="btn-descargar" class="primary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Descargar Excel
+      </button>
+    </div>
+    
+    <div id="status" class="status-msg">Procesando...</div>
+  </div>
+
+  <!-- Librería oficial de Trello Power-Up -->
+  <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  
+  <script>
+    var t = window.TrelloPowerUp.iframe({
+      appKey: '30767998cbb7b57a692e8bb50cfa9a9c',
+      appName: 'Antigravity'
+    });
+
+    var inputFecha = document.getElementById('fecha-filtro');
+    var errorFecha = document.getElementById('error-fecha');
+    var btnDescargar = document.getElementById('btn-descargar');
+    var statusMsg = document.getElementById('status');
+
+    // --- FORMATEO AUTOMÁTICO DE LA ENTRADA DE FECHA ---
+    inputFecha.addEventListener('input', function(e) {
+      var val = e.target.value.replace(/[^0-9]/g, '');
+      if (val.length > 2 && val.length <= 4) {
+        val = val.slice(0, 2) + '/' + val.slice(2);
+      } else if (val.length > 4) {
+        val = val.slice(0, 2) + '/' + val.slice(2, 4) + '/' + val.slice(4, 8);
+      }
+      e.target.value = val;
+      
+      // Ocultar error al escribir
+      errorFecha.style.display = 'none';
+      btnDescargar.disabled = false;
+    });
+
+    // --- ESTABLECER LA FECHA POR DEFECTO AL CARGAR (HOY) ---
+    function setTodayDate() {
+      var today = new Date();
+      var dd = String(today.getDate()).padStart(2, '0');
+      var mm = String(today.getMonth() + 1).padStart(2, '0');
+      var yyyy = today.getFullYear();
+      inputFecha.value = dd + '/' + mm + '/' + yyyy;
+    }
+    setTodayDate();
+
+    // --- ANALIZAR Y VALIDAR FECHA ---
+    function parseDateString(str) {
+      if (!str) return null;
+      var match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (!match) return null;
+      var day = parseInt(match[1], 10);
+      var month = parseInt(match[2], 10) - 1; // 0-indexed en JS
+      var year = parseInt(match[3], 10);
+      
+      var date = new Date(year, month, day);
+      if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) {
+        return null; // Fecha no real (ej: 31/02/2026)
+      }
+      return date;
+    }
+
+    // --- ACCIÓN DE DESCARGA ---
+    btnDescargar.addEventListener('click', function() {
+      var dateStr = inputFecha.value;
+      var filterDate = parseDateString(dateStr);
+      
+      if (!filterDate) {
+        errorFecha.style.display = 'block';
+        btnDescargar.disabled = true;
+        return;
+      }
+
+      // Ocultar campos y mostrar cargando
+      statusMsg.textContent = "Iniciando descarga de facturas...";
+      statusMsg.style.display = 'block';
+      btnDescargar.disabled = true;
+      inputFecha.disabled = true;
+
+      t.alert({
+        message: 'Iniciando descarga de facturas...',
+        duration: 2,
+        display: 'info'
+      });
+
+      Promise.all([
+        t.cards('id', 'name', 'idList', 'pos'),
+        t.lists('id', 'name')
+      ]).then(function (results) {
+        var cards = results[0];
+        var lists = results[1];
+        var mapListas = {};
+        lists.forEach(function (l) { mapListas[l.id] = l.name; });
+
+        var cardsByList = {};
+        cards.forEach(function(c) {
+          if (!cardsByList[c.idList]) {
+            cardsByList[c.idList] = [];
+          }
+          cardsByList[c.idList].push(c);
+        });
+
+        // Nombre de cliente por primera tarjeta de la lista
+        var clientePorLista = {};
+        lists.forEach(function(l) {
+          var listCards = cardsByList[l.id] || [];
+          listCards.sort(function(a, b) { return a.pos - b.pos; });
+
+          var firstCard = listCards.find(function(c) {
+            var nameLower = c.name.toLowerCase().trim();
+            return nameLower !== "facturas" && 
+                   nameLower !== "facturación" && 
+                   nameLower !== "facturacion" && 
+                   nameLower !== "importes" && 
+                   !nameLower.includes("historial de procesos") && 
+                   !nameLower.includes("historial de avisos");
+          });
+
+          clientePorLista[l.id] = firstCard ? firstCard.name : "Sin Cliente";
+        });
+
+        var facturasCards = cards.filter(function(c) {
+          var nameLower = c.name.trim().toLowerCase();
+          return nameLower === "facturas" || nameLower === "facturación" || nameLower === "facturacion";
+        });
+
+        if (facturasCards.length === 0) {
+          statusMsg.style.display = 'none';
+          btnDescargar.disabled = false;
+          inputFecha.disabled = false;
+          t.closePopup();
+          return t.alert({
+            message: 'No se encontraron tarjetas de Facturas en este tablero.',
+            duration: 5,
+            display: 'warning'
+          });
+        }
+
+        return t.getRestApi().isAuthorized().then(function(auth) {
+          if (!auth) {
+            statusMsg.style.display = 'none';
+            btnDescargar.disabled = false;
+            inputFecha.disabled = false;
+            t.closePopup();
+            return t.alert({
+              message: 'Por favor, autoriza primero el Power-Up en el menú de acciones de cualquier tarjeta para poder descargar las facturas.',
+              duration: 8,
+              display: 'error'
+            });
+          }
+
+          return t.getRestApi().getToken().then(function(token) {
+            var appKey = t.getRestApi().appKey;
+            statusMsg.textContent = "Leyendo checklists de facturas...";
+
+            var fetchPromises = facturasCards.map(function(card) {
+              return fetch('https://api.trello.com/1/cards/' + card.id + '/checklists?key=' + appKey + '&token=' + token)
+                .then(function(res) {
+                  if (!res.ok) throw new Error("Error fetching checklists");
+                  return res.json();
+                })
+                .then(function(checklists) {
+                  return { card: card, checklists: checklists };
+                })
+                .catch(function(err) {
+                  console.error("Error al consultar checklists de tarjeta " + card.id + ":", err);
+                  return { card: card, checklists: [] };
+                });
+            });
+
+            return Promise.all(fetchPromises).then(function(results) {
+              var invoiceRows = [];
+
+              results.forEach(function(res) {
+                var card = res.card;
+                var checklists = res.checklists;
+                var listName = mapListas[card.idList] || "Desconocida";
+                var clientName = clientePorLista[card.idList] || "Sin Cliente";
+
+                var ch = checklists.find(function(c) {
+                  var n = c.name.trim().toLowerCase();
+                  return n === "relación de facturas generadas" || 
+                         n === "relacion de facturas generadas" || 
+                         n === "relaación de facturas generadas" || 
+                         n === "relaacion de facturas generadas" ||
+                         n.indexOf("relación de facturas") > -1 ||
+                         n.indexOf("relacion de facturas") > -1 ||
+                         n.indexOf("relaación de facturas") > -1;
+                });
+
+                if (ch && ch.checkItems && ch.checkItems.length > 0) {
+                  var checkItems = ch.checkItems.concat().sort(function(a, b) {
+                    return a.pos - b.pos;
+                  });
+
+                  checkItems.forEach(function(item) {
+                    var parts = item.name.split('|').map(function(s) { return s.trim(); });
+                    var fDate = "";
+                    var fNum = "";
+                    var fAmount = "";
+                    var fTotal = "";
+
+                    if (parts.length >= 2) {
+                      fDate = parts[0] || "";
+
+                      var numPart = parts.find(function(p) { return /^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)/i.test(p); });
+                      if (numPart) {
+                        fNum = numPart.replace(/^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)\s*/i, '').trim();
+                      } else {
+                        fNum = parts[1] || "";
+                      }
+
+                      var basePart = parts.find(function(p) { return /^(?:Base:|Importe:)/i.test(p); });
+                      if (basePart) {
+                        fAmount = basePart.replace(/^(?:Base:|Importe:)\s*/i, '').trim();
+                      } else {
+                        fAmount = parts[parts.length - 1] || "";
+                      }
+
+                      var totalPart = parts.find(function(p) { return /^(?:Total:)/i.test(p); });
+                      if (totalPart) {
+                        fTotal = totalPart.replace(/^(?:Total:)\s*/i, '').trim();
+                      } else {
+                        fTotal = fAmount;
+                      }
+                    } else {
+                      fDate = "";
+                      fNum = item.name;
+                      fAmount = "";
+                      fTotal = "";
+                    }
+
+                    // --- FILTRADO POR FECHA DE LA FACTURA ---
+                    var itemDate = parseDateString(fDate);
+                    // Solo agregamos la factura si tiene fecha válida y es igual o posterior a la del filtro
+                    if (itemDate && itemDate >= filterDate) {
+                      invoiceRows.push({
+                        expediente: listName,
+                        cliente: clientName,
+                        fecha: fDate,
+                        factura: fNum,
+                        base: fAmount,
+                        total: fTotal,
+                        estado: item.state === "complete" ? "Cobrada" : "Pendiente"
+                      });
+                    }
+                  });
+                }
+              });
+
+              if (invoiceRows.length === 0) {
+                statusMsg.style.display = 'none';
+                btnDescargar.disabled = false;
+                inputFecha.disabled = false;
+                t.closePopup();
+                return t.alert({
+                  message: 'No se encontraron facturas con fecha igual o posterior al ' + dateStr,
+                  duration: 5,
+                  display: 'warning'
+                });
+              }
+
+              statusMsg.textContent = "Generando archivo Excel...";
+
+              return new Promise(function(resolve, reject) {
+                if (window.ExcelJS) return resolve();
+                var script = document.createElement('script');
+                script.src = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js";
+                script.onload = function() { resolve(); };
+                script.onerror = reject;
+                document.head.appendChild(script);
+              })
+              .then(function() {
+                var workbook = new ExcelJS.Workbook();
+                var sheet = workbook.addWorksheet('Relación de Facturas');
+
+                sheet.columns = [
+                  { header: 'Expediente / Lista', key: 'expediente', width: 25 },
+                  { header: 'Cliente', key: 'cliente', width: 30 },
+                  { header: 'Fecha', key: 'fecha', width: 15 },
+                  { header: 'Nº Factura', key: 'factura', width: 15 },
+                  { header: 'Importe Base', key: 'base', width: 15 },
+                  { header: 'Importe Total', key: 'total', width: 15 },
+                  { header: 'Estado', key: 'estado', width: 15 }
+                ];
+
+                var headerRow = sheet.getRow(1);
+                headerRow.font = { bold: true };
+                headerRow.fill = {
+                  type: 'pattern',
+                  pattern: 'solid',
+                  fgColor: { argb: 'FFE6F4EA' }
+                };
+
+                invoiceRows.forEach(function(row) {
+                  sheet.addRow(row);
+                });
+
+                return workbook.xlsx.writeBuffer();
+              })
+              .then(function(buffer) {
+                return new Promise(function(resolve, reject) {
+                  if (window.saveAs) return resolve(buffer);
+                  var scriptFS = document.createElement('script');
+                  scriptFS.src = "https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js";
+                  scriptFS.onload = function() { resolve(buffer); };
+                  scriptFS.onerror = reject;
+                  document.head.appendChild(scriptFS);
+                });
+              })
+              .then(function(buffer) {
+                var blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+                
+                // Formatear la fecha para incluirla en el nombre del archivo
+                var cleanDate = dateStr.replace(/\//g, '-');
+                window.saveAs(blob, "Relacion_Facturas_desde_" + cleanDate + ".xlsx");
+                
+                statusMsg.style.display = 'none';
+                btnDescargar.disabled = false;
+                inputFecha.disabled = false;
+                
+                t.alert({ message: 'Descarga de facturas completada.', duration: 3, display: 'success' });
+                t.closePopup();
+              });
+            });
+          });
+        });
+      })
+      .catch(function (err) {
+        console.error("Error al descargar facturas:", err);
+        statusMsg.style.display = 'none';
+        btnDescargar.disabled = false;
+        inputFecha.disabled = false;
+        t.closePopup();
+        return t.alert({ message: 'Error al exportar facturas.', duration: 6, display: 'error' });
+      });
+    });
+  </script>
+</body>
+</html>
