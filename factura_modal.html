@@ -1217,19 +1217,21 @@
         });
     }
 
-    function updateInvoicesTableOnCard(t, targetCardId, token, today, numFactura, nombreCliente, dniCliente, importeBase, importeTotal) {
+    function updateInvoicesTableOnCard(t, targetCardId, token, today, numFactura, nombreCliente, dniCliente, importeBase, importeIgic, importeTotal, concepto) {
       var appKey = t.getRestApi().appKey;
       var cleanNombre = (nombreCliente || "Cliente Desconocido").replace(/\|/g, " ");
       var cleanDni = (dniCliente || "___________").replace(/\|/g, " ");
       var cleanBase = (importeBase || "___________").replace(/\|/g, " ");
+      var cleanIgic = (importeIgic || "___________").replace(/\|/g, " ");
       var cleanTotal = (importeTotal || "___________").replace(/\|/g, " ");
+      var cleanConcepto = (concepto || "Negociación").replace(/\|/g, " ");
 
       return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?key=${appKey}&token=${token}`)
         .then(res => res.json())
         .then(checklists => {
           var targetChecklistName = "Relación de Facturas Generadas";
           var ch = checklists.find(c => c.name === targetChecklistName);
-          var newItemText = `${today} | Nº: ${numFactura} | ${cleanNombre} | DNI: ${cleanDni} | Base: ${cleanBase} | Total: ${cleanTotal}`;
+          var newItemText = `${today} | Nº: ${numFactura} | ${cleanNombre} | DNI: ${cleanDni} | Base: ${cleanBase} | Igic: ${cleanIgic} | Total: ${cleanTotal} | MODO: T/T | ${cleanConcepto}`;
 
           if (ch) {
             var item = ch.checkItems.find(i => i.name.indexOf(`Nº: ${numFactura}`) > -1 || i.name.indexOf(`Nº:  ${numFactura}`) > -1);
@@ -1505,7 +1507,10 @@
           var currentAmount = formattedAmount;
           var currentConcept = inputConcepto || "Negociación";
 
-          var totalNum = baseNum + (baseNum * taxPct / 100);
+          var igicNum = baseNum * (taxPct / 100);
+          var currentIgic = formatSpanishCurrency(igicNum);
+
+          var totalNum = baseNum + igicNum;
           var currentTotal = formatSpanishCurrency(totalNum);
 
           // Campos estándar para uso interno y compatibilidad
@@ -1597,7 +1602,7 @@
                   return updateHistoryCard(t, targetHistoryListId, true, forced, fields)
                     .then(function() {
                       setStatus('Guardando registro histórico de la factura...');
-                      return updateInvoicesTableOnCard(t, targetCardIdSaved, token, today, numFactura, fields.nombre, fields.dni, currentAmount, currentTotal);
+                      return updateInvoicesTableOnCard(t, targetCardIdSaved, token, today, numFactura, fields.nombre, fields.dni, currentAmount, currentIgic, currentTotal, currentConcept);
                     })
                     .then(function() {
                       setStatus('Actualizando acumulado facturado en Importes...');

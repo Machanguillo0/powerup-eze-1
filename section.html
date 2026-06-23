@@ -2131,14 +2131,16 @@
     }
 
     // Función auxiliar para actualizar la lista de comprobación nativa en la tarjeta "Facturas"
-    function updateInvoicesTableOnCard(t, targetCardId, token, today, numFactura, nombreCliente, dniCliente, importeBase, importeTotal) {
+    function updateInvoicesTableOnCard(t, targetCardId, token, today, numFactura, nombreCliente, dniCliente, importeBase, importeIgic, importeTotal, concepto) {
       var appKey = t.getRestApi().appKey;
       
       // Limpiar barras verticales | para no romper el formato de texto
       var cleanNombre = (nombreCliente || "Cliente Desconocido").replace(/\|/g, " ");
       var cleanDni = (dniCliente || "___________").replace(/\|/g, " ");
       var cleanBase = (importeBase || "___________").replace(/\|/g, " ");
+      var cleanIgic = (importeIgic || "___________").replace(/\|/g, " ");
       var cleanTotal = (importeTotal || "___________").replace(/\|/g, " ");
+      var cleanConcepto = (concepto || "Negociación").replace(/\|/g, " ");
 
       // ACTUALIZAR LISTA DE COMPROBACIÓN NATIVA (Interactiva y visual en Trello)
       return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?key=${appKey}&token=${token}`)
@@ -2150,7 +2152,7 @@
           var targetChecklistName = "Relación de Facturas Generadas";
           var ch = checklists.find(function(c) { return c.name === targetChecklistName; });
           
-          var newItemText = `${today} | Nº: ${numFactura} | ${cleanNombre} | DNI: ${cleanDni} | Base: ${cleanBase} | Total: ${cleanTotal}`;
+          var newItemText = `${today} | Nº: ${numFactura} | ${cleanNombre} | DNI: ${cleanDni} | Base: ${cleanBase} | Igic: ${cleanIgic} | Total: ${cleanTotal} | MODO: T/T | ${cleanConcepto}`;
 
           if (ch) {
             // Ya existe la lista de comprobación
