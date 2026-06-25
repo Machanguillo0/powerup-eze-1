@@ -904,6 +904,7 @@
 
     var lastDesc = null;
     window.pendingVisualRefresh = false;
+    window.isApiAuthorized = false;
 
     function triggerVisualRefresh() {
       console.log("Antigravity Power-up: Ejecutando refresco visual.");
@@ -1827,6 +1828,27 @@
       });
     }
 
+    // Interceptar clic para verificar autorización en un hilo síncrono del usuario
+    document.getElementById('word-upload').addEventListener('click', function (event) {
+      if (!window.isApiAuthorized) {
+        event.preventDefault();
+        t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href })
+          .then(function(token) {
+            if (token) {
+              window.isApiAuthorized = true;
+              t.alert({
+                message: 'Autorización completada con éxito. Vuelve a hacer clic para subir la plantilla. 🔑',
+                duration: 5,
+                display: 'success'
+              });
+            }
+          })
+          .catch(function(err) {
+            console.error("Error al autorizar:", err);
+          });
+      }
+    });
+
     // Lógica para procesar el Documento Word (UNIFICADA)
     document.getElementById('word-upload').addEventListener('change', function (event) {
       if (!event.target.files || event.target.files.length === 0) return;
@@ -1938,7 +1960,26 @@
 
 
     // Lógica para el botón "Enviar a facturar"
-    document.getElementById('boton-facturar').addEventListener('click', function() {
+    document.getElementById('boton-facturar').addEventListener('click', function(e) {
+      if (!window.isApiAuthorized) {
+        e.preventDefault();
+        t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href })
+          .then(function(token) {
+            if (token) {
+              window.isApiAuthorized = true;
+              t.alert({
+                message: 'Autorización completada con éxito. Ya puedes pulsar de nuevo para enviar a facturar. 🔑',
+                duration: 5,
+                display: 'success'
+              });
+            }
+          })
+          .catch(function(err) {
+            console.error("Error al autorizar:", err);
+          });
+        return;
+      }
+
       var statusDiv = document.getElementById('upload-status');
       statusDiv.textContent = 'Buscando tablero de FACTURACIÓN...';
       
@@ -2615,7 +2656,22 @@
     }
 
     // Botón para visualizar la extracción unificada en el panel de Facturación
-    document.getElementById('boton-desc-facturacion').addEventListener('click', function () {
+    document.getElementById('boton-desc-facturacion').addEventListener('click', function (e) {
+      if (!window.isApiAuthorized) {
+        e.preventDefault();
+        t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href })
+          .then(function(token) {
+            if (token) {
+              window.isApiAuthorized = true;
+              document.getElementById('boton-desc-facturacion').click();
+            }
+          })
+          .catch(function(err) {
+            console.error("Error al autorizar:", err);
+          });
+        return;
+      }
+
       var container = document.getElementById('descripcion-container');
       container.innerHTML = "<em>Cargando y unificando datos desde el tablero de Clientes...</em>";
       container.style.display = 'block';
@@ -2760,6 +2816,27 @@
       });
     });
 
+    // Interceptar clic para verificar autorización en un hilo síncrono del usuario
+    document.getElementById('proforma-upload').addEventListener('click', function (event) {
+      if (!window.isApiAuthorized) {
+        event.preventDefault();
+        t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href })
+          .then(function(token) {
+            if (token) {
+              window.isApiAuthorized = true;
+              t.alert({
+                message: 'Autorización completada con éxito. Vuelve a hacer clic para subir la proforma. 🔑',
+                duration: 5,
+                display: 'success'
+              });
+            }
+          })
+          .catch(function(err) {
+            console.error("Error al autorizar:", err);
+          });
+      }
+    });
+
     // Nuevo event listener para Generar Proforma en Facturación (datos cruzados + plantilla Excel)
     document.getElementById('proforma-upload').addEventListener('change', function (event) {
       if (!event.target.files || event.target.files.length === 0) return;
@@ -2859,6 +2936,24 @@
       btnGenerarFacturaModal.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
+        if (!window.isApiAuthorized) {
+          t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href })
+            .then(function(token) {
+              if (token) {
+                window.isApiAuthorized = true;
+                t.modal({
+                  url: './factura_modal.html?v=78',
+                  height: 380,
+                  title: 'Generar Factura',
+                  accentColor: '#1f845a'
+                });
+              }
+            })
+            .catch(function(err) {
+              console.error("Error al autorizar:", err);
+            });
+          return;
+        }
         t.modal({
           url: './factura_modal.html?v=78',
           height: 380,
@@ -3040,6 +3135,10 @@
     }
 
     t.render(function () {
+      t.getRestApi().isAuthorized().then(function(auth) {
+        window.isApiAuthorized = auth;
+      });
+
       // Diagnóstico inicial
       document.getElementById('debug-info').style.display = 'block';
       document.getElementById('debug-msg').textContent = "Consultando tipo de tablero...";

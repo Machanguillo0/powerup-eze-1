@@ -197,11 +197,15 @@
     var globalFacturado = 0;
 
     // Helper para actualizar el texto de estado en la UI de forma segura
-    function setStatus(msg) {
+    function setStatus(msg, allowHtml) {
       console.log("STATUS: " + msg);
       var statusDiv = document.getElementById('status');
       if (statusDiv) {
-        statusDiv.textContent = msg;
+        if (allowHtml) {
+          statusDiv.innerHTML = msg;
+        } else {
+          statusDiv.textContent = msg;
+        }
         t.sizeTo(document.body).done();
       }
     }
@@ -1357,8 +1361,19 @@
 
       t.getRestApi().isAuthorized().then(function(auth) {
         if (!auth) {
-          setStatus("Por favor, autoriza la API primero.");
-          return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
+          setStatus('Por favor, <a href="#" id="auth-link" style="color: #de350b; font-weight: bold; text-decoration: underline;">autoriza la API primero 🔑</a> para poder generar facturas.', true);
+          document.getElementById('auth-link').addEventListener('click', function(e) {
+            e.preventDefault();
+            t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href })
+              .then(function(token) {
+                if (token) {
+                  window.location.reload();
+                }
+              }).catch(function(err) {
+                console.error("Error al autorizar:", err);
+              });
+          });
+          return;
         }
         
         getUnifiedFields(t).then(function(data) {
