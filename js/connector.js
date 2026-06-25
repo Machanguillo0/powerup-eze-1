@@ -6,16 +6,16 @@ var APP_NAME = 'Antigravity';
 var BASE_URL = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
 
 // Función de utilidad inyectada para detectar el tipo de tablero de forma segura
-var getBoardTypeSafe = function(t) {
-  return t.lists('id', 'name').then(function(lists) {
-    var paramList = lists.find(function(l) { 
+var getBoardTypeSafe = function (t) {
+  return t.lists('id', 'name').then(function (lists) {
+    var paramList = lists.find(function (l) {
       var n = l.name.toUpperCase();
-      return n === 'PARÁMETROS' || n === 'PARAMETROS'; 
+      return n === 'PARÁMETROS' || n === 'PARAMETROS';
     });
     if (!paramList) return 'CLIENTES';
 
-    return t.cards('id', 'name', 'idList').then(function(openCards) {
-      var typeCard = openCards.find(function(c) {
+    return t.cards('id', 'name', 'idList').then(function (openCards) {
+      var typeCard = openCards.find(function (c) {
         return c.idList === paramList.id && c.name && c.name.toLowerCase().startsWith('tipo tablero');
       });
       if (!typeCard) return 'CLIENTES';
@@ -25,7 +25,7 @@ var getBoardTypeSafe = function(t) {
       if (name.includes('FACTURACIÓN') || name.includes('FACTURACION')) return 'FACTURACIÓN';
       return 'CLIENTES';
     });
-  }).catch(function(err) {
+  }).catch(function (err) {
     console.error("Error detectando tablero:", err);
     return 'CLIENTES';
   });
@@ -34,9 +34,9 @@ var getBoardTypeSafe = function(t) {
 window.TrelloPowerUp.initialize({
   // Capability para añadir botones en el menú derecho de la tarjeta
   'card-buttons': function (t, options) {
-    return getBoardTypeSafe(t).then(function(type) {
+    return getBoardTypeSafe(t).then(function (type) {
       if (type !== 'CLIENTES') return [];
-      
+
       return [{
         // Icono que se mostrará junto al texto del botón
         icon: './icon.svg',
@@ -72,7 +72,7 @@ window.TrelloPowerUp.initialize({
   // Capability para añadir una sección grande dentro del cuerpo de la tarjeta
   'card-back-section': function (t, options) {
     return {
-      title: 'Menú de acciones',
+      title: 'Menú de Acciones',
       icon: './icon.svg', // Recomendado un icono gris, pero el SVG actual servirá
       content: {
         type: 'iframe',
@@ -83,7 +83,7 @@ window.TrelloPowerUp.initialize({
   },
   // Capability para añadir un botón a nivel de tablero
   'board-buttons': function (t, options) {
-    return getBoardTypeSafe(t).then(function(type) {
+    return getBoardTypeSafe(t).then(function (type) {
       if (type !== 'CLIENTES' && type !== 'FACTURACIÓN') return [];
 
       var buttons = [];
@@ -174,9 +174,9 @@ window.TrelloPowerUp.initialize({
                   if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:HORA)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.hora = m[1].replace(/[*_~`]/g, '').trim(); }
                   if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:LUGAR)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.lugar = m[1].replace(/[*_~`]/g, '').trim(); }
                   if (m = c.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:CIUDAD)[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.ciudad = m[1].replace(/[*_~`]/g, '').trim(); }
-                  
+
                   var vLA = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
-                  
+
                   var propioMatch = c.desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\s*VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vLA, "i"));
                   if (propioMatch) {
                     var pT = propioMatch[0];
