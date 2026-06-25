@@ -1,7 +1,9 @@
 console.log("Antigravity Power-Up Connector Cargado");
 
 // Configuración global
-var APP_KEY = '30767998cbb7b57a692e8bb50cfa9a9c';
+var APP_KEY = (window.location.hostname.indexOf('netlify.app') > -1)
+  ? '352ae509bc7ffb5b7f5826a024353794' // Power-Up Pro (Netlify)
+  : '30767998cbb7b57a692e8bb50cfa9a9c'; // Power-Up Prepro (GitHub Pages / Local)
 var APP_NAME = 'Antigravity';
 var BASE_URL = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
 
