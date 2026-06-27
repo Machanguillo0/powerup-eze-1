@@ -2536,6 +2536,17 @@
           var fields = demandaState.unifiedData.fields;
           contentXml = reemplazarEtiquetasEstandar(contentXml, fields);
 
+          // Validar XML con DOMParser antes de guardar
+          if (typeof DOMParser !== 'undefined') {
+            var parser = new DOMParser();
+            var dom = parser.parseFromString(contentXml, "application/xml");
+            var parserError = dom.querySelector("parsererror");
+            if (parserError) {
+              console.error("Antigravity: XML Parser Error:", parserError.textContent);
+              throw new Error("Estructura XML de Word no válida: " + parserError.textContent);
+            }
+          }
+
           // 3. Escribir en el zip y subir
           demandaState.zip.file("word/document.xml", contentXml);
           var outContent = demandaState.zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
