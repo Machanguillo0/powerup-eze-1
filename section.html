@@ -2541,6 +2541,9 @@
           var fields = demandaState.unifiedData.fields;
           contentXml = reemplazarEtiquetasEstandar(contentXml, fields);
 
+          // Asegurar que todos los tags <w:t> del documento tengan la propiedad xml:space="preserve"
+          contentXml = contentXml.replace(/<w:t>/g, '<w:t xml:space="preserve">');
+
           // Validar XML con DOMParser antes de guardar
           if (typeof DOMParser !== 'undefined') {
             var parser = new DOMParser();
