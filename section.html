@@ -2476,12 +2476,24 @@
                 if (insideT) {
                   result += part;
                 } else if (insideR) {
-                  result += '<w:t xml:space="preserve">' + part + '</w:t>';
+                  result += '<w:t xml:space="preserve">' + part;
+                  insideT = true;
                 } else {
-                  result += '<w:r><w:t xml:space="preserve">' + part + '</w:t></w:r>';
+                  result += '<w:r><w:t xml:space="preserve">' + part;
+                  insideR = true;
+                  insideT = true;
                 }
               }
             }
+            
+            // Cerrar cualquier etiqueta que haya quedado abierta al final de la cadena
+            if (insideT) {
+              result += '</w:t>';
+            }
+            if (insideR) {
+              result += '</w:r>';
+            }
+            
             return result;
           }
 
