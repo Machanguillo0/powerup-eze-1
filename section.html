@@ -2440,7 +2440,7 @@
         // Generar el documento con las selecciones del modal
         var selections = event.data.selections;
         var statusDiv = document.getElementById('upload-status');
-        statusDiv.textContent = 'Procesando opciones y generando documento...';
+        statusDiv.textContent = 'Procesando opciones y generando documento [V3-SafeRegex]...';
         t.sizeTo(document.body).done();
 
         try {
@@ -2543,7 +2543,15 @@
             var parserError = dom.querySelector("parsererror");
             if (parserError) {
               console.error("Antigravity: XML Parser Error:", parserError.textContent);
-              throw new Error("Estructura XML de Word no válida: " + parserError.textContent);
+              var colMatch = parserError.textContent.match(/column (\d+)/i);
+              var col = colMatch ? parseInt(colMatch[1], 10) : -1;
+              var context = "";
+              if (col !== -1) {
+                var start = Math.max(0, col - 120);
+                var end = Math.min(contentXml.length, col + 120);
+                context = "\n\nContexto XML:\n..." + contentXml.substring(start, col).replace(/</g, "&lt;").replace(/>/g, "&gt;") + " ===[ ERROR EN ESTA COLUMNA ]=== " + contentXml.substring(col, end).replace(/</g, "&lt;").replace(/>/g, "&gt;") + "...";
+              }
+              throw new Error("Estructura XML de Word no válida: " + parserError.textContent + context);
             }
           }
 
