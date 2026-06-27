@@ -74,7 +74,7 @@ window.TrelloPowerUp.initialize({
   // Capability para añadir una sección grande dentro del cuerpo de la tarjeta
   'card-back-section': function (t, options) {
     return {
-      title: 'Menú de Acciones',
+      title: 'Powerup opciones',
       icon: './icon.svg', // Recomendado un icono gris, pero el SVG actual servirá
       content: {
         type: 'iframe',
