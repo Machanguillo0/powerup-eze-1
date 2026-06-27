@@ -1491,9 +1491,14 @@
       }
       
       var cleanedOptions = options.map(function(opt) {
+        var val = opt.value;
+        var hasFormatting = /<w:rPr|<w:b\b|<w:i\b|<w:u\b|<w:color\b|<w:sz\b|<w:rFonts\b/i.test(val);
+        if (!hasFormatting) {
+          val = val.replace(/<[^>]+>/g, '');
+        }
         return {
           name: opt.name,
-          value: opt.value,
+          value: val,
           separator: opt.separator
         };
       });
@@ -2436,15 +2441,60 @@
         try {
           var contentXml = demandaState.contentXml;
 
+          // Helper para balancear etiquetas XML en textos de opciones formateados
+          function ensureValidWordXml(str) {
+            if (str.indexOf('<') === -1) {
+              return str;
+            }
+            var parts = str.split(/(<[^>]+>)/g);
+            var insideR = false;
+            var insideT = false;
+            var result = '';
+            for (var i = 0; i < parts.length; i++) {
+              var part = parts[i];
+              if (!part) continue;
+              if (part.startsWith('<') && part.endsWith('>')) {
+                var tagLower = part.toLowerCase();
+                if (tagLower.startsWith('<w:r') && !tagLower.startsWith('<w:rpr')) {
+                  insideR = true;
+                } else if (tagLower.startsWith('</w:r>')) {
+                  insideR = false;
+                } else if (tagLower.startsWith('<w:t')) {
+                  insideT = true;
+                } else if (tagLower.startsWith('</w:t>')) {
+                  insideT = false;
+                }
+                result += part;
+              } else {
+                if (insideT) {
+                  result += part;
+                } else if (insideR) {
+                  result += '<w:t xml:space="preserve">' + part + '</w:t>';
+                } else {
+                  result += '<w:r><w:t xml:space="preserve">' + part + '</w:t></w:r>';
+                }
+              }
+            }
+            return result;
+          }
+
+          function processReplacementValue(selectedValue) {
+            if (selectedValue.indexOf('<') === -1) {
+              return selectedValue;
+            }
+            return '</w:t></w:r>' + ensureValidWordXml(selectedValue) + '<w:r><w:t>';
+          }
+
           // 1. Reemplazar las meta-etiquetas con el valor formateado
           for (var title in selections) {
             var selectedValue = selections[title];
             var formattedValue = selectedValue.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
+            var processedValue = processReplacementValue(formattedValue);
             
             var metaTagInfo = demandaState.metaTags[title];
             if (metaTagInfo && metaTagInfo.xmlMatches) {
               metaTagInfo.xmlMatches.forEach(function (xmlMatch) {
-                contentXml = contentXml.split(xmlMatch).join(formattedValue);
+                contentXml = contentXml.split(xmlMatch).join(processedValue);
               });
             }
           }
@@ -2452,6 +2502,9 @@
           // 2. Reemplazar las etiquetas estándar (que ahora se hace dinámicamente)
           var fields = demandaState.unifiedData.fields;
           contentXml = reemplazarEtiquetasEstandar(contentXml, fields);
+
+          // Asegurar que todos los tags <w:t> del documento tengan la propiedad xml:space="preserve"
+          contentXml = contentXml.replace(/<w:t>/g, '<w:t xml:space="preserve">');
 
           // 3. Escribir en el zip y subir
           demandaState.zip.file("word/document.xml", contentXml);
