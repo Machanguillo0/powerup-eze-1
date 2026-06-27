@@ -1,9 +1,9 @@
 console.log("Antigravity Power-Up Connector Cargado");
 
 // Configuración global
-var APP_KEY = (window.location.hostname.indexOf('netlify.app') > -1)
-  ? '352ae509bc7ffb5b7f5826a024353794' // Power-Up Pro (Netlify)
-  : '30767998cbb7b57a692e8bb50cfa9a9c'; // Power-Up Prepro (GitHub Pages / Local)
+var APP_KEY = (window.location.hostname.indexOf('github.io') > -1 || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? '30767998cbb7b57a692e8bb50cfa9a9c' // Power-Up Prepro (GitHub Pages / Local)
+  : '352ae509bc7ffb5b7f5826a024353794'; // Power-Up Pro (Netlify / Custom Domain)
 var APP_NAME = 'Antigravity';
 var BASE_URL = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
 
@@ -78,7 +78,7 @@ window.TrelloPowerUp.initialize({
       icon: './icon.svg', // Recomendado un icono gris, pero el SVG actual servirá
       content: {
         type: 'iframe',
-        url: t.signUrl('./section.html?v=57'), // Apuntamos a un nuevo archivo HTML que vamos a crear
+        url: t.signUrl('./section.html?v=65'), // Apuntamos a un nuevo archivo HTML que vamos a crear
         height: 250 // Altura inicial en píxeles (aumentado para evitar scrollbar)
       }
     };

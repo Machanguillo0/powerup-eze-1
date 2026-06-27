@@ -187,14 +187,24 @@
   <!-- Cargamos el script oficial de Trello Power-Up -->
   <script src="https://p.trellocdn.com/power-up.min.js"></script>
   <script>
-    var currentAppKey = (window.location.hostname.indexOf('netlify.app') > -1)
-      ? '352ae509bc7ffb5b7f5826a024353794' // Power-Up Pro (Netlify)
-      : '30767998cbb7b57a692e8bb50cfa9a9c'; // Power-Up Prepro (GitHub Pages / Local)
+    var currentAppKey = (window.location.hostname.indexOf('github.io') > -1 || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? '30767998cbb7b57a692e8bb50cfa9a9c' // Power-Up Prepro (GitHub Pages / Local)
+      : '352ae509bc7ffb5b7f5826a024353794'; // Power-Up Pro (Netlify / Custom Domain)
 
     var t = window.TrelloPowerUp.iframe({
       appKey: currentAppKey,
       appName: 'Antigravity'
     });
+
+    try {
+      var lastKey = localStorage.getItem('antigravity_last_app_key');
+      if (lastKey !== currentAppKey) {
+        t.getRestApi().clearToken();
+        localStorage.setItem('antigravity_last_app_key', currentAppKey);
+      }
+    } catch (e) {
+      console.warn("localStorage no accesible:", e);
+    }
 
     var cachedData = null;
     var globalAFacturar = 0;

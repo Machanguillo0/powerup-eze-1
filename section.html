@@ -895,15 +895,25 @@
 
   <script>
     console.log("Antigravity Power-up: Script de section.html cargándose...");
-    var currentAppKey = (window.location.hostname.indexOf('netlify.app') > -1)
-      ? '352ae509bc7ffb5b7f5826a024353794' // Power-Up Pro (Netlify)
-      : '30767998cbb7b57a692e8bb50cfa9a9c'; // Power-Up Prepro (GitHub Pages / Local)
+    var currentAppKey = (window.location.hostname.indexOf('github.io') > -1 || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? '30767998cbb7b57a692e8bb50cfa9a9c' // Power-Up Prepro (GitHub Pages / Local)
+      : '352ae509bc7ffb5b7f5826a024353794'; // Power-Up Pro (Netlify / Custom Domain)
 
     var t = window.TrelloPowerUp.iframe({
       appKey: currentAppKey,
       appName: 'Antigravity'
     });
     console.log("Antigravity Power-up: TrelloPowerUp.iframe inicializado.");
+
+    try {
+      var lastKey = localStorage.getItem('antigravity_last_app_key');
+      if (lastKey !== currentAppKey) {
+        t.getRestApi().clearToken();
+        localStorage.setItem('antigravity_last_app_key', currentAppKey);
+      }
+    } catch (e) {
+      console.warn("localStorage no accesible:", e);
+    }
 
     var lastDesc = null;
     window.pendingVisualRefresh = false;
@@ -1720,6 +1730,11 @@
                 var searchQuery = encodeURIComponent('name:"Tipo tablero"');
                 return fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
                   .then(function(res) {
+                    if (res.status === 401) {
+                      t.getRestApi().clearToken();
+                      window.isApiAuthorized = false;
+                      throw new Error('REQUIRED_AUTHORIZATION');
+                    }
                     if (!res.ok) throw new Error("Search failed");
                     return res.json();
                   })
@@ -1933,6 +1948,16 @@
               urlParams.append('token', token);
               return fetch(`https://api.trello.com/1/cards/${cardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData });
             }).then(function (response) {
+              if (response.status === 401) {
+                t.getRestApi().clearToken();
+                window.isApiAuthorized = false;
+                t.alert({
+                  message: 'La sesión no coincide con la clave de API actual. Se ha limpiado la sesión. Vuelve a hacer clic para autorizar. 🔑',
+                  duration: 8,
+                  display: 'warning'
+                });
+                throw new Error('Sesión desparejada. Vuelve a hacer clic.');
+              }
               if (!response.ok) throw new Error('Error HTTP ' + response.status);
               statusDiv.textContent = '¡Documento modificado y adjuntado con éxito!';
               event.target.value = '';
@@ -2945,7 +2970,7 @@
               if (token) {
                 window.isApiAuthorized = true;
                 t.modal({
-                  url: './factura_modal.html?v=78',
+                  url: './factura_modal.html?v=79',
                   height: 380,
                   title: 'Generar Factura',
                   accentColor: '#1f845a'
@@ -2958,7 +2983,7 @@
           return;
         }
         t.modal({
-          url: './factura_modal.html?v=78',
+          url: './factura_modal.html?v=79',
           height: 380,
           title: 'Generar Factura',
           accentColor: '#1f845a'
