@@ -228,12 +228,12 @@
       });
 
       checkedBoxes.forEach(function(cb) {
-        var t = cb.getAttribute('data-title');
-        checkedByTitle[t].push(cb.value);
+        var groupTitle = cb.getAttribute('data-title');
+        checkedByTitle[groupTitle].push(cb.value);
       });
 
-      for (var t in checkedByTitle) {
-        selections[t] = checkedByTitle[t].join('\n');
+      for (var groupTitle in checkedByTitle) {
+        selections[groupTitle] = checkedByTitle[groupTitle].join('\n');
       }
 
       // Enviar selecciones a la ventana principal
