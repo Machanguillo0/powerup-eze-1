@@ -154,7 +154,7 @@
           checkboxContainer.style.gap = '6px';
           checkboxContainer.style.paddingLeft = '5px';
 
-          metaTag.options.forEach(function (opt) {
+          metaTag.options.forEach(function (opt, index) {
             var itemLabel = document.createElement('label');
             itemLabel.style.display = 'flex';
             itemLabel.style.alignItems = 'center';
@@ -167,7 +167,7 @@
             checkbox.type = 'checkbox';
             checkbox.className = 'demanda-checkbox-option';
             checkbox.setAttribute('data-title', title);
-            checkbox.value = opt.value;
+            checkbox.setAttribute('data-index', index);
             checkbox.style.cursor = 'pointer';
             checkbox.style.width = '16px';
             checkbox.style.height = '16px';
@@ -218,23 +218,41 @@
         selections[s.getAttribute('data-title')] = s.value;
       });
 
-      // 2. Recopilar valores de checkboxes agrupados por título
-      var checkedBoxes = document.querySelectorAll('.demanda-checkbox-option:checked');
-      var checkedByTitle = {};
-      
+      // 2. Recopilar valores de checkboxes agrupados por título y ordenados por su índice original
       var allCheckboxGroups = document.querySelectorAll('.demanda-checkbox-option');
+      var titles = [];
       allCheckboxGroups.forEach(function(cb) {
-        checkedByTitle[cb.getAttribute('data-title')] = [];
+        var title = cb.getAttribute('data-title');
+        if (titles.indexOf(title) === -1) {
+          titles.push(title);
+        }
       });
 
-      checkedBoxes.forEach(function(cb) {
-        var groupTitle = cb.getAttribute('data-title');
-        checkedByTitle[groupTitle].push(cb.value);
-      });
+      titles.forEach(function(title) {
+        var checkedBoxes = document.querySelectorAll('.demanda-checkbox-option[data-title="' + title + '"]:checked');
+        if (checkedBoxes.length === 0) {
+          selections[title] = '';
+          return;
+        }
 
-      for (var groupTitle in checkedByTitle) {
-        selections[groupTitle] = checkedByTitle[groupTitle].join('\n');
-      }
+        var originalOptions = receivedData[title].options;
+        var selectedIndices = [];
+        checkedBoxes.forEach(function(cb) {
+          selectedIndices.push(parseInt(cb.getAttribute('data-index'), 10));
+        });
+        selectedIndices.sort(function(a, b) { return a - b; });
+
+        var resultText = '';
+        selectedIndices.forEach(function(idx, i) {
+          var opt = originalOptions[idx];
+          resultText += opt.value;
+          if (i < selectedIndices.length - 1) {
+            resultText += opt.separator;
+          }
+        });
+
+        selections[title] = resultText;
+      });
 
       // Enviar selecciones a la ventana principal
       bc.postMessage({ type: 'generate', selections: selections });

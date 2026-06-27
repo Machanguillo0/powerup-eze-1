@@ -1455,32 +1455,45 @@
       // Eliminar las llaves de cierre de la meta-etiqueta '}}' al final, incluyendo cualquier etiqueta XML intermedia
       optionsStr = optionsStr.replace(/\s*\}\}(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\s*$/, '');
 
-      // Extraer todas las opciones encerradas entre llaves
-      var braceRegex = /\{([^{}]+)\}/g;
-      var matches = [];
+      // Extraer todas las opciones y sus separadores correspondientes
+      var optionPairRegex = /\{([^{}]+)\}(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*\{([^{}]+)\}/g;
+      var options = [];
       var m;
-      while ((m = braceRegex.exec(optionsStr)) !== null) {
-        matches.push(m[1].trim());
+      while ((m = optionPairRegex.exec(optionsStr)) !== null) {
+        var name = m[1].replace(/<[^>]+>/g, '').trim();
+        var value = m[2];
+        
+        if (options.length > 0) {
+          var prevOption = options[options.length - 1];
+          var separator = optionsStr.substring(prevOption.endIndex, m.index);
+          prevOption.separator = separator;
+        }
+        
+        options.push({
+          name: name,
+          value: value,
+          startIndex: m.index,
+          endIndex: optionPairRegex.lastIndex,
+          separator: ''
+        });
       }
       
-      if (matches.length === 0 || matches.length % 2 !== 0) {
+      if (options.length === 0) {
         return null; // Estructura de opciones no válida
       }
       
-      var options = [];
-      for (var i = 0; i < matches.length; i += 2) {
-        var optName = matches[i].replace(/<[^>]+>/g, '').trim(); // Nombre en texto plano para el dropdown
-        var optValue = matches[i+1];                             // Valor con XML intacto para el documento
-        options.push({
-          name: optName,
-          value: optValue
-        });
-      }
+      var cleanedOptions = options.map(function(opt) {
+        return {
+          name: opt.name,
+          value: opt.value,
+          separator: opt.separator
+        };
+      });
       
       return {
         title: title,
         type: type,
-        options: options
+        options: cleanedOptions
       };
     }
 
