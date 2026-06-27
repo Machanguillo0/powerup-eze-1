@@ -1423,7 +1423,7 @@
       // Limpiar solo marcadores de corrección ortográfica/gramatical
       var localXml = fullTagText.replace(/<w:proofErr\s+[^>]*\/>/g, '');
       localXml = localXml.replace(/<w:noProof\s+[^>]*\/>/g, '');
-
+      
       // Obtener el texto limpio de etiquetas XML
       var cleanText = localXml.replace(/<[^>]+>/g, '').trim();
       
@@ -1438,7 +1438,14 @@
         return null; // Etiqueta estándar
       }
       
-      var title = innerClean.substring(0, firstBraceClean).replace(/\s+/g, ' ').trim();
+      var titleRaw = innerClean.substring(0, firstBraceClean).replace(/\s+/g, ' ').trim();
+      var type = 'select'; // Por defecto es lista desplegable
+      var titleMatch = titleRaw.match(/^(.*?)\s*\[(checkbox|select)\]\s*$/i);
+      var title = titleRaw;
+      if (titleMatch) {
+        title = titleMatch[1].trim();
+        type = titleMatch[2].toLowerCase();
+      }
       
       // Obtener la subcadena de opciones a partir de la primera llave en el XML local normalizado
       var firstBraceIdx = localXml.indexOf('{');
@@ -1472,6 +1479,7 @@
       
       return {
         title: title,
+        type: type,
         options: options
       };
     }

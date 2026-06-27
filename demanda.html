@@ -138,23 +138,64 @@
         
         var formGroup = document.createElement('div');
         formGroup.className = 'form-group';
+        formGroup.style.marginBottom = '16px';
 
         var label = document.createElement('label');
         label.textContent = metaTag.title;
-
-        var select = document.createElement('select');
-        select.className = 'demanda-select';
-        select.setAttribute('data-title', title);
-
-        metaTag.options.forEach(function (opt) {
-          var option = document.createElement('option');
-          option.value = opt.value;
-          option.textContent = opt.name;
-          select.appendChild(option);
-        });
-
+        label.style.display = 'block';
+        label.style.marginBottom = '6px';
         formGroup.appendChild(label);
-        formGroup.appendChild(select);
+
+        if (metaTag.type === 'checkbox') {
+          // Renderizar una lista de checkboxes
+          var checkboxContainer = document.createElement('div');
+          checkboxContainer.style.display = 'flex';
+          checkboxContainer.style.flexDirection = 'column';
+          checkboxContainer.style.gap = '6px';
+          checkboxContainer.style.paddingLeft = '5px';
+
+          metaTag.options.forEach(function (opt) {
+            var itemLabel = document.createElement('label');
+            itemLabel.style.display = 'flex';
+            itemLabel.style.alignItems = 'center';
+            itemLabel.style.gap = '8px';
+            itemLabel.style.fontWeight = 'normal';
+            itemLabel.style.fontSize = '13px';
+            itemLabel.style.cursor = 'pointer';
+
+            var checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.className = 'demanda-checkbox-option';
+            checkbox.setAttribute('data-title', title);
+            checkbox.value = opt.value;
+            checkbox.style.cursor = 'pointer';
+            checkbox.style.width = '16px';
+            checkbox.style.height = '16px';
+            checkbox.style.margin = '0';
+
+            var span = document.createElement('span');
+            span.textContent = opt.name;
+
+            itemLabel.appendChild(checkbox);
+            itemLabel.appendChild(span);
+            checkboxContainer.appendChild(itemLabel);
+          });
+          formGroup.appendChild(checkboxContainer);
+        } else {
+          // Renderizar select desplegable estándar
+          var select = document.createElement('select');
+          select.className = 'demanda-select';
+          select.setAttribute('data-title', title);
+
+          metaTag.options.forEach(function (opt) {
+            var option = document.createElement('option');
+            option.value = opt.value;
+            option.textContent = opt.name;
+            select.appendChild(option);
+          });
+          formGroup.appendChild(select);
+        }
+
         fieldsContainer.appendChild(formGroup);
       }
 
@@ -170,10 +211,30 @@
 
     document.getElementById('btn-generar').addEventListener('click', function() {
       var selections = {};
+      
+      // 1. Recopilar valores de dropdowns
       var selects = document.querySelectorAll('.demanda-select');
       selects.forEach(function(s) {
         selections[s.getAttribute('data-title')] = s.value;
       });
+
+      // 2. Recopilar valores de checkboxes agrupados por título
+      var checkedBoxes = document.querySelectorAll('.demanda-checkbox-option:checked');
+      var checkedByTitle = {};
+      
+      var allCheckboxGroups = document.querySelectorAll('.demanda-checkbox-option');
+      allCheckboxGroups.forEach(function(cb) {
+        checkedByTitle[cb.getAttribute('data-title')] = [];
+      });
+
+      checkedBoxes.forEach(function(cb) {
+        var t = cb.getAttribute('data-title');
+        checkedByTitle[t].push(cb.value);
+      });
+
+      for (var t in checkedByTitle) {
+        selections[t] = checkedByTitle[t].join('\n');
+      }
 
       // Enviar selecciones a la ventana principal
       bc.postMessage({ type: 'generate', selections: selections });
