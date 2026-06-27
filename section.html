@@ -1418,25 +1418,43 @@
       }
     }
 
-    // Función para parsear una meta-etiqueta multiselección a partir de su texto XML limpio
+    // Función para parsear una meta-etiqueta multiselección preservando etiquetas XML de formato interno
     function parseMetaTag(fullTagText) {
-      // Limpiar etiquetas HTML/XML internas del texto
-      var text = fullTagText.replace(/<[^>]+>/g, '').trim();
+      // Normalizar localmente el fragmento de XML para unificar etiquetas de texto
+      var localXml = fullTagText.replace(/<w:proofErr\s+[^>]*\/>/g, '');
+      localXml = localXml.replace(/<w:noProof\s+[^>]*\/>/g, '');
       
-      if (!text.startsWith('{{') || !text.endsWith('}}')) {
+      var prevXml;
+      var mergeRegex = /<\/w:t>(?:(?!<\/?w:(?:p|tbl|tr|tc|br|cr|body)\b)<[^>]+>)*<w:t[^>]*>/g;
+      do {
+        prevXml = localXml;
+        localXml = localXml.replace(mergeRegex, '');
+      } while (localXml !== prevXml);
+
+      // Obtener el texto limpio de etiquetas XML
+      var cleanText = localXml.replace(/<[^>]+>/g, '').trim();
+      
+      if (!cleanText.startsWith('{{') || !cleanText.endsWith('}}')) {
         return null;
       }
-      var inner = text.substring(2, text.length - 2).trim();
+      var innerClean = cleanText.substring(2, cleanText.length - 2).trim();
       
       // Buscar la primera llave de opción '{'
-      var firstBrace = inner.indexOf('{');
-      if (firstBrace === -1) {
+      var firstBraceClean = innerClean.indexOf('{');
+      if (firstBraceClean === -1) {
         return null; // Etiqueta estándar
       }
       
-      var title = inner.substring(0, firstBrace).replace(/\s+/g, ' ').trim();
-      var optionsStr = inner.substring(firstBrace).trim();
+      var title = innerClean.substring(0, firstBraceClean).replace(/\s+/g, ' ').trim();
       
+      // Obtener la subcadena de opciones a partir de la primera llave en el XML local normalizado
+      var firstBraceIdx = localXml.indexOf('{');
+      if (firstBraceIdx === -1) return null;
+      var optionsStr = localXml.substring(firstBraceIdx).trim();
+      
+      // Eliminar las llaves de cierre de la meta-etiqueta '}}' al final, incluyendo cualquier etiqueta XML intermedia
+      optionsStr = optionsStr.replace(/\s*\}\}(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\s*$/, '');
+
       // Extraer todas las opciones encerradas entre llaves
       var braceRegex = /\{([^{}]+)\}/g;
       var matches = [];
@@ -1451,9 +1469,11 @@
       
       var options = [];
       for (var i = 0; i < matches.length; i += 2) {
+        var optName = matches[i].replace(/<[^>]+>/g, '').trim(); // Nombre en texto plano para el dropdown
+        var optValue = matches[i+1];                             // Valor con XML intacto para el documento
         options.push({
-          name: matches[i],
-          value: matches[i+1]
+          name: optName,
+          value: optValue
         });
       }
       
