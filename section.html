@@ -2455,14 +2455,21 @@
               if (!part) continue;
               if (part.startsWith('<') && part.endsWith('>')) {
                 var tagLower = part.toLowerCase();
-                if (tagLower.startsWith('<w:r') && !tagLower.startsWith('<w:rpr')) {
-                  insideR = true;
-                } else if (tagLower.startsWith('</w:r>')) {
-                  insideR = false;
-                } else if (tagLower.startsWith('<w:t')) {
-                  insideT = true;
-                } else if (tagLower.startsWith('</w:t>')) {
-                  insideT = false;
+                var tagMatch = tagLower.match(/^<\/?w:([a-z0-9]+)/i);
+                var tagName = tagMatch ? tagMatch[1] : '';
+                
+                if (tagName === 'r') {
+                  if (tagLower.startsWith('</')) {
+                    insideR = false;
+                  } else {
+                    insideR = true;
+                  }
+                } else if (tagName === 't') {
+                  if (tagLower.startsWith('</')) {
+                    insideT = false;
+                  } else {
+                    insideT = true;
+                  }
                 }
                 result += part;
               } else {
@@ -2502,9 +2509,6 @@
           // 2. Reemplazar las etiquetas estándar (que ahora se hace dinámicamente)
           var fields = demandaState.unifiedData.fields;
           contentXml = reemplazarEtiquetasEstandar(contentXml, fields);
-
-          // Asegurar que todos los tags <w:t> del documento tengan la propiedad xml:space="preserve"
-          contentXml = contentXml.replace(/<w:t>/g, '<w:t xml:space="preserve">');
 
           // 3. Escribir en el zip y subir
           demandaState.zip.file("word/document.xml", contentXml);
