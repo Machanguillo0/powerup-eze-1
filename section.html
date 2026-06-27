@@ -598,11 +598,25 @@
         </div>
         <!-- Columna Derecha: Botones Azules -->
         <div style="display: flex; flex-direction: column; gap: 5px;">
-          <button id="boton-demanda" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; text-align: center;">Generar demanda Nexo causal</button>
+          <label class="btn-upload" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; text-align: center;">
+            Generar demanda Nexo causal
+            <input type="file" id="demanda-upload" accept=".docx" />
+          </label>
           <label class="btn-upload" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; text-align: center;">
             Generar word desde plantilla
             <input type="file" id="word-upload" accept=".docx" />
           </label>
+        </div>
+      </div>
+      <!-- Contenedor dinámico para personalizar demanda (meta-etiquetas) -->
+      <div id="demanda-form-container" style="display: none; margin-top: 15px; padding: 15px; background-color: #f4f5f7; border: 1px solid #dfe1e6; border-radius: 3px;">
+        <h4 style="margin-top: 0; margin-bottom: 12px; color: #172b4d; font-size: 14px; font-weight: 600;">Personalizar Demanda Nexo Causal</h4>
+        <div id="demanda-form-fields" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px;">
+          <!-- Aquí se inyectarán los selects -->
+        </div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+          <button id="demanda-btn-cancelar" class="secondary" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; cursor: pointer; border: none; border-radius: 3px;">Cancelar</button>
+          <button id="demanda-btn-generar" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; background-color: #0079bf; color: white; border: none; border-radius: 3px; font-weight: bold; cursor: pointer;">Generar word</button>
         </div>
       </div>
     </div>
@@ -918,6 +932,15 @@
     var lastDesc = null;
     window.pendingVisualRefresh = false;
     window.isApiAuthorized = false;
+
+    // Estado temporal para la generación de la demanda Nexo Causal
+    var demandaState = {
+      file: null,
+      zip: null,
+      contentXml: null,
+      metaTags: null,
+      unifiedData: null
+    };
 
     function triggerVisualRefresh() {
       console.log("Antigravity Power-up: Ejecutando refresco visual.");
@@ -1406,6 +1429,123 @@
       }
     }
 
+    // Función para normalizar el XML de Word
+    function normalizeXmlText(xml) {
+      // Eliminar marcadores de error gramatical y ortográfico que Word inserta
+      xml = xml.replace(/<w:proofErr\s+[^>]*\/>/g, '');
+      xml = xml.replace(/<w:noProof\s+[^>]*\/>/g, '');
+      
+      // Combinar etiquetas de texto <w:t> contiguas en el mismo párrafo
+      var prevXml;
+      var mergeRegex = /<\/w:t>(?:(?!<\/?w:(?:p|tbl|tr|tc|br|cr|body)\b)<[^>]+>)*<w:t[^>]*>/g;
+      do {
+        prevXml = xml;
+        xml = xml.replace(mergeRegex, '');
+      } while (xml !== prevXml);
+      
+      return xml;
+    }
+
+    // Función para parsear una meta-etiqueta multiselección
+    function parseMetaTag(matchContent) {
+      // Limpiar etiquetas HTML/XML internas del texto
+      var text = matchContent.replace(/<[^>]+>/g, '').trim();
+      
+      // Buscar la primera llave de opción '{'
+      var firstBrace = text.indexOf('{');
+      if (firstBrace === -1) {
+        return null; // Etiqueta estándar
+      }
+      
+      var title = text.substring(0, firstBrace).replace(/\s+/g, ' ').trim();
+      var optionsStr = text.substring(firstBrace).trim();
+      
+      // Extraer todas las opciones encerradas entre llaves
+      var braceRegex = /\{([^{}]+)\}/g;
+      var matches = [];
+      var m;
+      while ((m = braceRegex.exec(optionsStr)) !== null) {
+        matches.push(m[1].trim());
+      }
+      
+      if (matches.length === 0 || matches.length % 2 !== 0) {
+        return null; // Estructura de opciones no válida
+      }
+      
+      var options = [];
+      for (var i = 0; i < matches.length; i += 2) {
+        options.push({
+          name: matches[i],
+          value: matches[i+1]
+        });
+      }
+      
+      return {
+        title: title,
+        options: options
+      };
+    }
+
+    // Función auxiliar para escapar caracteres HTML
+    function escapeHtml(text) {
+      if (!text) return '';
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // Función para realizar todos los reemplazos estándar en el XML de Word
+    function reemplazarEtiquetasEstandar(contentXml, fields) {
+      function reemplazarEtiquetaRota(xml, etiqueta, valor) {
+        var letras = etiqueta.split('');
+        var patron = letras.join('(?:<[^>]+>)*');
+        var regex = new RegExp(patron, "gi");
+        return xml.replace(regex, valor);
+      }
+
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Nombre}}", fields.nombre);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{DNI}}", fields.dni);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Domicilio}}", fields.domicilio);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Teléfono}}", fields.telefono);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Telefono}}", fields.telefono);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Profesión}}", fields.profesion);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Observaciones}}", fields.observaciones);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha del siniestro}}", fields.fecha);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Hora}}", fields.hora);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Lugar}}", fields.lugar);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Ciudad}}", fields.ciudad);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Matrícula1}}", fields.matricula1);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Aseguradora1}}", fields.aseguradora1);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Matrícula2}}", fields.matricula2);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Aseguradora2}}", fields.aseguradora2);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha del sistema}}", fields.fecha_sistema);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha última actuación}}", fields.fecha_ultima);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha cierre expediente}}", fields.fecha_cierre);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha facturación}}", fields.fecha_facturacion);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha de resolución}}", fields.fecha_resolucion);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha comunicación designa}}", fields.fecha_designa);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha reclamación previa}}", fields.fecha_reclamacion);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha apertura expediente}}", fields.fecha_apertura);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha siniestro}}", fields.fecha_siniestro);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{DDs}}", fields.dds);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Mess}}", fields.mess);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{AAAAs}}", fields.aaaas);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Número de expediente:}}", fields.num_expediente);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Número de expediente}}", fields.num_expediente);
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Total Factura}}", fields.total_factura || fields["total factura"] || "___________");
+      contentXml = reemplazarEtiquetaRota(contentXml, "{{Total factura}}", fields.total_factura || fields["total factura"] || "___________");
+
+      if (fields.parrafada) {
+        var parrafadaDocx = fields.parrafada.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
+        contentXml = reemplazarEtiquetaRota(contentXml, "{{Parrafada}}", parrafadaDocx);
+      }
+
+      return contentXml;
+    }
+
     // Función para obtener datos unificados de toda la lista
     function getUnifiedFields(t) {
       return t.card('id', 'idList').then(function (currentCard) {
@@ -1846,7 +1986,57 @@
       });
     }
 
-    // Interceptar clic para verificar autorización en un hilo síncrono del usuario
+    // Función auxiliar para subir el documento modificado a Trello
+    function subirDocumentoATrello(t, data, outContent, nombreFinal, originalFileName, statusDiv, fileInput) {
+      statusDiv.textContent = 'Autenticando con Trello API...';
+      t.getRestApi().getToken().then(function (token) {
+        if (!token) return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
+        return token;
+      }).then(function (token) {
+        statusDiv.textContent = 'Subiendo documento directamente a Trello...';
+        var formData = new FormData();
+        formData.append("key", t.getRestApi().appKey);
+        formData.append("token", token);
+        formData.append("file", outContent, nombreFinal);
+        formData.append("name", nombreFinal);
+        var cardId = data.targetCardId;
+        var urlParams = new URLSearchParams();
+        urlParams.append('key', t.getRestApi().appKey);
+        urlParams.append('token', token);
+        return fetch(`https://api.trello.com/1/cards/${cardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData });
+      }).then(function (response) {
+        if (response.status === 401) {
+          t.getRestApi().clearToken();
+          window.isApiAuthorized = false;
+          t.alert({
+            message: 'La sesión no coincide con la clave de API actual. Se ha limpiado la sesión. Vuelve a hacer clic para autorizar. 🔑',
+            duration: 8,
+            display: 'warning'
+          });
+          throw new Error('Sesión desparejada. Vuelve a hacer clic.');
+        }
+        if (!response.ok) throw new Error('Error HTTP ' + response.status);
+        statusDiv.textContent = '¡Documento modificado y adjuntado con éxito!';
+        if (fileInput) fileInput.value = '';
+        t.sizeTo(document.body).done();
+        
+        // Actualizar historial
+        var forced = {};
+        var upperName = originalFileName.toUpperCase();
+        var today = new Date().toLocaleDateString('es-ES');
+        if (upperName.indexOf("RECLAMACIÓN PREVIA") === 0) forced.fecha_reclamacion = today;
+        if (upperName.indexOf("COMUNICACIÓN DESIGNA") === 0) forced.fecha_designa = today;
+        
+        updateHistoryCard(t, data.idList, true, forced);
+      }).catch(function (err) {
+        console.error(err);
+        statusDiv.textContent = 'Fallo en la subida.';
+        if (fileInput) fileInput.value = '';
+        t.sizeTo(document.body).done();
+      });
+    }
+
+    // Interceptar click en word-upload para verificar autorización
     document.getElementById('word-upload').addEventListener('click', function (event) {
       if (!window.isApiAuthorized) {
         event.preventDefault();
@@ -1876,7 +2066,6 @@
       t.sizeTo(document.body).done();
 
       getUnifiedFields(t).then(function (data) {
-        var fields = data.fields;
         var reader = new FileReader();
         reader.onload = function (e) {
           try {
@@ -1884,100 +2073,161 @@
             var contentXml = zip.file("word/document.xml").asText();
             if (!contentXml) throw new Error("No se encontró word/document.xml");
 
-            function reemplazarEtiquetaRota(xml, etiqueta, valor) {
-              var letras = etiqueta.split('');
-              var patron = letras.join('(?:<[^>]+>)*');
-              var regex = new RegExp(patron, "gi");
-              return xml.replace(regex, valor);
-            }
-
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Nombre}}", fields.nombre);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{DNI}}", fields.dni);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Domicilio}}", fields.domicilio);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Teléfono}}", fields.telefono);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Telefono}}", fields.telefono);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Profesión}}", fields.profesion);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Observaciones}}", fields.observaciones);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha del siniestro}}", fields.fecha);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Hora}}", fields.hora);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Lugar}}", fields.lugar);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Ciudad}}", fields.ciudad);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Matrícula1}}", fields.matricula1);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Aseguradora1}}", fields.aseguradora1);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Matrícula2}}", fields.matricula2);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Aseguradora2}}", fields.aseguradora2);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha del sistema}}", fields.fecha_sistema);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha última actuación}}", fields.fecha_ultima);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha cierre expediente}}", fields.fecha_cierre);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha facturación}}", fields.fecha_facturacion);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha de resolución}}", fields.fecha_resolucion);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha comunicación designa}}", fields.fecha_designa);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha reclamación previa}}", fields.fecha_reclamacion);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha apertura expediente}}", fields.fecha_apertura);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha siniestro}}", fields.fecha_siniestro);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{DDs}}", fields.dds);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Mess}}", fields.mess);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{AAAAs}}", fields.aaaas);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Número de expediente:}}", fields.num_expediente);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Número de expediente}}", fields.num_expediente);
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Total Factura}}", fields.total_factura || fields["total factura"] || "___________");
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Total factura}}", fields.total_factura || fields["total factura"] || "___________");
-
-            var parrafadaDocx = fields.parrafada.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
-            contentXml = reemplazarEtiquetaRota(contentXml, "{{Parrafada}}", parrafadaDocx);
+            // Reemplazar todas las etiquetas estándar
+            contentXml = reemplazarEtiquetasEstandar(contentXml, data.fields);
 
             zip.file("word/document.xml", contentXml);
             var outContent = zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
             var baseTemplateName = file.name.substring(0, file.name.lastIndexOf('.'));
-            var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + ".docx";
+            var nombreFinal = baseTemplateName + "_" + data.fields.nombre.replace(/\s+/g, '_') + ".docx";
 
-            statusDiv.textContent = 'Autenticando con Trello API...';
-            t.getRestApi().getToken().then(function (token) {
-              if (!token) return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
-              return token;
-            }).then(function (token) {
-              statusDiv.textContent = 'Subiendo documento directamente a Trello...';
-              var formData = new FormData();
-              formData.append("key", t.getRestApi().appKey);
-              formData.append("token", token);
-              formData.append("file", outContent, nombreFinal);
-              formData.append("name", nombreFinal);
-              var cardId = data.targetCardId;
-              var urlParams = new URLSearchParams();
-              urlParams.append('key', t.getRestApi().appKey);
-              urlParams.append('token', token);
-              return fetch(`https://api.trello.com/1/cards/${cardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData });
-            }).then(function (response) {
-              if (response.status === 401) {
-                t.getRestApi().clearToken();
-                window.isApiAuthorized = false;
-                t.alert({
-                  message: 'La sesión no coincide con la clave de API actual. Se ha limpiado la sesión. Vuelve a hacer clic para autorizar. 🔑',
-                  duration: 8,
-                  display: 'warning'
-                });
-                throw new Error('Sesión desparejada. Vuelve a hacer clic.');
-              }
-              if (!response.ok) throw new Error('Error HTTP ' + response.status);
-              statusDiv.textContent = '¡Documento modificado y adjuntado con éxito!';
-              event.target.value = '';
-              t.sizeTo(document.body).done();
-               // Actualizar historial
-               var forced = {};
-               var upperName = file.name.toUpperCase();
-               var today = new Date().toLocaleDateString('es-ES');
-               if (upperName.indexOf("RECLAMACIÓN PREVIA") === 0) forced.fecha_reclamacion = today;
-               if (upperName.indexOf("COMUNICACIÓN DESIGNA") === 0) forced.fecha_designa = today;
-               
-               updateHistoryCard(t, data.idList, true, forced);
-            }).catch(function (err) {
-              console.error(err);
-              statusDiv.textContent = 'Fallo en la subida.';
-              t.sizeTo(document.body).done();
-            });
+            subirDocumentoATrello(t, data, outContent, nombreFinal, file.name, statusDiv, event.target);
           } catch (error) {
             console.error(error);
             statusDiv.textContent = 'Error: ' + error.message;
+            t.sizeTo(document.body).done();
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      });
+    });
+
+    // Interceptar click en demanda-upload para verificar autorización
+    document.getElementById('demanda-upload').addEventListener('click', function (event) {
+      if (!window.isApiAuthorized) {
+        event.preventDefault();
+        t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href })
+          .then(function(token) {
+            if (token) {
+              window.isApiAuthorized = true;
+              t.alert({
+                message: 'Autorización completada con éxito. Vuelve a hacer clic para subir la plantilla de demanda. 🔑',
+                duration: 5,
+                display: 'success'
+              });
+            }
+          })
+          .catch(function(err) {
+            console.error("Error al autorizar:", err);
+          });
+      }
+    });
+
+    // Procesar la plantilla de Demanda
+    document.getElementById('demanda-upload').addEventListener('change', function (event) {
+      if (!event.target.files || event.target.files.length === 0) return;
+      var file = event.target.files[0];
+      var statusDiv = document.getElementById('upload-status');
+      statusDiv.textContent = 'Analizando plantilla: ' + file.name + '...';
+      t.sizeTo(document.body).done();
+
+      getUnifiedFields(t).then(function (data) {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            var zip = new PizZip(e.target.result);
+            var contentXml = zip.file("word/document.xml").asText();
+            if (!contentXml) throw new Error("No se encontró word/document.xml");
+
+            // Normalizar XML para juntar texto de etiquetas rotas
+            contentXml = normalizeXmlText(contentXml);
+
+            // Analizar meta-etiquetas multiselección
+            var metaTagsByTitle = {};
+            var hasMetaTags = false;
+            var tagRegex = /\{\{([\s\S]*?)\}\}/g;
+            var match;
+            while ((match = tagRegex.exec(contentXml)) !== null) {
+              var fullXmlMatch = match[0];
+              var innerXml = match[1];
+              var parsed = parseMetaTag(innerXml);
+              if (parsed) {
+                hasMetaTags = true;
+                if (!metaTagsByTitle[parsed.title]) {
+                  metaTagsByTitle[parsed.title] = {
+                    title: parsed.title,
+                    options: parsed.options,
+                    xmlMatches: []
+                  };
+                }
+                metaTagsByTitle[parsed.title].xmlMatches.push(fullXmlMatch);
+              }
+            }
+
+            // Si hay meta-etiquetas, mostrar el formulario dinámico
+            if (hasMetaTags) {
+              // Guardar el estado
+              demandaState.file = file;
+              demandaState.zip = zip;
+              demandaState.contentXml = contentXml;
+              demandaState.metaTags = metaTagsByTitle;
+              demandaState.unifiedData = data;
+
+              // Renderizar el formulario
+              var fieldsContainer = document.getElementById('demanda-form-fields');
+              fieldsContainer.innerHTML = '';
+
+              for (var title in metaTagsByTitle) {
+                var metaTag = metaTagsByTitle[title];
+                var fieldDiv = document.createElement('div');
+                fieldDiv.style.display = 'flex';
+                fieldDiv.style.flexDirection = 'column';
+                fieldDiv.style.gap = '4px';
+
+                var label = document.createElement('label');
+                label.style.fontWeight = '600';
+                label.style.fontSize = '12px';
+                label.style.color = '#5e6c84';
+                label.textContent = metaTag.title;
+
+                var select = document.createElement('select');
+                select.className = 'demanda-select';
+                select.setAttribute('data-title', title);
+                select.style.width = '100%';
+                select.style.padding = '8px';
+                select.style.border = '1px solid #ced4da';
+                select.style.borderRadius = '3px';
+                select.style.backgroundColor = '#fff';
+                select.style.color = '#172b4d';
+                select.style.fontSize = '13px';
+                select.style.cursor = 'pointer';
+
+                metaTag.options.forEach(function (opt) {
+                  var option = document.createElement('option');
+                  option.value = opt.value;
+                  option.textContent = opt.name;
+                  select.appendChild(option);
+                });
+
+                fieldDiv.appendChild(label);
+                fieldDiv.appendChild(select);
+                fieldsContainer.appendChild(fieldDiv);
+              }
+
+              statusDiv.textContent = 'Plantilla cargada. Por favor, personaliza las opciones.';
+              document.getElementById('demanda-form-container').style.display = 'block';
+              t.sizeTo(document.body).done();
+            } else {
+              // Si no tiene meta-etiquetas, procesar y subir directamente
+              statusDiv.textContent = 'Generando y subiendo documento...';
+              t.sizeTo(document.body).done();
+
+              // Reemplazos estándar
+              contentXml = reemplazarEtiquetasEstandar(contentXml, data.fields);
+
+              // Guardar en el zip y generar blob
+              zip.file("word/document.xml", contentXml);
+              var outContent = zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+              var baseTemplateName = file.name.substring(0, file.name.lastIndexOf('.'));
+              var nombreFinal = baseTemplateName + "_" + data.fields.nombre.replace(/\s+/g, '_') + ".docx";
+
+              subirDocumentoATrello(t, data, outContent, nombreFinal, file.name, statusDiv, event.target);
+            }
+
+          } catch (err) {
+            console.error(err);
+            statusDiv.textContent = 'Error al procesar plantilla: ' + err.message;
+            event.target.value = '';
             t.sizeTo(document.body).done();
           }
         };
@@ -2152,15 +2402,76 @@
       });
     });
 
-    // Botón para abrir el modal de Generar demanda Nexo causal
-    document.getElementById('boton-demanda').addEventListener('click', function () {
-      t.modal({
-        url: './demanda.html',
-        height: 330,
-        title: 'Generar Demanda Nexo Causal',
-        accentColor: '#0079bf'
-      });
+    // Lógica del botón Generar en el formulario de la demanda Nexo Causal
+    document.getElementById('demanda-btn-generar').addEventListener('click', function () {
+      if (!demandaState.file || !demandaState.zip) return;
+      var statusDiv = document.getElementById('upload-status');
+      var formContainer = document.getElementById('demanda-form-container');
+      
+      statusDiv.textContent = 'Procesando opciones y generando documento...';
+      formContainer.style.display = 'none';
+      t.sizeTo(document.body).done();
+
+      try {
+        var contentXml = demandaState.contentXml;
+        
+        // 1. Obtener valores seleccionados y realizar los reemplazos de meta-etiquetas
+        var selects = document.querySelectorAll('.demanda-select');
+        selects.forEach(function (select) {
+          var title = select.getAttribute('data-title');
+          var selectedValue = select.value;
+          
+          // Reemplazar saltos de línea con etiquetas XML de Word
+          var formattedValue = selectedValue.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
+          
+          var metaTagInfo = demandaState.metaTags[title];
+          if (metaTagInfo && metaTagInfo.xmlMatches) {
+            metaTagInfo.xmlMatches.forEach(function (xmlMatch) {
+              contentXml = contentXml.split(xmlMatch).join(formattedValue);
+            });
+          }
+        });
+
+        // 2. Realizar los reemplazos estándar
+        contentXml = reemplazarEtiquetasEstandar(contentXml, demandaState.unifiedData.fields);
+
+        // 3. Escribir de vuelta en el zip y subir
+        demandaState.zip.file("word/document.xml", contentXml);
+        var outContent = demandaState.zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+        var baseTemplateName = demandaState.file.name.substring(0, demandaState.file.name.lastIndexOf('.'));
+        var nombreFinal = baseTemplateName + "_" + demandaState.unifiedData.fields.nombre.replace(/\s+/g, '_') + ".docx";
+
+        var inputEl = document.getElementById('demanda-upload');
+        subirDocumentoATrello(t, demandaState.unifiedData, outContent, nombreFinal, demandaState.file.name, statusDiv, inputEl);
+        
+        resetDemandaState();
+      } catch (err) {
+        console.error(err);
+        statusDiv.textContent = 'Error al generar documento: ' + err.message;
+        var inputEl = document.getElementById('demanda-upload');
+        inputEl.value = '';
+        resetDemandaState();
+        t.sizeTo(document.body).done();
+      }
     });
+
+    // Lógica del botón Cancelar
+    document.getElementById('demanda-btn-cancelar').addEventListener('click', function () {
+      resetDemandaState();
+      var inputEl = document.getElementById('demanda-upload');
+      inputEl.value = '';
+      document.getElementById('demanda-form-container').style.display = 'none';
+      document.getElementById('upload-status').textContent = '';
+      t.sizeTo(document.body).done();
+    });
+
+    function resetDemandaState() {
+      demandaState.file = null;
+      demandaState.zip = null;
+      demandaState.contentXml = null;
+      demandaState.metaTags = null;
+      demandaState.unifiedData = null;
+    }
 
     // Función auxiliar para obtener o crear la tarjeta "Facturas" en la segunda posición de la lista
     function getOrCreateFacturasCard(t, idList, token) {
