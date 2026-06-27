@@ -1452,8 +1452,8 @@
       if (firstBraceIdx === -1) return null;
       var optionsStr = localXml.substring(firstBraceIdx).trim();
       
-      // Eliminar las llaves de cierre de la meta-etiqueta '}}' al final, incluyendo cualquier etiqueta XML intermedia
-      optionsStr = optionsStr.replace(/\s*\}\}(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\s*$/, '');
+      // No es necesario eliminar las llaves de cierre de la meta-etiqueta '}}' al final,
+      // ya que optionPairRegex solo empareja bloques de opciones y las ignora de forma natural.
 
       // Extraer todas las opciones y sus separadores correspondientes
       var optionPairRegex = /\{([^{}]+)\}(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*\{([^{}]+)\}/g;
