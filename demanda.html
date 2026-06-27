@@ -236,6 +236,7 @@
         }
 
         var originalOptions = receivedData[title].options;
+        var startNum = receivedData[title].startNum || 2;
         var selectedIndices = [];
         checkedBoxes.forEach(function(cb) {
           selectedIndices.push(parseInt(cb.getAttribute('data-index'), 10));
@@ -243,9 +244,19 @@
         selectedIndices.sort(function(a, b) { return a - b; });
 
         var resultText = '';
+        var currentNum = startNum;
+        var numRegex = /\[(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*n(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*u(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*m(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*\]/gi;
+
         selectedIndices.forEach(function(idx, i) {
           var opt = originalOptions[idx];
-          resultText += opt.value;
+          var valueWithNum = opt.value;
+          
+          if (numRegex.test(valueWithNum)) {
+            valueWithNum = valueWithNum.replace(numRegex, currentNum);
+            currentNum++;
+          }
+          
+          resultText += valueWithNum;
           if (i < selectedIndices.length - 1) {
             resultText += opt.separator;
           }
