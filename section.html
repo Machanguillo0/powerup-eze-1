@@ -2531,17 +2531,20 @@
             var metaTagInfo = demandaState.metaTags[title];
             if (metaTagInfo && metaTagInfo.xmlMatches) {
               metaTagInfo.xmlMatches.forEach(function (xmlMatch) {
-                // Buscar las propiedades del run contenedor en el XML original para heredarlas en los textos planos
+                // Buscar las propiedades del run contenedor o párrafo en el XML original para heredarlas
                 var rPr = '';
                 var idx = contentXml.indexOf(xmlMatch);
                 if (idx !== -1) {
                   var prefix = contentXml.substring(0, idx);
-                  var rIdx = prefix.lastIndexOf('<w:r');
-                  if (rIdx !== -1) {
-                    var runXml = prefix.substring(rIdx);
-                    var rPrMatch = runXml.match(/^<w:r[^>]*>(<w:rPr>[\s\S]*?<\/w:rPr>)/i);
-                    if (rPrMatch) {
-                      rPr = rPrMatch[1];
+                  var rPrEndIdx = prefix.lastIndexOf('</w:rPr>');
+                  if (rPrEndIdx !== -1) {
+                    var rPrStartIdx = prefix.lastIndexOf('<w:rPr>', rPrEndIdx);
+                    if (rPrStartIdx !== -1) {
+                      var pIdx = prefix.lastIndexOf('<w:p ', rPrStartIdx);
+                      if (pIdx === -1) pIdx = prefix.lastIndexOf('<w:p>', rPrStartIdx);
+                      if (rPrStartIdx > pIdx) {
+                        rPr = prefix.substring(rPrStartIdx, rPrEndIdx + 8);
+                      }
                     }
                   }
                 }
