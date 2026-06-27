@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Generar Demanda Nexo Causal</title>
+  <title>Personalizar Demanda Nexo Causal</title>
   <!-- Cargamos el estilo estándar de Trello para iframe modal -->
   <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
   <style>
@@ -16,62 +16,20 @@
     
     .form-group {
       margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
     
     label {
-      display: block;
       font-weight: 600;
       font-size: 13px;
-      margin-bottom: 5px;
       color: #5e6c84;
-    }
-    
-    textarea {
-      width: 100%;
-      height: 70px;
-      padding: 8px;
-      box-sizing: border-box;
-      border: 1px solid #ced4da;
-      border-radius: 3px;
-      background-color: #fff;
-      color: #172b4d;
-      font-size: 13px;
-      resize: none;
-    }
-    
-    textarea:focus {
-      outline: none;
-      border-color: #0079bf;
-      box-shadow: 0 0 0 2px rgba(0, 121, 191, 0.2);
-    }
-    
-    .checkbox-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-top: 5px;
-      margin-bottom: 15px;
-    }
-    
-    .checkbox-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      font-weight: normal;
-      cursor: pointer;
-    }
-    
-    .checkbox-item input[type="checkbox"] {
-      cursor: pointer;
-      width: 15px;
-      height: 15px;
-      margin: 0;
     }
     
     select {
       width: 100%;
-      padding: 6px 10px;
+      padding: 8px 10px;
       border: 1px solid #ced4da;
       border-radius: 3px;
       background-color: #fff;
@@ -88,6 +46,9 @@
     .actions {
       margin-top: 20px;
       text-align: right;
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
     }
     
     button {
@@ -104,76 +65,133 @@
     button:hover {
       background-color: #026aa7;
     }
+    
+    button.secondary {
+      background-color: #091e420f;
+      color: #172b4d;
+    }
+    
+    button.secondary:hover {
+      background-color: #091e4224;
+    }
+    
+    .message {
+      font-size: 13px;
+      color: #5e6c84;
+      text-align: center;
+      margin-top: 40px;
+    }
   </style>
 </head>
 <body>
 
-  <div class="form-group">
-    <label for="texto-informativo">Texto Informativo</label>
-    <textarea id="texto-informativo" placeholder="Escribe el texto informativo aquí..."></textarea>
+  <div id="form-container" style="display: none;">
+    <div id="demanda-form-fields">
+      <!-- Inyectados dinámicamente -->
+    </div>
+    <div class="actions">
+      <button id="btn-cancelar" class="secondary">Cancelar</button>
+      <button id="btn-generar">Generar demanda</button>
+    </div>
   </div>
 
-  <div class="checkbox-group">
-    <label class="checkbox-item">
-      <input type="checkbox" id="parrafada-a">
-      <span>Incluir parrafada A</span>
-    </label>
-    <label class="checkbox-item">
-      <input type="checkbox" id="parrafada-b">
-      <span>Incluir parrafada B</span>
-    </label>
-  </div>
-
-  <div class="form-group">
-    <label for="clausula-quinta">Cláusula Quinta</label>
-    <select id="clausula-quinta">
-      <option value="corta">Corta</option>
-      <option value="media" selected>Media</option>
-      <option value="larga">Larga</option>
-    </select>
-  </div>
-
-  <div class="actions">
-    <button id="btn-generar">Generar demanda</button>
+  <div id="no-data-message" class="message">
+    Esperando datos de la plantilla...
   </div>
 
   <!-- Cargamos el script oficial de Trello Power-Up -->
   <script src="https://p.trellocdn.com/power-up.min.js"></script>
   <script>
     var t = window.TrelloPowerUp.iframe();
+    var bc = new BroadcastChannel('demanda_channel');
+    var receivedData = null;
 
-    // Cuando el modal se haya cargado, rellenamos con valores anteriores si los hay
-    t.render(function() {
-      return t.get('card', 'shared', 'demanda_options')
-        .then(function(savedData) {
-          if (savedData) {
-            document.getElementById('texto-informativo').value = savedData.texto || "";
-            document.getElementById('parrafada-a').checked = !!savedData.parrafadaA;
-            document.getElementById('parrafada-b').checked = !!savedData.parrafadaB;
-            if (savedData.clausula) {
-              document.getElementById('clausula-quinta').value = savedData.clausula;
-            }
-          }
-          t.sizeTo(document.body).done();
+    // Pedir datos a section.html
+    bc.postMessage({ type: 'get_meta_tags' });
+
+    // Escuchar respuesta
+    bc.onmessage = function(event) {
+      if (event.data && event.data.type === 'meta_tags') {
+        receivedData = event.data.metaTags;
+        renderForm(receivedData);
+      }
+    };
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function renderForm(metaTags) {
+      var fieldsContainer = document.getElementById('demanda-form-fields');
+      fieldsContainer.innerHTML = '';
+
+      var hasFields = false;
+      for (var title in metaTags) {
+        hasFields = true;
+        var metaTag = metaTags[title];
+        
+        var formGroup = document.createElement('div');
+        formGroup.className = 'form-group';
+
+        var label = document.createElement('label');
+        label.textContent = metaTag.title;
+
+        var select = document.createElement('select');
+        select.className = 'demanda-select';
+        select.setAttribute('data-title', title);
+
+        metaTag.options.forEach(function (opt) {
+          var option = document.createElement('option');
+          option.value = opt.value;
+          option.textContent = opt.name;
+          select.appendChild(option);
         });
-    });
 
-    // Acción al hacer clic en Generar demanda
+        formGroup.appendChild(label);
+        formGroup.appendChild(select);
+        fieldsContainer.appendChild(formGroup);
+      }
+
+      if (hasFields) {
+        document.getElementById('no-data-message').style.display = 'none';
+        document.getElementById('form-container').style.display = 'block';
+        t.sizeTo(document.body).done();
+      } else {
+        document.getElementById('no-data-message').textContent = 'No se encontraron opciones de personalización en la plantilla.';
+        t.sizeTo(document.body).done();
+      }
+    }
+
     document.getElementById('btn-generar').addEventListener('click', function() {
-      var data = {
-        texto: document.getElementById('texto-informativo').value,
-        parrafadaA: document.getElementById('parrafada-a').checked,
-        parrafadaB: document.getElementById('parrafada-b').checked,
-        clausula: document.getElementById('clausula-quinta').value
-      };
+      var selections = {};
+      var selects = document.querySelectorAll('.demanda-select');
+      selects.forEach(function(s) {
+        selections[s.getAttribute('data-title')] = s.value;
+      });
 
-      // Guardamos en la memoria compartida de la tarjeta
-      t.set('card', 'shared', 'demanda_options', data)
-        .then(function() {
-          // Cerramos el modal
-          t.closeModal();
-        });
+      // Enviar selecciones a la ventana principal
+      bc.postMessage({ type: 'generate', selections: selections });
+      t.closeModal();
     });
+
+    document.getElementById('btn-cancelar').addEventListener('click', function() {
+      bc.postMessage({ type: 'cancel' });
+      t.closeModal();
+    });
+
+    // Timeout por si no responde section.html
+    setTimeout(function() {
+      if (!receivedData) {
+        document.getElementById('no-data-message').textContent = 'Por favor, selecciona primero un archivo de Word desde el botón "Generar demanda Nexo causal" en la tarjeta.';
+        t.sizeTo(document.body).done();
+      }
+    }, 1500);
   </script>
 </body>
 </html>

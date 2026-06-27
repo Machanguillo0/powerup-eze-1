@@ -608,17 +608,6 @@
           </label>
         </div>
       </div>
-      <!-- Contenedor dinámico para personalizar demanda (meta-etiquetas) -->
-      <div id="demanda-form-container" style="display: none; margin-top: 15px; padding: 15px; background-color: #f4f5f7; border: 1px solid #dfe1e6; border-radius: 3px;">
-        <h4 style="margin-top: 0; margin-bottom: 12px; color: #172b4d; font-size: 14px; font-weight: 600;">Personalizar Demanda Nexo Causal</h4>
-        <div id="demanda-form-fields" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px;">
-          <!-- Aquí se inyectarán los selects -->
-        </div>
-        <div style="display: flex; gap: 8px; justify-content: flex-end;">
-          <button id="demanda-btn-cancelar" class="secondary" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; cursor: pointer; border: none; border-radius: 3px;">Cancelar</button>
-          <button id="demanda-btn-generar" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; background-color: #0079bf; color: white; border: none; border-radius: 3px; font-weight: bold; cursor: pointer;">Generar word</button>
-        </div>
-      </div>
     </div>
 
     <div id="planning-section" style="display: none;">
@@ -1429,36 +1418,24 @@
       }
     }
 
-    // Función para normalizar el XML de Word
-    function normalizeXmlText(xml) {
-      // Eliminar marcadores de error gramatical y ortográfico que Word inserta
-      xml = xml.replace(/<w:proofErr\s+[^>]*\/>/g, '');
-      xml = xml.replace(/<w:noProof\s+[^>]*\/>/g, '');
-      
-      // Combinar etiquetas de texto <w:t> contiguas en el mismo párrafo
-      var prevXml;
-      var mergeRegex = /<\/w:t>(?:(?!<\/?w:(?:p|tbl|tr|tc|br|cr|body)\b)<[^>]+>)*<w:t[^>]*>/g;
-      do {
-        prevXml = xml;
-        xml = xml.replace(mergeRegex, '');
-      } while (xml !== prevXml);
-      
-      return xml;
-    }
-
-    // Función para parsear una meta-etiqueta multiselección
-    function parseMetaTag(matchContent) {
+    // Función para parsear una meta-etiqueta multiselección a partir de su texto XML limpio
+    function parseMetaTag(fullTagText) {
       // Limpiar etiquetas HTML/XML internas del texto
-      var text = matchContent.replace(/<[^>]+>/g, '').trim();
+      var text = fullTagText.replace(/<[^>]+>/g, '').trim();
+      
+      if (!text.startsWith('{{') || !text.endsWith('}}')) {
+        return null;
+      }
+      var inner = text.substring(2, text.length - 2).trim();
       
       // Buscar la primera llave de opción '{'
-      var firstBrace = text.indexOf('{');
+      var firstBrace = inner.indexOf('{');
       if (firstBrace === -1) {
         return null; // Etiqueta estándar
       }
       
-      var title = text.substring(0, firstBrace).replace(/\s+/g, ' ').trim();
-      var optionsStr = text.substring(firstBrace).trim();
+      var title = inner.substring(0, firstBrace).replace(/\s+/g, ' ').trim();
+      var optionsStr = inner.substring(firstBrace).trim();
       
       // Extraer todas las opciones encerradas entre llaves
       var braceRegex = /\{([^{}]+)\}/g;
@@ -1486,6 +1463,53 @@
       };
     }
 
+    // Función auxiliar para obtener el valor del campo a partir del nombre de etiqueta estándar
+    function getFieldValueForTagName(tagName, fields) {
+      var nameLower = tagName.toLowerCase().trim();
+      
+      if (nameLower.endsWith(':')) {
+        nameLower = nameLower.substring(0, nameLower.length - 1).trim();
+      }
+      
+      switch (nameLower) {
+        case 'nombre': return fields.nombre;
+        case 'dni': return fields.dni;
+        case 'domicilio': return fields.domicilio;
+        case 'teléfono':
+        case 'telefono': return fields.telefono;
+        case 'profesión':
+        case 'profesion': return fields.profesion;
+        case 'observaciones': return fields.observaciones;
+        case 'fecha del siniestro':
+        case 'fecha siniestro': return fields.fecha || fields.fecha_siniestro;
+        case 'hora': return fields.hora;
+        case 'lugar': return fields.lugar;
+        case 'ciudad': return fields.ciudad;
+        case 'matrícula1':
+        case 'matricula1': return fields.matricula1;
+        case 'aseguradora1': return fields.aseguradora1;
+        case 'matrícula2':
+        case 'matricula2': return fields.matricula2;
+        case 'aseguradora2': return fields.aseguradora2;
+        case 'fecha del sistema': return fields.fecha_sistema;
+        case 'fecha última actuación': return fields.fecha_ultima;
+        case 'fecha cierre expediente': return fields.fecha_cierre;
+        case 'fecha facturación': return fields.fecha_facturacion;
+        case 'fecha de resolución': return fields.fecha_resolucion;
+        case 'fecha comunicación designa': return fields.fecha_designa;
+        case 'fecha reclamación previa': return fields.fecha_reclamacion;
+        case 'fecha apertura expediente': return fields.fecha_apertura;
+        case 'dds': return fields.dds;
+        case 'mess': return fields.mess;
+        case 'aaaas': return fields.aaaas;
+        case 'número de expediente':
+        case 'numero de expediente': return fields.num_expediente;
+        case 'total factura': return fields.total_factura || fields["total factura"] || "___________";
+        case 'parrafada': return fields.parrafada ? fields.parrafada.replace(/\n\r?/g, '</w:t><w:br/><w:t>') : '';
+        default: return null;
+      }
+    }
+
     // Función auxiliar para escapar caracteres HTML
     function escapeHtml(text) {
       if (!text) return '';
@@ -1497,51 +1521,31 @@
         .replace(/'/g, "&#039;");
     }
 
-    // Función para realizar todos los reemplazos estándar en el XML de Word
+    // Función para realizar todos los reemplazos estándar en el XML de Word de manera segura (evita dañar el formato)
     function reemplazarEtiquetasEstandar(contentXml, fields) {
-      function reemplazarEtiquetaRota(xml, etiqueta, valor) {
-        var letras = etiqueta.split('');
-        var patron = letras.join('(?:<[^>]+>)*');
-        var regex = new RegExp(patron, "gi");
-        return xml.replace(regex, valor);
+      var splitTagRegex = /(\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|[\s\S])*?\}(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\})/g;
+      var match;
+      var matches = [];
+      
+      while ((match = splitTagRegex.exec(contentXml)) !== null) {
+        matches.push({
+          xml: match[0],
+          plain: match[0].replace(/<[^>]+>/g, '').trim()
+        });
       }
 
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Nombre}}", fields.nombre);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{DNI}}", fields.dni);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Domicilio}}", fields.domicilio);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Teléfono}}", fields.telefono);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Telefono}}", fields.telefono);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Profesión}}", fields.profesion);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Observaciones}}", fields.observaciones);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha del siniestro}}", fields.fecha);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Hora}}", fields.hora);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Lugar}}", fields.lugar);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Ciudad}}", fields.ciudad);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Matrícula1}}", fields.matricula1);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Aseguradora1}}", fields.aseguradora1);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Matrícula2}}", fields.matricula2);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Aseguradora2}}", fields.aseguradora2);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha del sistema}}", fields.fecha_sistema);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha última actuación}}", fields.fecha_ultima);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha cierre expediente}}", fields.fecha_cierre);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha facturación}}", fields.fecha_facturacion);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha de resolución}}", fields.fecha_resolucion);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha comunicación designa}}", fields.fecha_designa);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha reclamación previa}}", fields.fecha_reclamacion);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha apertura expediente}}", fields.fecha_apertura);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Fecha siniestro}}", fields.fecha_siniestro);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{DDs}}", fields.dds);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Mess}}", fields.mess);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{AAAAs}}", fields.aaaas);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Número de expediente:}}", fields.num_expediente);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Número de expediente}}", fields.num_expediente);
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Total Factura}}", fields.total_factura || fields["total factura"] || "___________");
-      contentXml = reemplazarEtiquetaRota(contentXml, "{{Total factura}}", fields.total_factura || fields["total factura"] || "___________");
-
-      if (fields.parrafada) {
-        var parrafadaDocx = fields.parrafada.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
-        contentXml = reemplazarEtiquetaRota(contentXml, "{{Parrafada}}", parrafadaDocx);
-      }
+      matches.forEach(function (m) {
+        if (m.plain.startsWith('{{') && m.plain.endsWith('}}')) {
+          var isMeta = m.plain.includes('{', 2);
+          if (!isMeta) {
+            var tagName = m.plain.substring(2, m.plain.length - 2).trim();
+            var value = getFieldValueForTagName(tagName, fields);
+            if (value !== null) {
+              contentXml = contentXml.split(m.xml).join(value);
+            }
+          }
+        }
+      });
 
       return contentXml;
     }
@@ -2113,7 +2117,7 @@
       }
     });
 
-    // Procesar la plantilla de Demanda
+    // Procesar la plantilla de Demanda Nexo Causal
     document.getElementById('demanda-upload').addEventListener('change', function (event) {
       if (!event.target.files || event.target.files.length === 0) return;
       var file = event.target.files[0];
@@ -2129,18 +2133,14 @@
             var contentXml = zip.file("word/document.xml").asText();
             if (!contentXml) throw new Error("No se encontró word/document.xml");
 
-            // Normalizar XML para juntar texto de etiquetas rotas
-            contentXml = normalizeXmlText(contentXml);
-
             // Analizar meta-etiquetas multiselección
             var metaTagsByTitle = {};
             var hasMetaTags = false;
-            var tagRegex = /\{\{([\s\S]*?)\}\}/g;
+            var splitTagRegex = /(\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|[\s\S])*?\}(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\})/g;
             var match;
-            while ((match = tagRegex.exec(contentXml)) !== null) {
+            while ((match = splitTagRegex.exec(contentXml)) !== null) {
               var fullXmlMatch = match[0];
-              var innerXml = match[1];
-              var parsed = parseMetaTag(innerXml);
+              var parsed = parseMetaTag(fullXmlMatch);
               if (parsed) {
                 hasMetaTags = true;
                 if (!metaTagsByTitle[parsed.title]) {
@@ -2154,59 +2154,23 @@
               }
             }
 
-            // Si hay meta-etiquetas, mostrar el formulario dinámico
+            // Si hay meta-etiquetas, guardar estado y abrir modal
             if (hasMetaTags) {
-              // Guardar el estado
               demandaState.file = file;
               demandaState.zip = zip;
               demandaState.contentXml = contentXml;
               demandaState.metaTags = metaTagsByTitle;
               demandaState.unifiedData = data;
 
-              // Renderizar el formulario
-              var fieldsContainer = document.getElementById('demanda-form-fields');
-              fieldsContainer.innerHTML = '';
-
-              for (var title in metaTagsByTitle) {
-                var metaTag = metaTagsByTitle[title];
-                var fieldDiv = document.createElement('div');
-                fieldDiv.style.display = 'flex';
-                fieldDiv.style.flexDirection = 'column';
-                fieldDiv.style.gap = '4px';
-
-                var label = document.createElement('label');
-                label.style.fontWeight = '600';
-                label.style.fontSize = '12px';
-                label.style.color = '#5e6c84';
-                label.textContent = metaTag.title;
-
-                var select = document.createElement('select');
-                select.className = 'demanda-select';
-                select.setAttribute('data-title', title);
-                select.style.width = '100%';
-                select.style.padding = '8px';
-                select.style.border = '1px solid #ced4da';
-                select.style.borderRadius = '3px';
-                select.style.backgroundColor = '#fff';
-                select.style.color = '#172b4d';
-                select.style.fontSize = '13px';
-                select.style.cursor = 'pointer';
-
-                metaTag.options.forEach(function (opt) {
-                  var option = document.createElement('option');
-                  option.value = opt.value;
-                  option.textContent = opt.name;
-                  select.appendChild(option);
-                });
-
-                fieldDiv.appendChild(label);
-                fieldDiv.appendChild(select);
-                fieldsContainer.appendChild(fieldDiv);
-              }
-
-              statusDiv.textContent = 'Plantilla cargada. Por favor, personaliza las opciones.';
-              document.getElementById('demanda-form-container').style.display = 'block';
+              statusDiv.textContent = 'Plantilla cargada. Esperando personalización en la ventana emergente...';
               t.sizeTo(document.body).done();
+
+              t.modal({
+                url: './demanda.html',
+                height: 330,
+                title: 'Generar Demanda Nexo Causal',
+                accentColor: '#0079bf'
+              });
             } else {
               // Si no tiene meta-etiquetas, procesar y subir directamente
               statusDiv.textContent = 'Generando y subiendo documento...';
@@ -2402,68 +2366,70 @@
       });
     });
 
-    // Lógica del botón Generar en el formulario de la demanda Nexo Causal
-    document.getElementById('demanda-btn-generar').addEventListener('click', function () {
-      if (!demandaState.file || !demandaState.zip) return;
-      var statusDiv = document.getElementById('upload-status');
-      var formContainer = document.getElementById('demanda-form-container');
+    // Canal de comunicación con el modal de demanda.html
+    var demandaChannel = new BroadcastChannel('demanda_channel');
+    demandaChannel.onmessage = function (event) {
+      if (!event.data) return;
       
-      statusDiv.textContent = 'Procesando opciones y generando documento...';
-      formContainer.style.display = 'none';
-      t.sizeTo(document.body).done();
-
-      try {
-        var contentXml = demandaState.contentXml;
-        
-        // 1. Obtener valores seleccionados y realizar los reemplazos de meta-etiquetas
-        var selects = document.querySelectorAll('.demanda-select');
-        selects.forEach(function (select) {
-          var title = select.getAttribute('data-title');
-          var selectedValue = select.value;
-          
-          // Reemplazar saltos de línea con etiquetas XML de Word
-          var formattedValue = selectedValue.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
-          
-          var metaTagInfo = demandaState.metaTags[title];
-          if (metaTagInfo && metaTagInfo.xmlMatches) {
-            metaTagInfo.xmlMatches.forEach(function (xmlMatch) {
-              contentXml = contentXml.split(xmlMatch).join(formattedValue);
-            });
-          }
+      if (event.data.type === 'get_meta_tags') {
+        // Enviar las meta-etiquetas cargadas al modal
+        demandaChannel.postMessage({
+          type: 'meta_tags',
+          metaTags: demandaState.metaTags
         });
+      } else if (event.data.type === 'generate') {
+        // Generar el documento con las selecciones del modal
+        var selections = event.data.selections;
+        var statusDiv = document.getElementById('upload-status');
+        statusDiv.textContent = 'Procesando opciones y generando documento...';
+        t.sizeTo(document.body).done();
 
-        // 2. Realizar los reemplazos estándar
-        contentXml = reemplazarEtiquetasEstandar(contentXml, demandaState.unifiedData.fields);
+        try {
+          var contentXml = demandaState.contentXml;
 
-        // 3. Escribir de vuelta en el zip y subir
-        demandaState.zip.file("word/document.xml", contentXml);
-        var outContent = demandaState.zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-        var baseTemplateName = demandaState.file.name.substring(0, demandaState.file.name.lastIndexOf('.'));
-        var nombreFinal = baseTemplateName + "_" + demandaState.unifiedData.fields.nombre.replace(/\s+/g, '_') + ".docx";
+          // 1. Reemplazar las meta-etiquetas con el valor formateado
+          for (var title in selections) {
+            var selectedValue = selections[title];
+            var formattedValue = selectedValue.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
+            
+            var metaTagInfo = demandaState.metaTags[title];
+            if (metaTagInfo && metaTagInfo.xmlMatches) {
+              metaTagInfo.xmlMatches.forEach(function (xmlMatch) {
+                contentXml = contentXml.split(xmlMatch).join(formattedValue);
+              });
+            }
+          }
 
-        var inputEl = document.getElementById('demanda-upload');
-        subirDocumentoATrello(t, demandaState.unifiedData, outContent, nombreFinal, demandaState.file.name, statusDiv, inputEl);
-        
+          // 2. Reemplazar las etiquetas estándar (que ahora se hace dinámicamente)
+          var fields = demandaState.unifiedData.fields;
+          contentXml = reemplazarEtiquetasEstandar(contentXml, fields);
+
+          // 3. Escribir en el zip y subir
+          demandaState.zip.file("word/document.xml", contentXml);
+          var outContent = demandaState.zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+          var baseTemplateName = demandaState.file.name.substring(0, demandaState.file.name.lastIndexOf('.'));
+          var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + ".docx";
+
+          var inputEl = document.getElementById('demanda-upload');
+          subirDocumentoATrello(t, demandaState.unifiedData, outContent, nombreFinal, demandaState.file.name, statusDiv, inputEl);
+          
+          resetDemandaState();
+        } catch (err) {
+          console.error(err);
+          statusDiv.textContent = 'Error al generar documento: ' + err.message;
+          var inputEl = document.getElementById('demanda-upload');
+          inputEl.value = '';
+          resetDemandaState();
+          t.sizeTo(document.body).done();
+        }
+      } else if (event.data.type === 'cancel') {
         resetDemandaState();
-      } catch (err) {
-        console.error(err);
-        statusDiv.textContent = 'Error al generar documento: ' + err.message;
         var inputEl = document.getElementById('demanda-upload');
         inputEl.value = '';
-        resetDemandaState();
+        document.getElementById('upload-status').textContent = '';
         t.sizeTo(document.body).done();
       }
-    });
-
-    // Lógica del botón Cancelar
-    document.getElementById('demanda-btn-cancelar').addEventListener('click', function () {
-      resetDemandaState();
-      var inputEl = document.getElementById('demanda-upload');
-      inputEl.value = '';
-      document.getElementById('demanda-form-container').style.display = 'none';
-      document.getElementById('upload-status').textContent = '';
-      t.sizeTo(document.body).done();
-    });
+    };
 
     function resetDemandaState() {
       demandaState.file = null;
