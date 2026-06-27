@@ -2447,7 +2447,7 @@
           var contentXml = demandaState.contentXml;
 
           // Helper para balancear etiquetas XML en textos de opciones formateados
-          function ensureValidWordXml(str) {
+          function ensureValidWordXml(str, rPr) {
             if (str.indexOf('<') === -1) {
               return str;
             }
@@ -2474,14 +2474,14 @@
                     insideT = false;
                   } else {
                     if (!insideR) {
-                      result += '<w:r>';
+                      result += '<w:r>' + rPr;
                       insideR = true;
                     }
                     insideT = true;
                   }
                 } else {
                   if (!tagLower.startsWith('</') && !insideR) {
-                    result += '<w:r>';
+                    result += '<w:r>'; // No heredamos rPr si la etiqueta es w:rPr o similar del propio valor
                     insideR = true;
                   }
                 }
@@ -2493,7 +2493,7 @@
                   result += '<w:t xml:space="preserve">' + part;
                   insideT = true;
                 } else {
-                  result += '<w:r><w:t xml:space="preserve">' + part;
+                  result += '<w:r>' + rPr + '<w:t xml:space="preserve">' + part;
                   insideR = true;
                   insideT = true;
                 }
@@ -2511,7 +2511,7 @@
             return result;
           }
 
-          function processReplacementValue(selectedValue) {
+          function processReplacementValue(selectedValue, rPr) {
             // Limpiar etiquetas de run redundantes/huérfanas al inicio y final
             selectedValue = selectedValue.trim();
             selectedValue = selectedValue.replace(/^(?:<\/w:t>\s*<\/w:r>\s*)*(?:<w:r>\s*<w:t(?:[^>]*?)>\s*)*/i, '');
@@ -2520,18 +2520,33 @@
             if (selectedValue.indexOf('<') === -1) {
               return selectedValue;
             }
-            return '</w:t></w:r>' + ensureValidWordXml(selectedValue) + '<w:r><w:t>';
+            return '</w:t></w:r>' + ensureValidWordXml(selectedValue, rPr) + '<w:r>' + rPr + '<w:t>';
           }
 
           // 1. Reemplazar las meta-etiquetas con el valor formateado
           for (var title in selections) {
             var selectedValue = selections[title];
             var formattedValue = selectedValue.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
-            var processedValue = processReplacementValue(formattedValue);
             
             var metaTagInfo = demandaState.metaTags[title];
             if (metaTagInfo && metaTagInfo.xmlMatches) {
               metaTagInfo.xmlMatches.forEach(function (xmlMatch) {
+                // Buscar las propiedades del run contenedor en el XML original para heredarlas en los textos planos
+                var rPr = '';
+                var idx = contentXml.indexOf(xmlMatch);
+                if (idx !== -1) {
+                  var prefix = contentXml.substring(0, idx);
+                  var rIdx = prefix.lastIndexOf('<w:r');
+                  if (rIdx !== -1) {
+                    var runXml = prefix.substring(rIdx);
+                    var rPrMatch = runXml.match(/^<w:r[^>]*>(<w:rPr>[\s\S]*?<\/w:rPr>)/i);
+                    if (rPrMatch) {
+                      rPr = rPrMatch[1];
+                    }
+                  }
+                }
+                
+                var processedValue = processReplacementValue(formattedValue, rPr);
                 contentXml = contentXml.split(xmlMatch).join(processedValue);
               });
             }
