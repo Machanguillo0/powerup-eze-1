@@ -1420,16 +1420,9 @@
 
     // Función para parsear una meta-etiqueta multiselección preservando etiquetas XML de formato interno
     function parseMetaTag(fullTagText) {
-      // Normalizar localmente el fragmento de XML para unificar etiquetas de texto
+      // Limpiar solo marcadores de corrección ortográfica/gramatical
       var localXml = fullTagText.replace(/<w:proofErr\s+[^>]*\/>/g, '');
       localXml = localXml.replace(/<w:noProof\s+[^>]*\/>/g, '');
-      
-      var prevXml;
-      var mergeRegex = /<\/w:t>(?:(?!<\/?w:(?:p|tbl|tr|tc|br|cr|body)\b)<[^>]+>)*<w:t[^>]*>/g;
-      do {
-        prevXml = localXml;
-        localXml = localXml.replace(mergeRegex, '');
-      } while (localXml !== prevXml);
 
       // Obtener el texto limpio de etiquetas XML
       var cleanText = localXml.replace(/<[^>]+>/g, '').trim();
