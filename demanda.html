@@ -6,19 +6,36 @@
   <!-- Cargamos el estilo estándar de Trello para iframe modal -->
   <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
   <style>
-    body {
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Noto Sans", "Ubuntu", "Droid Sans", "Helvetica Neue", sans-serif;
       color: #172b4d;
       background-color: #f4f5f7;
-      padding: 15px;
-      margin: 0;
+    }
+    
+    #form-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+
+    #demanda-form-fields {
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 8px;
+      margin-bottom: 12px;
     }
     
     .form-group {
-      margin-bottom: 12px;
+      margin-bottom: 16px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 6px;
     }
     
     label {
@@ -44,11 +61,13 @@
     }
     
     .actions {
-      margin-top: 20px;
-      text-align: right;
       display: flex;
-      gap: 8px;
       justify-content: flex-end;
+      gap: 8px;
+      padding-top: 12px;
+      border-top: 1px solid #e2e8f0;
+      background-color: #f4f5f7;
+      flex-shrink: 0;
     }
     
     button {
