@@ -1441,13 +1441,17 @@
       var titleRaw = innerClean.substring(0, firstBraceClean).replace(/\s+/g, ' ').trim();
       var type = 'select'; // Por defecto es lista desplegable
       var startNum = 2;    // Por defecto inicia en el documento nº 2
-      var titleMatch = titleRaw.match(/^(.*?)\s*\[(checkbox|select)(?::(\d+))?\]\s*$/i);
+      var autowrap = false;
+      var titleMatch = titleRaw.match(/^(.*?)\s*\[(checkbox|select)(?::(\d+))?(?::(autowrap))?\]\s*$/i);
       var title = titleRaw;
       if (titleMatch) {
         title = titleMatch[1].trim();
         type = titleMatch[2].toLowerCase();
         if (titleMatch[3]) {
           startNum = parseInt(titleMatch[3], 10);
+        }
+        if (titleMatch[4]) {
+          autowrap = true;
         }
       }
       
@@ -1498,6 +1502,7 @@
         title: title,
         type: type,
         startNum: startNum,
+        autowrap: autowrap,
         options: cleanedOptions
       };
     }
@@ -2187,6 +2192,7 @@
                     title: parsed.title,
                     type: parsed.type,
                     startNum: parsed.startNum,
+                    autowrap: parsed.autowrap,
                     options: parsed.options,
                     xmlMatches: []
                   };

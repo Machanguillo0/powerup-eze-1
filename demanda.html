@@ -237,6 +237,7 @@
 
         var originalOptions = receivedData[title].options;
         var startNum = receivedData[title].startNum || 2;
+        var autowrap = receivedData[title].autowrap || false;
         var selectedIndices = [];
         checkedBoxes.forEach(function(cb) {
           selectedIndices.push(parseInt(cb.getAttribute('data-index'), 10));
@@ -247,7 +248,8 @@
         var currentNum = startNum;
         var numRegex = /\[(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*n(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*u(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*m(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*\]/gi;
 
-        selectedIndices.forEach(function(idx, i) {
+        var selectedValues = [];
+        selectedIndices.forEach(function(idx) {
           var opt = originalOptions[idx];
           var valueWithNum = opt.value;
           
@@ -256,11 +258,37 @@
             currentNum++;
           }
           
-          resultText += valueWithNum;
-          if (i < selectedIndices.length - 1) {
-            resultText += opt.separator;
-          }
+          selectedValues.push({
+            value: valueWithNum,
+            separator: opt.separator
+          });
         });
+
+        if (autowrap) {
+          // Formateo de lista gramatical en español:
+          // 1 elemento: "A"
+          // 2 elementos: "A y B"
+          // 3 o más elementos: "A, B y C"
+          if (selectedValues.length === 1) {
+            resultText = selectedValues[0].value;
+          } else {
+            var allButLast = [];
+            for (var i = 0; i < selectedValues.length - 1; i++) {
+              allButLast.push(selectedValues[i].value);
+            }
+            var firstPart = allButLast.join(', ');
+            var lastValue = selectedValues[selectedValues.length - 1].value;
+            resultText = firstPart + ' y ' + lastValue;
+          }
+        } else {
+          // Formateo estándar usando los separadores de la plantilla
+          selectedValues.forEach(function(item, i) {
+            resultText += item.value;
+            if (i < selectedValues.length - 1) {
+              resultText += item.separator;
+            }
+          });
+        }
 
         selections[title] = resultText;
       });
