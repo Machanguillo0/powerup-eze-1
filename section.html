@@ -2181,7 +2181,12 @@
             var zip = new PizZip(e.target.result);
             var contentXml = zip.file("word/document.xml").asText();
             if (!contentXml) throw new Error("No se encontró word/document.xml");
-
+            // Limpiar marcadores de spelling error y noProof
+            contentXml = contentXml.replace(/<w:proofErr\s+[^>]*\/>/g, '');
+            contentXml = contentXml.replace(/<w:noProof\s+[^>]*\/>/g, '');
+            // Unir runs y text tags adyacentes planos
+            contentXml = contentXml.replace(/<\/w:t>\s*<\/w:r>\s*<w:r>\s*<w:t>/g, '');
+            contentXml = contentXml.replace(/<\/w:t>\s*<\/w:r>\s*<w:r\s+[^>]*>\s*<w:t>/g, '');
             // Analizar meta-etiquetas multiselección
             var metaTagsByTitle = {};
             var hasMetaTags = false;
@@ -2468,7 +2473,16 @@
                   if (tagLower.startsWith('</')) {
                     insideT = false;
                   } else {
+                    if (!insideR) {
+                      result += '<w:r>';
+                      insideR = true;
+                    }
                     insideT = true;
+                  }
+                } else {
+                  if (!tagLower.startsWith('</') && !insideR) {
+                    result += '<w:r>';
+                    insideR = true;
                   }
                 }
                 result += part;
