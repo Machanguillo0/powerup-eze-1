@@ -2512,6 +2512,11 @@
           }
 
           function processReplacementValue(selectedValue) {
+            // Limpiar etiquetas de run redundantes/huérfanas al inicio y final
+            selectedValue = selectedValue.trim();
+            selectedValue = selectedValue.replace(/^(?:<\/w:t>\s*<\/w:r>\s*)*(?:<w:r>\s*<w:t(?:[^>]*?)>\s*)*/i, '');
+            selectedValue = selectedValue.replace(/(?:<\/w:t>\s*<\/w:r>\s*)*(?:<w:r>\s*<w:t(?:[^>]*?)>\s*)*$/i, '');
+
             if (selectedValue.indexOf('<') === -1) {
               return selectedValue;
             }
