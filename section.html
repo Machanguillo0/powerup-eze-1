@@ -1572,7 +1572,7 @@
 
     // Función para realizar todos los reemplazos estándar en el XML de Word de manera segura (evita dañar el formato)
     function reemplazarEtiquetasEstandar(contentXml, fields) {
-      var splitTagRegex = /(\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|[\s\S])*?\}(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\})*\})/g;
+      var splitTagRegex = /(\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|[\s\S])*?\}(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\}(?:(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\})?)/g;
       var match;
       var matches = [];
       
@@ -2190,7 +2190,7 @@
             // Analizar meta-etiquetas multiselección
             var metaTagsByTitle = {};
             var hasMetaTags = false;
-            var splitTagRegex = /(\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|[\s\S])*?\}(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\})*\})/g;
+            var splitTagRegex = /(\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|[\s\S])*?\}(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\}(?:(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\})?)/g;
             var match;
             while ((match = splitTagRegex.exec(contentXml)) !== null) {
               var fullXmlMatch = match[0];
