@@ -2931,6 +2931,29 @@
                 }
                 
                 var processedValue = processReplacementValue(formattedValue, rPr);
+                
+                // Si el valor es vacío, verificar si la etiqueta era el único texto en su párrafo
+                // para eliminar el párrafo completo y no dejar una línea en blanco
+                if (idx !== -1 && selectedValue === '') {
+                  var prefix = contentXml.substring(0, idx);
+                  var pStartIdx = prefix.lastIndexOf('<w:p ');
+                  if (pStartIdx === -1) pStartIdx = prefix.lastIndexOf('<w:p>');
+                  
+                  var suffix = contentXml.substring(idx + xmlMatch.length);
+                  var pEndIdx = suffix.indexOf('</w:p>');
+                  
+                  if (pStartIdx !== -1 && pEndIdx !== -1) {
+                    var paragraphXml = contentXml.substring(pStartIdx, idx + xmlMatch.length + pEndIdx + 6);
+                    var paragraphText = paragraphXml.replace(/<[^>]+>/g, '').trim();
+                    var tagText = xmlMatch.replace(/<[^>]+>/g, '').trim();
+                    
+                    if (paragraphText === tagText) {
+                      contentXml = contentXml.split(paragraphXml).join('');
+                      return;
+                    }
+                  }
+                }
+                
                 contentXml = contentXml.split(xmlMatch).join(processedValue);
               });
             }
@@ -2963,6 +2986,30 @@
             if (isSelected) {
               replacementVal = item.parsed.xmlContent;
             }
+            
+            // Si el valor es vacío, verificar si el bloque condicional era el único contenido en su párrafo
+            // para eliminar el párrafo completo y no dejar una línea en blanco
+            var idx = contentXml.indexOf(item.xmlMatch);
+            if (idx !== -1 && replacementVal === '') {
+              var prefix = contentXml.substring(0, idx);
+              var pStartIdx = prefix.lastIndexOf('<w:p ');
+              if (pStartIdx === -1) pStartIdx = prefix.lastIndexOf('<w:p>');
+              
+              var suffix = contentXml.substring(idx + item.xmlMatch.length);
+              var pEndIdx = suffix.indexOf('</w:p>');
+              
+              if (pStartIdx !== -1 && pEndIdx !== -1) {
+                var paragraphXml = contentXml.substring(pStartIdx, idx + item.xmlMatch.length + pEndIdx + 6);
+                var paragraphText = paragraphXml.replace(/<[^>]+>/g, '').trim();
+                var tagText = item.xmlMatch.replace(/<[^>]+>/g, '').trim();
+                
+                if (paragraphText === tagText) {
+                  contentXml = contentXml.split(paragraphXml).join('');
+                  return;
+                }
+              }
+            }
+            
             contentXml = contentXml.split(item.xmlMatch).join(replacementVal);
           });
 
