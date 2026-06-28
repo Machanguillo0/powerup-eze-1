@@ -1636,9 +1636,17 @@
       return isNaN(num) ? 0 : num;
     }
 
-    // Función para formatear número al estilo decimal español (dos decimales)
+    // Función para formatear número al estilo decimal español (dos decimales) con punto en miles
     function formatSpanishFloat(num) {
-      return num.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      var str = num.toFixed(2);
+      var parts = str.split('.');
+      var integerPart = parts[0];
+      var decimalPart = parts[1];
+      
+      // Separar miles con punto
+      integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+      
+      return integerPart + ',' + decimalPart;
     }
 
     // Función para parsear etiquetas de cálculo {{CALC:formula}}
