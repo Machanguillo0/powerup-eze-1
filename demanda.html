@@ -75,6 +75,19 @@
       outline: none;
       border-color: #0079bf;
     }
+
+    .form-group.horizontal {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    input[type="text"].demanda-input-field.narrow {
+      width: 95px;
+      text-align: center;
+      flex-shrink: 0;
+    }
     
     .actions {
       display: flex;
@@ -216,31 +229,44 @@
             checkboxContainer.appendChild(itemLabel);
           });
           formGroup.appendChild(checkboxContainer);
-        } else if (metaTag.type === 'int' || metaTag.type === 'number' || metaTag.type === 'float' || metaTag.type === 'text') {
-          // Renderizar campo de entrada de texto o numérico
+        } else if (metaTag.type === 'int' || metaTag.type === 'number' || metaTag.type === 'float') {
+          // Renderizar campo de entrada numérico horizontal y estrecho
+          formGroup.className = 'form-group horizontal';
+          label.style.display = 'inline-block';
+          label.style.marginBottom = '0px';
+
           var input = document.createElement('input');
           input.type = 'text';
-          input.className = 'demanda-input-field';
+          input.className = 'demanda-input-field narrow';
           input.setAttribute('data-title', title);
           input.setAttribute('data-type', metaTag.type);
           
           if (metaTag.type === 'int') {
-            input.placeholder = 'Introduce un número entero (ej. 10)';
+            input.placeholder = 'Ej. 10';
+            input.maxLength = 5;
             input.addEventListener('keypress', function(e) {
               if (e.key < '0' || e.key > '9') {
                 e.preventDefault();
               }
             });
-          } else if (metaTag.type === 'number' || metaTag.type === 'float') {
-            input.placeholder = 'Introduce un número (ej. 12.50)';
+          } else {
+            input.placeholder = 'Ej. 12.50';
+            input.maxLength = 7;
             input.addEventListener('keypress', function(e) {
               if ((e.key < '0' || e.key > '9') && e.key !== '.' && e.key !== ',') {
                 e.preventDefault();
               }
             });
-          } else {
-            input.placeholder = 'Introduce un texto...';
           }
+          formGroup.appendChild(input);
+        } else if (metaTag.type === 'text') {
+          // Renderizar campo de entrada de texto largo estándar (vertical)
+          var input = document.createElement('input');
+          input.type = 'text';
+          input.className = 'demanda-input-field';
+          input.setAttribute('data-title', title);
+          input.setAttribute('data-type', metaTag.type);
+          input.placeholder = 'Introduce un texto...';
           formGroup.appendChild(input);
         } else {
           // Renderizar select desplegable estándar
