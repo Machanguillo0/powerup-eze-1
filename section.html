@@ -1904,20 +1904,25 @@
       
       var formula = innerClean.substring(5).trim();
       var inWords = false;
+      var isInt = false;
       if (formula.toLowerCase().endsWith('[words]')) {
         inWords = true;
         formula = formula.substring(0, formula.length - 7).trim();
+      } else if (formula.toLowerCase().endsWith('[int]')) {
+        isInt = true;
+        formula = formula.substring(0, formula.length - 5).trim();
       }
       
       return {
         formula: formula,
         inWords: inWords,
+        isInt: isInt,
         xmlMatch: fullTagText
       };
     }
 
     // Función para evaluar la fórmula matemática sustituyendo los campos por sus valores numéricos
-    function evaluateFormula(formula, fields, inWords) {
+    function evaluateFormula(formula, fields, inWords, isInt) {
       var keys = [];
       for (var k in fields) {
         if (fields.hasOwnProperty(k) && typeof fields[k] === 'string') {
@@ -1949,6 +1954,11 @@
         if (isFinite(res)) {
           if (inWords) {
             return formatAsWordsAndNumbers(res);
+          }
+          if (isInt) {
+            var intVal = Math.round(res);
+            var strInt = String(intVal);
+            return strInt.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
           }
           return formatSpanishFloat(res);
         }
@@ -3222,7 +3232,7 @@
           }
 
           calcReplacements.forEach(function(item) {
-            var resultVal = evaluateFormula(item.parsed.formula, demandaState.unifiedData.fields, item.parsed.inWords);
+            var resultVal = evaluateFormula(item.parsed.formula, demandaState.unifiedData.fields, item.parsed.inWords, item.parsed.isInt);
             contentXml = contentXml.split(item.xmlMatch).join(resultVal);
           });
 
