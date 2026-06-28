@@ -1471,7 +1471,7 @@
       }
       
       // Obtener la subcadena de opciones a partir de la primera llave en el XML local normalizado
-      var firstBraceIdx = localXml.indexOf('{');
+      var firstBraceIdx = localXml.indexOf('{', 2);
       if (firstBraceIdx === -1) return null;
       var optionsStr = localXml.substring(firstBraceIdx).trim();
 
