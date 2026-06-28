@@ -1651,7 +1651,20 @@
         case 'numero de expediente': return fields.num_expediente;
         case 'total factura': return fields.total_factura || fields["total factura"] || "___________";
         case 'parrafada': return fields.parrafada ? fields.parrafada.replace(/\n\r?/g, '</w:t><w:br/><w:t>') : '';
-        default: return null;
+        default:
+          // Fallback para campos dinámicos de tarjetas como "Importes" o "Demanda nexo causal"
+          if (fields[tagName] !== undefined && fields[tagName] !== null) {
+            return fields[tagName];
+          }
+          if (fields[nameLower] !== undefined && fields[nameLower] !== null) {
+            return fields[nameLower];
+          }
+          // Fallback normalizando caracteres especiales/acentos
+          var normK = nameLower.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+          if (fields[normK] !== undefined && fields[normK] !== null) {
+            return fields[normK];
+          }
+          return null;
       }
     }
 
@@ -1907,6 +1920,68 @@
               }
             }
           });
+
+          // Buscar y parsear la tarjeta "Demanda nexo causal" en la primera columna o en el tablero
+          var firstList = allLists && allLists.length > 0 ? allLists[0] : null;
+          var demandaCard = null;
+          if (firstList) {
+            demandaCard = allCards.find(function(c) {
+              return c.idList === firstList.id && c.name.trim().toLowerCase() === "demanda nexo causal";
+            });
+          }
+          if (!demandaCard) {
+            demandaCard = allCards.find(function(c) {
+              return c.name.trim().toLowerCase() === "demanda nexo causal";
+            });
+          }
+
+          if (demandaCard && demandaCard.desc) {
+            var lines = demandaCard.desc.split('\n');
+            lines.forEach(function (line) {
+              line = line.trim();
+              if (!line) return;
+              
+              var sepIndex = -1;
+              for (var i = line.length - 1; i >= 0; i--) {
+                if (line[i] === ':' && i < line.length - 1 && /\s/.test(line[i+1])) {
+                  sepIndex = i;
+                  break;
+                }
+              }
+              if (sepIndex === -1) {
+                sepIndex = line.indexOf(':');
+              }
+              if (sepIndex === -1) {
+                sepIndex = line.indexOf('=');
+              }
+              
+              if (sepIndex > -1) {
+                var k = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+                var v = line.substring(sepIndex + 1).replace(/[*_~`#]/g, '').trim();
+                if (k) {
+                  var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+                  
+                  // Mapear el campo si el valor actual es vacío o por defecto
+                  var currentVal = unified[k];
+                  var isDefault = !currentVal || currentVal === "___________" || currentVal === "Cliente Desconocido";
+                  
+                  if (isDefault) {
+                    unified[k] = v;
+                    unified[k.toLowerCase()] = v;
+                    unified[normK] = v;
+                  }
+                  
+                  var normKOriginal = k.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                  var currentValOriginal = unified[normKOriginal];
+                  var isDefaultOriginal = !currentValOriginal || currentValOriginal === "___________";
+                  if (isDefaultOriginal) {
+                    unified[normKOriginal] = v;
+                    unified[normKOriginal.toLowerCase()] = v;
+                  }
+                }
+              }
+            });
+          }
 
           var localFacturasCard = cardsInList.find(function(c) {
             var nameLower = c.name.trim().toLowerCase();
