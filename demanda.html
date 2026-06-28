@@ -277,6 +277,14 @@
           label.style.display = 'inline-block';
           label.style.marginBottom = '0px';
 
+          // Envolver en etiqueta label y span de acompañamiento para cumplir con el estilo de Trello
+          var itemLabel = document.createElement('label');
+          itemLabel.style.display = 'inline-flex';
+          itemLabel.style.alignItems = 'center';
+          itemLabel.style.margin = '0';
+          itemLabel.style.padding = '0';
+          itemLabel.style.cursor = 'pointer';
+
           var checkbox = document.createElement('input');
           checkbox.type = 'checkbox';
           checkbox.className = 'demanda-checkbox-option';
@@ -287,6 +295,12 @@
           checkbox.style.height = '16px';
           checkbox.style.margin = '0';
 
+          var span = document.createElement('span');
+          span.style.display = 'inline-block';
+          span.style.width = '16px';
+          span.style.height = '16px';
+          span.style.margin = '0';
+
           // Prefiltrar estado seleccionado del checkbox
           if (saved && saved[title] && Array.isArray(saved[title])) {
             if (saved[title].indexOf(0) > -1) {
@@ -294,7 +308,9 @@
             }
           }
 
-          formGroup.appendChild(checkbox);
+          itemLabel.appendChild(checkbox);
+          itemLabel.appendChild(span);
+          formGroup.appendChild(itemLabel);
         } else if (metaTag.type === 'int' || metaTag.type === 'number' || metaTag.type === 'float') {
           // Renderizar campo de entrada numérico horizontal y estrecho
           formGroup.className = 'form-group horizontal';
