@@ -1450,7 +1450,51 @@
       var singleCheckboxMatch = innerClean.match(/^(.*?)\s*\[checkbox\]\s*\{([^{}]+)\}\s*$/i);
       if (singleCheckboxMatch) {
         var title = singleCheckboxMatch[1].trim();
-        var optionValue = singleCheckboxMatch[2].trim();
+        
+        // Extraer el valor bruto con formato XML de las llaves correspondientes
+        var openBraceCount = 0;
+        var thirdBraceIdx = -1;
+        var insideTag = false;
+        for (var i = 0; i < localXml.length; i++) {
+          var char = localXml.charAt(i);
+          if (char === '<') {
+            insideTag = true;
+          } else if (char === '>') {
+            insideTag = false;
+          } else if (!insideTag && char === '{') {
+            openBraceCount++;
+            if (openBraceCount === 3) {
+              thirdBraceIdx = i;
+              break;
+            }
+          }
+        }
+
+        var closeBraceCount = 0;
+        var thirdCloseBraceIdx = -1;
+        insideTag = false;
+        for (var i = localXml.length - 1; i >= 0; i--) {
+          var char = localXml.charAt(i);
+          if (char === '>') {
+            insideTag = true;
+          } else if (char === '<') {
+            insideTag = false;
+          } else if (!insideTag && char === '}') {
+            closeBraceCount++;
+            if (closeBraceCount === 3) {
+              thirdCloseBraceIdx = i;
+              break;
+            }
+          }
+        }
+
+        var optionValue;
+        if (thirdBraceIdx !== -1 && thirdCloseBraceIdx !== -1 && thirdCloseBraceIdx > thirdBraceIdx) {
+          optionValue = localXml.substring(thirdBraceIdx + 1, thirdCloseBraceIdx);
+        } else {
+          optionValue = singleCheckboxMatch[2].trim();
+        }
+
         return {
           title: title,
           type: 'single-checkbox',
