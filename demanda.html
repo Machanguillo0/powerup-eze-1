@@ -177,6 +177,12 @@
       }
     };
 
+    t.render(function() {
+      if (receivedData) {
+        resizeModal();
+      }
+    });
+
     function escapeHtml(text) {
       if (!text) return '';
       return text
@@ -304,7 +310,7 @@
         resizeModal();
       } else {
         document.getElementById('no-data-message').textContent = 'No se encontraron opciones de personalización en la plantilla.';
-        t.sizeTo(document.body).done();
+        t.sizeTo(document.body).catch(function(e){});
       }
     }
 
@@ -440,7 +446,7 @@
     setTimeout(function() {
       if (!receivedData) {
         document.getElementById('no-data-message').textContent = 'Por favor, selecciona primero un archivo de Word desde el botón "Generar demanda Nexo causal" en la tarjeta.';
-        t.sizeTo(document.body).done();
+        t.sizeTo(document.body).catch(function(e){});
       }
     }, 1500);
 
@@ -463,7 +469,7 @@
       document.body.style.height = targetHeight + 'px';
       document.documentElement.style.height = targetHeight + 'px';
 
-      t.sizeTo(document.body).done();
+      t.sizeTo(document.body).catch(function(e){});
 
       // Restaurar restricciones de flexbox inmediatamente para el ajuste si Trello limita el tamaño
       container.style.height = '100%';
