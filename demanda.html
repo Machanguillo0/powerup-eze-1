@@ -173,7 +173,20 @@
     bc.onmessage = function(event) {
       if (event.data && event.data.type === 'meta_tags') {
         receivedData = event.data.metaTags;
-        renderForm(receivedData);
+        // Obtener el idList de la tarjeta actual para cargar la persistencia a nivel de cliente (columna)
+        t.card('idList')
+          .then(function(card) {
+            var idList = card.idList;
+            var storageKey = 'demanda_selections_' + idList;
+            return t.get('board', 'shared', storageKey);
+          })
+          .then(function(saved) {
+            renderForm(receivedData, saved || {});
+          })
+          .catch(function(e) {
+            console.error("Error al recuperar persistencia de demanda:", e);
+            renderForm(receivedData, {});
+          });
       }
     };
 
@@ -193,7 +206,7 @@
         .replace(/'/g, "&#039;");
     }
 
-    function renderForm(metaTags) {
+    function renderForm(metaTags, saved) {
       var fieldsContainer = document.getElementById('demanda-form-fields');
       fieldsContainer.innerHTML = '';
 
@@ -242,6 +255,13 @@
             var span = document.createElement('span');
             span.textContent = opt.name;
 
+            // Prefiltrar estado seleccionado del checkbox
+            if (saved && saved[title] && Array.isArray(saved[title])) {
+              if (saved[title].indexOf(index) > -1) {
+                checkbox.checked = true;
+              }
+            }
+
             itemLabel.appendChild(checkbox);
             itemLabel.appendChild(span);
             checkboxContainer.appendChild(itemLabel);
@@ -276,6 +296,11 @@
               }
             });
           }
+          
+          if (saved && saved[title] !== undefined) {
+            input.value = saved[title];
+          }
+
           formGroup.appendChild(input);
         } else if (metaTag.type === 'text') {
           // Renderizar campo de entrada de texto largo estándar (vertical)
@@ -285,6 +310,11 @@
           input.setAttribute('data-title', title);
           input.setAttribute('data-type', metaTag.type);
           input.placeholder = 'Introduce un texto...';
+          
+          if (saved && saved[title] !== undefined) {
+            input.value = saved[title];
+          }
+
           formGroup.appendChild(input);
         } else {
           // Renderizar select desplegable estándar
@@ -298,6 +328,11 @@
             option.textContent = opt.name;
             select.appendChild(option);
           });
+
+          if (saved && saved[title] !== undefined) {
+            select.value = saved[title];
+          }
+
           formGroup.appendChild(select);
         }
 
@@ -317,6 +352,7 @@
     document.getElementById('btn-generar').addEventListener('click', function() {
       var selections = {};
       var rawSelections = {};
+      var formState = {};
       
       // 1. Recopilar valores de dropdowns
       var selects = document.querySelectorAll('.demanda-select');
@@ -326,6 +362,7 @@
         // Guardar el nombre de la opción seleccionada para la lógica IF
         var selectedOptName = s.options[s.selectedIndex].text;
         rawSelections[title] = [selectedOptName];
+        formState[title] = s.value;
       });
 
       // 1.2. Recopilar valores de campos de texto (int, text, number, float)
@@ -335,6 +372,7 @@
         var val = inp.value.trim();
         selections[title] = val;
         rawSelections[title] = [val];
+        formState[title] = val;
       });
 
       // 2. Recopilar valores de checkboxes agrupados por título y ordenados por su índice original
@@ -432,9 +470,33 @@
         nextAutoNum = currentNum;
       });
 
-      // Enviar selecciones a la ventana principal
-      bc.postMessage({ type: 'generate', selections: selections, rawSelections: rawSelections });
-      t.closeModal();
+      // Guardar los checkboxes seleccionados en formState
+      allCheckboxGroups.forEach(function(cb) {
+        var title = cb.getAttribute('data-title');
+        var index = parseInt(cb.getAttribute('data-index'), 10);
+        if (cb.checked) {
+          if (!formState[title]) {
+            formState[title] = [];
+          }
+          formState[title].push(index);
+        }
+      });
+
+      // Guardar el estado del formulario en Trello a nivel de tablero (con idList) antes de generar el documento
+      t.card('idList')
+        .then(function(card) {
+          var idList = card.idList;
+          var storageKey = 'demanda_selections_' + idList;
+          return t.set('board', 'shared', storageKey, formState);
+        })
+        .catch(function(err) {
+          console.error("Error al guardar selecciones de la demanda:", err);
+        })
+        .then(function() {
+          // Enviar selecciones a la ventana principal
+          bc.postMessage({ type: 'generate', selections: selections, rawSelections: rawSelections });
+          t.closeModal();
+        });
     });
 
     document.getElementById('btn-cancelar').addEventListener('click', function() {
