@@ -1512,6 +1512,64 @@
       };
     }
 
+    // Función para parsear una etiqueta condicional del tipo {{IF:Nombre_Metaetiqueta:Nombre_Opcion{Texto}}}
+    function parseConditionalTag(fullTagText) {
+      var localXml = fullTagText.replace(/<w:proofErr\s+[^>]*\/>/g, '');
+      localXml = localXml.replace(/<w:noProof\s+[^>]*\/>/g, '');
+      
+      var cleanText = localXml.replace(/<[^>]+>/g, '').trim();
+      if (!cleanText.startsWith('{{') || !cleanText.endsWith('}}')) {
+        return null;
+      }
+      
+      var innerClean = cleanText.substring(2, cleanText.length - 2).trim();
+      if (!innerClean.toUpperCase().startsWith('IF:')) {
+        return null;
+      }
+      
+      var firstBraceClean = innerClean.indexOf('{');
+      if (firstBraceClean === -1) {
+        return null;
+      }
+      
+      var titleAndOption = innerClean.substring(3, firstBraceClean).trim();
+      var separatorIdx = titleAndOption.lastIndexOf(':');
+      if (separatorIdx === -1) {
+        return null;
+      }
+      
+      var title = titleAndOption.substring(0, separatorIdx).trim();
+      var optionName = titleAndOption.substring(separatorIdx + 1).trim();
+      
+      var firstBraceIdx = localXml.indexOf('{');
+      if (firstBraceIdx === -1) return null;
+      
+      var braceCount = 0;
+      var closingBraceIdx = -1;
+      for (var i = localXml.length - 1; i >= 0; i--) {
+        var char = localXml.charAt(i);
+        if (char === '}') {
+          braceCount++;
+          if (braceCount === 3) {
+            closingBraceIdx = i;
+            break;
+          }
+        }
+      }
+      
+      if (closingBraceIdx === -1 || closingBraceIdx <= firstBraceIdx) {
+        return null;
+      }
+      
+      var xmlContent = localXml.substring(firstBraceIdx + 1, closingBraceIdx);
+      
+      return {
+        title: title,
+        optionName: optionName,
+        xmlContent: xmlContent
+      };
+    }
+
     // Función auxiliar para obtener el valor del campo a partir del nombre de etiqueta estándar
     function getFieldValueForTagName(tagName, fields) {
       var nameLower = tagName.toLowerCase().trim();
@@ -2439,6 +2497,7 @@
       } else if (event.data.type === 'generate') {
         // Generar el documento con las selecciones del modal
         var selections = event.data.selections;
+        var rawSelections = event.data.rawSelections || {};
         var statusDiv = document.getElementById('upload-status');
         statusDiv.textContent = 'Procesando opciones y generando documento [V3-SafeRegex]...';
         t.sizeTo(document.body).done();
@@ -2554,6 +2613,36 @@
               });
             }
           }
+
+          // 1.2. Reemplazar las etiquetas condicionales IF basadas en rawSelections
+          var splitTagRegex = /(\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|[\s\S])*?\}(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\}(?:(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\})?)/g;
+          var condReplacements = [];
+          var condMatch;
+          splitTagRegex.lastIndex = 0;
+          while ((condMatch = splitTagRegex.exec(contentXml)) !== null) {
+            var fullXmlMatch = condMatch[0];
+            var condParsed = parseConditionalTag(fullXmlMatch);
+            if (condParsed) {
+              condReplacements.push({
+                xmlMatch: fullXmlMatch,
+                parsed: condParsed
+              });
+            }
+          }
+
+          condReplacements.forEach(function(item) {
+            var condParsed = item.parsed;
+            var selectedList = rawSelections[condParsed.title] || [];
+            var isSelected = selectedList.some(function(sel) {
+              return sel.trim().toLowerCase() === condParsed.optionName.toLowerCase();
+            });
+
+            var replacementVal = '';
+            if (isSelected) {
+              replacementVal = item.parsed.xmlContent;
+            }
+            contentXml = contentXml.split(item.xmlMatch).join(replacementVal);
+          });
 
           // 2. Reemplazar las etiquetas estándar (que ahora se hace dinámicamente)
           var fields = demandaState.unifiedData.fields;

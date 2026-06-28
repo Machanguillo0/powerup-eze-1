@@ -230,11 +230,16 @@
 
     document.getElementById('btn-generar').addEventListener('click', function() {
       var selections = {};
+      var rawSelections = {};
       
       // 1. Recopilar valores de dropdowns
       var selects = document.querySelectorAll('.demanda-select');
       selects.forEach(function(s) {
-        selections[s.getAttribute('data-title')] = s.value;
+        var title = s.getAttribute('data-title');
+        selections[title] = s.value;
+        // Guardar el nombre de la opción seleccionada para la lógica IF
+        var selectedOptName = s.options[s.selectedIndex].text;
+        rawSelections[title] = [selectedOptName];
       });
 
       // 2. Recopilar valores de checkboxes agrupados por título y ordenados por su índice original
@@ -250,6 +255,15 @@
 
       titles.forEach(function(title) {
         var checkedBoxes = document.querySelectorAll('.demanda-checkbox-option[data-title="' + title + '"]:checked');
+        
+        // Guardar los nombres de las opciones marcadas para la lógica IF
+        rawSelections[title] = [];
+        checkedBoxes.forEach(function(cb) {
+          var index = parseInt(cb.getAttribute('data-index'), 10);
+          var opt = receivedData[title].options[index];
+          rawSelections[title].push(opt.name);
+        });
+
         if (checkedBoxes.length === 0) {
           selections[title] = '';
           return;
@@ -324,7 +338,7 @@
       });
 
       // Enviar selecciones a la ventana principal
-      bc.postMessage({ type: 'generate', selections: selections });
+      bc.postMessage({ type: 'generate', selections: selections, rawSelections: rawSelections });
       t.closeModal();
     });
 
