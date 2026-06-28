@@ -1446,6 +1446,25 @@
         };
       }
       
+      // Buscar si es una etiqueta de tipo single-checkbox [checkbox] {Texto}
+      var singleCheckboxMatch = innerClean.match(/^(.*?)\s*\[checkbox\]\s*\{([^{}]+)\}\s*$/i);
+      if (singleCheckboxMatch) {
+        var title = singleCheckboxMatch[1].trim();
+        var optionValue = singleCheckboxMatch[2].trim();
+        return {
+          title: title,
+          type: 'single-checkbox',
+          startNum: null,
+          autowrap: false,
+          options: [{
+            name: title,
+            value: optionValue,
+            separator: '',
+            endIndex: 0
+          }]
+        };
+      }
+      
       // Buscar la primera llave de opción '{'
       var firstBraceClean = innerClean.indexOf('{');
       if (firstBraceClean === -1) {

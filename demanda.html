@@ -267,6 +267,30 @@
             checkboxContainer.appendChild(itemLabel);
           });
           formGroup.appendChild(checkboxContainer);
+        } else if (metaTag.type === 'single-checkbox') {
+          // Renderizar un único checkbox horizontal y compacto
+          formGroup.className = 'form-group horizontal';
+          label.style.display = 'inline-block';
+          label.style.marginBottom = '0px';
+
+          var checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.className = 'demanda-checkbox-option';
+          checkbox.setAttribute('data-title', title);
+          checkbox.setAttribute('data-index', 0);
+          checkbox.style.cursor = 'pointer';
+          checkbox.style.width = '16px';
+          checkbox.style.height = '16px';
+          checkbox.style.margin = '0 !important';
+
+          // Prefiltrar estado seleccionado del checkbox
+          if (saved && saved[title] && Array.isArray(saved[title])) {
+            if (saved[title].indexOf(0) > -1) {
+              checkbox.checked = true;
+            }
+          }
+
+          formGroup.appendChild(checkbox);
         } else if (metaTag.type === 'int' || metaTag.type === 'number' || metaTag.type === 'float') {
           // Renderizar campo de entrada numérico horizontal y estrecho
           formGroup.className = 'form-group horizontal';
