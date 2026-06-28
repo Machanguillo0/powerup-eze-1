@@ -19,7 +19,7 @@
     #form-container {
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      height: 100%;
       padding: 16px;
       box-sizing: border-box;
     }
@@ -220,8 +220,8 @@
 
       if (hasFields) {
         document.getElementById('no-data-message').style.display = 'none';
-        document.getElementById('form-container').style.display = 'block';
-        t.sizeTo(document.body).done();
+        document.getElementById('form-container').style.display = 'flex';
+        resizeModal();
       } else {
         document.getElementById('no-data-message').textContent = 'No se encontraron opciones de personalización en la plantilla.';
         t.sizeTo(document.body).done();
@@ -329,6 +329,33 @@
         t.sizeTo(document.body).done();
       }
     }, 1500);
+
+    function resizeModal() {
+      var fieldsEl = document.getElementById('demanda-form-fields');
+      var actionsEl = document.querySelector('.actions');
+      var container = document.getElementById('form-container');
+      if (!fieldsEl || !actionsEl || !container) return;
+
+      // Restablecer temporalmente para medir la altura natural del contenido
+      container.style.height = 'auto';
+      document.body.style.height = 'auto';
+      document.documentElement.style.height = 'auto';
+
+      var naturalHeight = fieldsEl.scrollHeight + actionsEl.offsetHeight + 44; 
+      var targetHeight = Math.min(naturalHeight, 680); 
+
+      // Aplicar altura objetivo para la medición de Trello
+      container.style.height = targetHeight + 'px';
+      document.body.style.height = targetHeight + 'px';
+      document.documentElement.style.height = targetHeight + 'px';
+
+      t.sizeTo(document.body).done();
+
+      // Restaurar restricciones de flexbox inmediatamente para el ajuste si Trello limita el tamaño
+      container.style.height = '100%';
+      document.body.style.height = '100%';
+      document.documentElement.style.height = '100%';
+    }
   </script>
 </body>
 </html>
