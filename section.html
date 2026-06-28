@@ -2948,7 +2948,17 @@
                     var tagText = xmlMatch.replace(/<[^>]+>/g, '').trim();
                     
                     if (paragraphText === tagText) {
-                      contentXml = contentXml.split(paragraphXml).join('');
+                      // Buscar si el párrafo inmediatamente posterior es vacío (línea blanca extra de separación)
+                      var restOfXml = contentXml.substring(idx + xmlMatch.length + pEndIdx + 6);
+                      var nextPRegex = /^\s*<w:p\b[^>]*>(?:<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>)?(?:<w:r\b[^>]*>(?:<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>)?<w:t\b[^>]*?>\s*<\/w:t><\/w:r>|\s)*<\/w:p>/i;
+                      var nextPMatch = restOfXml.match(nextPRegex);
+                      
+                      if (nextPMatch) {
+                        var totalXmlToRemove = paragraphXml + nextPMatch[0];
+                        contentXml = contentXml.split(totalXmlToRemove).join('');
+                      } else {
+                        contentXml = contentXml.split(paragraphXml).join('');
+                      }
                       return;
                     }
                   }
@@ -3004,7 +3014,17 @@
                 var tagText = item.xmlMatch.replace(/<[^>]+>/g, '').trim();
                 
                 if (paragraphText === tagText) {
-                  contentXml = contentXml.split(paragraphXml).join('');
+                  // Buscar si el párrafo inmediatamente posterior es vacío (línea blanca extra de separación)
+                  var restOfXml = contentXml.substring(idx + item.xmlMatch.length + pEndIdx + 6);
+                  var nextPRegex = /^\s*<w:p\b[^>]*>(?:<w:pPr\b[^>]*>[\s\S]*?<\/w:pPr>)?(?:<w:r\b[^>]*>(?:<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>)?<w:t\b[^>]*?>\s*<\/w:t><\/w:r>|\s)*<\/w:p>/i;
+                  var nextPMatch = restOfXml.match(nextPRegex);
+                  
+                  if (nextPMatch) {
+                    var totalXmlToRemove = paragraphXml + nextPMatch[0];
+                    contentXml = contentXml.split(totalXmlToRemove).join('');
+                  } else {
+                    contentXml = contentXml.split(paragraphXml).join('');
+                  }
                   return;
                 }
               }
