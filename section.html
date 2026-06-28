@@ -1431,6 +1431,15 @@
         return null;
       }
       var innerClean = cleanText.substring(2, cleanText.length - 2).trim();
+      var innerUpper = innerClean.toUpperCase();
+      
+      // Ignorar etiquetas de cálculo, condicionales o listas especiales
+      if (innerUpper.indexOf('CALC:') === 0 || 
+          innerUpper.indexOf('IF:') === 0 || 
+          innerUpper.indexOf('LISTA DE DOCUMENTOS NUMERADOS') === 0) {
+        return null;
+      }
+      
       
       // Buscar si es una etiqueta de entrada simple [int], [text], [number] o [float]
       var inputMatch = innerClean.match(/^(.*?)\s*\[(int|text|number|float)\]\s*$/i);
