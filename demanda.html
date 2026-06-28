@@ -470,6 +470,12 @@
         nextAutoNum = currentNum;
       });
 
+      // Registrar la variable especial con el siguiente número secuencial de documento
+      selections["[num]"] = String(nextAutoNum);
+      selections["num"] = String(nextAutoNum);
+      rawSelections["[num]"] = [String(nextAutoNum)];
+      rawSelections["num"] = [String(nextAutoNum)];
+
       // Guardar los checkboxes seleccionados en formState
       allCheckboxGroups.forEach(function(cb) {
         var title = cb.getAttribute('data-title');
