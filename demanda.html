@@ -397,7 +397,6 @@
       var selections = {};
       var rawSelections = {};
       var formState = {};
-      var docList = [];
       
       // 1. Recopilar valores de dropdowns
       var selects = document.querySelectorAll('.demanda-select');
@@ -472,34 +471,8 @@
         var selectedValues = [];
         selectedIndices.forEach(function(idx) {
           var opt = originalOptions[idx];
-          var valueWithNum = opt.value;
-          
-          // Buscar si la opción contiene la etiqueta de numeración
-          var hasNum = /\[\s*(?:<[^>]+>)*\s*num/i.test(valueWithNum);
-          
-          if (hasNum) {
-            // Extraer la descripción limpiando marcas XML
-            var cleanOptVal = valueWithNum.replace(/<[^>]+>/g, '');
-            var numMatch = cleanOptVal.match(/\[\s*num\s*(?:\{\s*([^{}]+?)\s*\})?\s*\]/i);
-            var description = numMatch && numMatch[1] ? numMatch[1].trim() : '';
-            
-            // Reemplazar la etiqueta en el XML real (todo desde [ hasta ] que contenga "num")
-            var replaceRegex = /\[\s*(?:<[^>]+>)*\s*num[\s\S]*?\]/gi;
-            valueWithNum = valueWithNum.replace(replaceRegex, currentNum);
-            
-            // Guardar descripción si existe para la lista de documentos final
-            if (description) {
-              docList.push({
-                number: currentNum,
-                description: description
-              });
-            }
-            
-            currentNum++;
-          }
-          
           selectedValues.push({
-            value: valueWithNum,
+            value: opt.value,
             separator: opt.separator
           });
         });
@@ -531,7 +504,6 @@
         }
 
         selections[title] = resultText;
-        nextAutoNum = currentNum;
       });
 
       // Registrar la variable especial con el siguiente número secuencial de documento
@@ -564,7 +536,7 @@
         })
         .then(function() {
           // Enviar selecciones a la ventana principal
-          bc.postMessage({ type: 'generate', selections: selections, rawSelections: rawSelections, docList: docList });
+          bc.postMessage({ type: 'generate', selections: selections, rawSelections: rawSelections });
           t.closeModal();
         });
     });

@@ -2986,56 +2986,35 @@
             contentXml = contentXml.split(item.xmlMatch).join(resultVal);
           });
 
-          // Iniciar nextAutoNum a partir de la selección del formulario
+          // Iniciar nextAutoNum a partir de la selección de inicio personalizada si existe
           var nextAutoNum = 2;
-          if (selections["[num]"]) {
-            nextAutoNum = parseInt(selections["[num]"], 10);
-          }
-
-          // 1.4. Reemplazar las etiquetas directas de documento {{[num {Descripción}]}} en el texto
-          var docList = event.data.docList || [];
-          var directNumReplacements = [];
-          var numMatch;
-          splitTagRegex.lastIndex = 0;
-          while ((numMatch = splitTagRegex.exec(contentXml)) !== null) {
-            var fullXmlMatch = numMatch[0];
-            var cleanText = fullXmlMatch.replace(/<[^>]+>/g, '').trim();
-            if (cleanText.startsWith('{{') && cleanText.endsWith('}}')) {
-              var innerClean = cleanText.substring(2, cleanText.length - 2).trim();
-              
-              var isNumTag = false;
-              var description = '';
-              
-              var directMatch = innerClean.match(/^\[\s*num\s*\{\s*([^{}]+?)\s*\}\s*\]$/i);
-              if (directMatch) {
-                isNumTag = true;
-                description = directMatch[1].trim();
-              } else {
-                var simpleMatch = innerClean.match(/^\[\s*num\s*\]$/i) || innerClean.match(/^num$/i);
-                if (simpleMatch) {
-                  isNumTag = true;
-                }
-              }
-              
-              if (isNumTag) {
-                directNumReplacements.push({
-                  xmlMatch: fullXmlMatch,
-                  description: description
-                });
-              }
+          for (var title in demandaState.metaTags) {
+            var metaTagInfo = demandaState.metaTags[title];
+            if (metaTagInfo && metaTagInfo.startNum !== null && metaTagInfo.startNum !== undefined) {
+              nextAutoNum = metaTagInfo.startNum;
+              break;
             }
           }
 
-          directNumReplacements.forEach(function(item) {
-            var replacementVal = String(nextAutoNum);
-            if (item.description) {
+          // 1.4. Reemplazar todas las etiquetas de numeración de forma secuencial de izquierda a derecha (Paso Físico Único)
+          var docList = [];
+          var physicalNumRegex = /(?:\{\{\s*(?:<[^>]+>)*\s*(?:\[\s*(?:<[^>]+>)*\s*)?num[\s\S]*?\}\}|\[\s*(?:<[^>]+>)*\s*num[\s\S]*?\])/gi;
+          
+          contentXml = contentXml.replace(physicalNumRegex, function(matchStr) {
+            var cleanText = matchStr.replace(/<[^>]+>/g, '').trim();
+            var descMatch = cleanText.match(/\{([^{}]+?)\}/);
+            var description = descMatch ? descMatch[1].trim() : '';
+            
+            if (description) {
               docList.push({
                 number: nextAutoNum,
-                description: item.description
+                description: description
               });
             }
-            contentXml = contentXml.split(item.xmlMatch).join(replacementVal);
+            
+            var replacementVal = String(nextAutoNum);
             nextAutoNum++;
+            return replacementVal;
           });
 
           // Actualizar en fields para que reemplazarEtiquetasEstandar use el valor correcto para cualquier etiqueta {{[num]}} simple restante
