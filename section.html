@@ -2986,8 +2986,63 @@
             contentXml = contentXml.split(item.xmlMatch).join(resultVal);
           });
 
-          // 1.4. Reemplazar la etiqueta de Lista de documentos numerados
+          // Iniciar nextAutoNum a partir de la selección del formulario
+          var nextAutoNum = 2;
+          if (selections["[num]"]) {
+            nextAutoNum = parseInt(selections["[num]"], 10);
+          }
+
+          // 1.4. Reemplazar las etiquetas directas de documento {{[num {Descripción}]}} en el texto
           var docList = event.data.docList || [];
+          var directNumReplacements = [];
+          var numMatch;
+          splitTagRegex.lastIndex = 0;
+          while ((numMatch = splitTagRegex.exec(contentXml)) !== null) {
+            var fullXmlMatch = numMatch[0];
+            var cleanText = fullXmlMatch.replace(/<[^>]+>/g, '').trim();
+            if (cleanText.startsWith('{{') && cleanText.endsWith('}}')) {
+              var innerClean = cleanText.substring(2, cleanText.length - 2).trim();
+              
+              var isNumTag = false;
+              var description = '';
+              
+              var directMatch = innerClean.match(/^\[\s*num\s*\{\s*([^{}]+?)\s*\}\s*\]$/i);
+              if (directMatch) {
+                isNumTag = true;
+                description = directMatch[1].trim();
+              } else {
+                var simpleMatch = innerClean.match(/^\[\s*num\s*\]$/i) || innerClean.match(/^num$/i);
+                if (simpleMatch) {
+                  isNumTag = true;
+                }
+              }
+              
+              if (isNumTag) {
+                directNumReplacements.push({
+                  xmlMatch: fullXmlMatch,
+                  description: description
+                });
+              }
+            }
+          }
+
+          directNumReplacements.forEach(function(item) {
+            var replacementVal = String(nextAutoNum);
+            if (item.description) {
+              docList.push({
+                number: nextAutoNum,
+                description: item.description
+              });
+            }
+            contentXml = contentXml.split(item.xmlMatch).join(replacementVal);
+            nextAutoNum++;
+          });
+
+          // Actualizar en fields para que reemplazarEtiquetasEstandar use el valor correcto para cualquier etiqueta {{[num]}} simple restante
+          demandaState.unifiedData.fields["[num]"] = String(nextAutoNum);
+          demandaState.unifiedData.fields["num"] = String(nextAutoNum);
+
+          // 1.5. Reemplazar la etiqueta de Lista de documentos numerados
           var listReplacements = [];
           var listMatch;
           splitTagRegex.lastIndex = 0;
@@ -2997,8 +3052,19 @@
             if (cleanText.startsWith('{{') && cleanText.endsWith('}}')) {
               var innerClean = cleanText.substring(2, cleanText.length - 2).trim();
               if (innerClean.toLowerCase().startsWith('lista de documentos numerados')) {
-                var firstBraceIdx = fullXmlMatch.indexOf('{');
-                var lastBraceIdx = fullXmlMatch.lastIndexOf('}');
+                var firstBraceIdx = fullXmlMatch.indexOf('{', 2);
+                var lastBraceIdx = -1;
+                var closeCount = 0;
+                for (var i = fullXmlMatch.length - 1; i >= 0; i--) {
+                  if (fullXmlMatch.charAt(i) === '}') {
+                    closeCount++;
+                    if (closeCount === 3) {
+                      lastBraceIdx = i;
+                      break;
+                    }
+                  }
+                }
+                
                 var initialDoc = '';
                 if (firstBraceIdx > -1 && lastBraceIdx > firstBraceIdx) {
                   initialDoc = fullXmlMatch.substring(firstBraceIdx + 1, lastBraceIdx).replace(/<[^>]+>/g, '').trim();
