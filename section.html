@@ -1794,14 +1794,31 @@
         });
       }
 
+      var numCounter = null;
+      if (fields["[num]"] !== undefined) {
+        numCounter = parseInt(fields["[num]"], 10);
+      } else if (fields["num"] !== undefined) {
+        numCounter = parseInt(fields["num"], 10);
+      }
+
       matches.forEach(function (m) {
         if (m.plain.startsWith('{{') && m.plain.endsWith('}}')) {
           var isMeta = m.plain.includes('{', 2);
           if (!isMeta) {
             var tagName = m.plain.substring(2, m.plain.length - 2).trim();
-            var value = getFieldValueForTagName(tagName, fields);
+            var nameLower = tagName.toLowerCase();
+            
+            var value;
+            if ((nameLower === '[num]' || nameLower === 'num') && numCounter !== null) {
+              value = String(numCounter);
+              numCounter++;
+            } else {
+              value = getFieldValueForTagName(tagName, fields);
+            }
+            
             if (value !== null) {
-              contentXml = contentXml.split(m.xml).join(value);
+              // Reemplazar de forma literal y secuencial la primera ocurrencia del tag XML
+              contentXml = contentXml.replace(m.xml, function() { return value; });
             }
           }
         }
