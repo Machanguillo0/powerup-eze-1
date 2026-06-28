@@ -2549,6 +2549,10 @@
               var fullXmlMatch = match[0];
               var parsed = parseMetaTag(fullXmlMatch);
               if (parsed) {
+                // Si la etiqueta es "Lista de documentos numerados", no la mostramos en el formulario modal
+                if (parsed.title.toLowerCase().startsWith("lista de documentos numerados")) {
+                  continue;
+                }
                 hasMetaTags = true;
                 if (!metaTagsByTitle[parsed.title]) {
                   metaTagsByTitle[parsed.title] = {
@@ -2968,6 +2972,61 @@
           calcReplacements.forEach(function(item) {
             var resultVal = evaluateFormula(item.parsed.formula, demandaState.unifiedData.fields);
             contentXml = contentXml.split(item.xmlMatch).join(resultVal);
+          });
+
+          // 1.4. Reemplazar la etiqueta de Lista de documentos numerados
+          var docList = event.data.docList || [];
+          var listReplacements = [];
+          var listMatch;
+          splitTagRegex.lastIndex = 0;
+          while ((listMatch = splitTagRegex.exec(contentXml)) !== null) {
+            var fullXmlMatch = listMatch[0];
+            var cleanText = fullXmlMatch.replace(/<[^>]+>/g, '').trim();
+            if (cleanText.startsWith('{{') && cleanText.endsWith('}}')) {
+              var innerClean = cleanText.substring(2, cleanText.length - 2).trim();
+              if (innerClean.toLowerCase().startsWith('lista de documentos numerados')) {
+                var firstBraceIdx = fullXmlMatch.indexOf('{');
+                var lastBraceIdx = fullXmlMatch.lastIndexOf('}');
+                var initialDoc = '';
+                if (firstBraceIdx > -1 && lastBraceIdx > firstBraceIdx) {
+                  initialDoc = fullXmlMatch.substring(firstBraceIdx + 1, lastBraceIdx).replace(/<[^>]+>/g, '').trim();
+                } else {
+                  var braceMatch = innerClean.match(/\{([^{}]+)\}/);
+                  if (braceMatch) {
+                    initialDoc = braceMatch[1].trim();
+                  }
+                }
+                
+                listReplacements.push({
+                  xmlMatch: fullXmlMatch,
+                  initialDoc: initialDoc
+                });
+              }
+            }
+          }
+
+          listReplacements.forEach(function(item) {
+            var lines = [];
+            if (item.initialDoc) {
+              var initDoc = item.initialDoc.trim();
+              if (!initDoc.endsWith('.')) {
+                initDoc += '.';
+              }
+              lines.push("Documento núm. 1.- " + initDoc);
+            }
+            docList.forEach(function(doc) {
+              if (doc.description) {
+                var desc = doc.description.trim();
+                if (!desc.endsWith('.')) {
+                  desc += '.';
+                }
+                lines.push("Documento núm. " + doc.number + ".- " + desc);
+              }
+            });
+            
+            var replacementText = lines.join('\n');
+            var processedValue = replacementText.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
+            contentXml = contentXml.split(item.xmlMatch).join(processedValue);
           });
 
           // 2. Reemplazar las etiquetas estándar (que ahora se hace dinámicamente)
