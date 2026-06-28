@@ -246,6 +246,7 @@
           titles.push(title);
         }
       });
+      var nextAutoNum = 2; // Inicia por defecto en 2 si no se ha especificado nada
 
       titles.forEach(function(title) {
         var checkedBoxes = document.querySelectorAll('.demanda-checkbox-option[data-title="' + title + '"]:checked');
@@ -255,8 +256,18 @@
         }
 
         var originalOptions = receivedData[title].options;
-        var startNum = receivedData[title].startNum || 2;
+        var startNum = receivedData[title].startNum;
         var autowrap = receivedData[title].autowrap || false;
+        
+        // Determinar el número de inicio para este grupo
+        var currentNum;
+        if (startNum !== null && startNum !== undefined) {
+          currentNum = startNum;
+          nextAutoNum = startNum; // Actualizamos el contador global si se especificó uno explícito
+        } else {
+          currentNum = nextAutoNum;
+        }
+
         var selectedIndices = [];
         checkedBoxes.forEach(function(cb) {
           selectedIndices.push(parseInt(cb.getAttribute('data-index'), 10));
@@ -264,7 +275,6 @@
         selectedIndices.sort(function(a, b) { return a - b; });
 
         var resultText = '';
-        var currentNum = startNum;
         var numRegex = /\[(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*n(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*u(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*m(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*\]/gi;
 
         var selectedValues = [];
@@ -310,6 +320,7 @@
         }
 
         selections[title] = resultText;
+        nextAutoNum = currentNum;
       });
 
       // Enviar selecciones a la ventana principal

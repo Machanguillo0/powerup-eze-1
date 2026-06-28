@@ -1440,7 +1440,7 @@
       
       var titleRaw = innerClean.substring(0, firstBraceClean).replace(/\s+/g, ' ').trim();
       var type = 'select'; // Por defecto es lista desplegable
-      var startNum = 2;    // Por defecto inicia en el documento nº 2
+      var startNum = null;    // null por defecto (indica que no se especificó)
       var autowrap = false;
       var titleMatch = titleRaw.match(/^(.*?)\s*\[(checkbox|select)(?::(\d+))?(?::(autowrap))?\]\s*$/i);
       var title = titleRaw;
