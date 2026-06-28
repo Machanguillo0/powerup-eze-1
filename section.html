@@ -3080,9 +3080,36 @@
                 lines.push("Documento núm. " + doc.number + ".- " + desc);
               }
             });
-            
-            var replacementText = lines.join('\n');
-            var processedValue = replacementText.replace(/\n\r?/g, '</w:t><w:br/><w:t>');
+
+            // Buscar propiedades del run contenedor en xmlMatch para heredarlas (fuente, tamaño, color, etc.)
+            var rPr = '';
+            var idx = contentXml.indexOf(item.xmlMatch);
+            if (idx !== -1) {
+              var prefix = contentXml.substring(0, idx);
+              var rPrEndIdx = prefix.lastIndexOf('</w:rPr>');
+              if (rPrEndIdx !== -1) {
+                var rPrStartIdx = prefix.lastIndexOf('<w:rPr>', rPrEndIdx);
+                if (rPrStartIdx !== -1) {
+                  var pIdx = prefix.lastIndexOf('<w:p ', rPrStartIdx);
+                  if (pIdx === -1) pIdx = prefix.lastIndexOf('<w:p>', rPrStartIdx);
+                  if (rPrStartIdx > pIdx) {
+                    rPr = prefix.substring(rPrStartIdx, rPrEndIdx + 8);
+                  }
+                }
+              }
+            }
+
+            // Construir los párrafos de Word XML individuales
+            // Usamos alineación a la izquierda (w:jc w:val="left") y limpiamos sangrías para evitar indentados extraños
+            var xmlParagraphs = [];
+            lines.forEach(function(lineText) {
+              var pPr = '<w:pPr><w:jc w:val="left"/><w:ind w:left="0" w:firstLine="0"/></w:pPr>';
+              var rHtml = '<w:r>' + rPr + '<w:t xml:space="preserve">' + lineText + '</w:t></w:r>';
+              xmlParagraphs.push('<w:p>' + pPr + rHtml + '</w:p>');
+            });
+
+            // Reemplazar cerrando el párrafo contenedor actual y abriendo uno nuevo después de la lista
+            var processedValue = '</w:t></w:r></w:p>' + xmlParagraphs.join('') + '<w:p><w:pPr><w:jc w:val="left"/></w:pPr><w:r>' + rPr + '<w:t>';
             contentXml = contentXml.split(item.xmlMatch).join(processedValue);
           });
 
