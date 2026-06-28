@@ -1541,14 +1541,38 @@
       var title = titleAndOption.substring(0, separatorIdx).trim();
       var optionName = titleAndOption.substring(separatorIdx + 1).trim();
       
-      var firstBraceIdx = localXml.indexOf('{');
+      // Encontrar la 3ª llave de apertura '{' (excluyendo tags XML) para el inicio de la sección condicional
+      var openBraceCount = 0;
+      var firstBraceIdx = -1;
+      var insideTag = false;
+      for (var i = 0; i < localXml.length; i++) {
+        var char = localXml.charAt(i);
+        if (char === '<') {
+          insideTag = true;
+        } else if (char === '>') {
+          insideTag = false;
+        } else if (!insideTag && char === '{') {
+          openBraceCount++;
+          if (openBraceCount === 3) {
+            firstBraceIdx = i;
+            break;
+          }
+        }
+      }
+      
       if (firstBraceIdx === -1) return null;
       
+      // Encontrar la 3ª llave de cierre de atrás hacia adelante en el XML local (excluyendo tags XML)
       var braceCount = 0;
       var closingBraceIdx = -1;
+      insideTag = false;
       for (var i = localXml.length - 1; i >= 0; i--) {
         var char = localXml.charAt(i);
-        if (char === '}') {
+        if (char === '>') {
+          insideTag = true;
+        } else if (char === '<') {
+          insideTag = false;
+        } else if (!insideTag && char === '}') {
           braceCount++;
           if (braceCount === 3) {
             closingBraceIdx = i;
