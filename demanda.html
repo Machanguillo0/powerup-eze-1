@@ -59,6 +59,22 @@
       outline: none;
       border-color: #0079bf;
     }
+
+    input[type="text"].demanda-input-field {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ced4da;
+      border-radius: 3px;
+      background-color: #fff;
+      color: #172b4d;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+
+    input[type="text"].demanda-input-field:focus {
+      outline: none;
+      border-color: #0079bf;
+    }
     
     .actions {
       display: flex;
@@ -200,12 +216,38 @@
             checkboxContainer.appendChild(itemLabel);
           });
           formGroup.appendChild(checkboxContainer);
+        } else if (metaTag.type === 'int' || metaTag.type === 'number' || metaTag.type === 'float' || metaTag.type === 'text') {
+          // Renderizar campo de entrada de texto o numérico
+          var input = document.createElement('input');
+          input.type = 'text';
+          input.className = 'demanda-input-field';
+          input.setAttribute('data-title', title);
+          input.setAttribute('data-type', metaTag.type);
+          
+          if (metaTag.type === 'int') {
+            input.placeholder = 'Introduce un número entero (ej. 10)';
+            input.addEventListener('keypress', function(e) {
+              if (e.key < '0' || e.key > '9') {
+                e.preventDefault();
+              }
+            });
+          } else if (metaTag.type === 'number' || metaTag.type === 'float') {
+            input.placeholder = 'Introduce un número (ej. 12.50)';
+            input.addEventListener('keypress', function(e) {
+              if ((e.key < '0' || e.key > '9') && e.key !== '.' && e.key !== ',') {
+                e.preventDefault();
+              }
+            });
+          } else {
+            input.placeholder = 'Introduce un texto...';
+          }
+          formGroup.appendChild(input);
         } else {
           // Renderizar select desplegable estándar
           var select = document.createElement('select');
           select.className = 'demanda-select';
           select.setAttribute('data-title', title);
-
+ 
           metaTag.options.forEach(function (opt) {
             var option = document.createElement('option');
             option.value = opt.value;
@@ -240,6 +282,15 @@
         // Guardar el nombre de la opción seleccionada para la lógica IF
         var selectedOptName = s.options[s.selectedIndex].text;
         rawSelections[title] = [selectedOptName];
+      });
+
+      // 1.2. Recopilar valores de campos de texto (int, text, number, float)
+      var inputs = document.querySelectorAll('.demanda-input-field');
+      inputs.forEach(function(inp) {
+        var title = inp.getAttribute('data-title');
+        var val = inp.value.trim();
+        selections[title] = val;
+        rawSelections[title] = [val];
       });
 
       // 2. Recopilar valores de checkboxes agrupados por título y ordenados por su índice original

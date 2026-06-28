@@ -1432,6 +1432,20 @@
       }
       var innerClean = cleanText.substring(2, cleanText.length - 2).trim();
       
+      // Buscar si es una etiqueta de entrada simple [int], [text], [number] o [float]
+      var inputMatch = innerClean.match(/^(.*?)\s*\[(int|text|number|float)\]\s*$/i);
+      if (inputMatch) {
+        var title = inputMatch[1].trim();
+        var type = inputMatch[2].toLowerCase();
+        return {
+          title: title,
+          type: type,
+          startNum: null,
+          autowrap: false,
+          options: []
+        };
+      }
+      
       // Buscar la primera llave de opción '{'
       var firstBraceClean = innerClean.indexOf('{');
       if (firstBraceClean === -1) {
