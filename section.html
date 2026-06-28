@@ -1608,6 +1608,100 @@
       };
     }
 
+    // Función para limpiar cadenas y hacer comparaciones insensibles a acentos y caso
+    function cleanStringForMatching(str) {
+      if (!str) return '';
+      return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
+
+    // Función para parsear valores numéricos en formato español o inglés
+    function parseNumericValue(val) {
+      if (val === undefined || val === null) return 0;
+      var str = String(val).trim();
+      str = str.replace(/[€$%\s]/g, '');
+      var hasComma = str.indexOf(',') > -1;
+      var hasDot = str.indexOf('.') > -1;
+      
+      if (hasComma && hasDot) {
+        if (str.indexOf('.') < str.indexOf(',')) {
+          str = str.replace(/\./g, '').replace(/,/g, '.');
+        } else {
+          str = str.replace(/,/g, '');
+        }
+      } else if (hasComma) {
+        str = str.replace(/,/g, '.');
+      }
+      
+      var num = parseFloat(str);
+      return isNaN(num) ? 0 : num;
+    }
+
+    // Función para formatear número al estilo decimal español (dos decimales)
+    function formatSpanishFloat(num) {
+      return num.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // Función para parsear etiquetas de cálculo {{CALC:formula}}
+    function parseCalcTag(fullTagText) {
+      var localXml = fullTagText.replace(/<w:proofErr\s+[^>]*\/>/g, '');
+      localXml = localXml.replace(/<w:noProof\s+[^>]*\/>/g, '');
+      
+      var cleanText = localXml.replace(/<[^>]+>/g, '').trim();
+      if (!cleanText.startsWith('{{') || !cleanText.endsWith('}}')) {
+        return null;
+      }
+      
+      var innerClean = cleanText.substring(2, cleanText.length - 2).trim();
+      if (!innerClean.toUpperCase().startsWith('CALC:')) {
+        return null;
+      }
+      
+      var formula = innerClean.substring(5).trim();
+      return {
+        formula: formula,
+        xmlMatch: fullTagText
+      };
+    }
+
+    // Función para evaluar la fórmula matemática sustituyendo los campos por sus valores numéricos
+    function evaluateFormula(formula, fields) {
+      var keys = [];
+      for (var k in fields) {
+        if (fields.hasOwnProperty(k) && typeof fields[k] === 'string') {
+          keys.push(k);
+        }
+      }
+      keys.sort(function(a, b) { return b.length - a.length; });
+      
+      var evaluatedFormula = formula;
+      keys.forEach(function(key) {
+        var cleanKey = cleanStringForMatching(key).trim();
+        if (!cleanKey) return;
+        
+        while (true) {
+          var cleanFormula = cleanStringForMatching(evaluatedFormula);
+          var idx = cleanFormula.indexOf(cleanKey);
+          if (idx === -1) break;
+          
+          var rawVal = fields[key];
+          var numVal = parseNumericValue(rawVal);
+          
+          evaluatedFormula = evaluatedFormula.substring(0, idx) + numVal + evaluatedFormula.substring(idx + cleanKey.length);
+        }
+      });
+      
+      var sanitized = evaluatedFormula.replace(/[^0-9.\s()+\-*/]/g, '');
+      try {
+        var res = Function("return (" + sanitized + ")")();
+        if (isFinite(res)) {
+          return formatSpanishFloat(res);
+        }
+      } catch (err) {
+        console.error("Error al evaluar fórmula:", formula, "->", sanitized, err);
+      }
+      return "___________";
+    }
+
     // Función auxiliar para obtener el valor del campo a partir del nombre de etiqueta estándar
     function getFieldValueForTagName(tagName, fields) {
       var nameLower = tagName.toLowerCase().trim();
@@ -2618,6 +2712,17 @@
         try {
           var contentXml = demandaState.contentXml;
 
+          // Asegurar que las selecciones de usuario estén en el dataset de campos unificados para cálculos y reemplazos
+          if (demandaState.unifiedData && demandaState.unifiedData.fields) {
+            for (var title in selections) {
+              var val = selections[title];
+              demandaState.unifiedData.fields[title] = val;
+              demandaState.unifiedData.fields[title.toLowerCase()] = val;
+              var normT = title.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+              demandaState.unifiedData.fields[normT] = val;
+            }
+          }
+
           // Helper para balancear etiquetas XML en textos de opciones formateados
           function ensureValidWordXml(str, rPr) {
             if (str.indexOf('<') === -1) {
@@ -2755,6 +2860,26 @@
               replacementVal = item.parsed.xmlContent;
             }
             contentXml = contentXml.split(item.xmlMatch).join(replacementVal);
+          });
+
+          // 1.3. Reemplazar las etiquetas de cálculo CALC
+          var calcReplacements = [];
+          var calcMatch;
+          splitTagRegex.lastIndex = 0;
+          while ((calcMatch = splitTagRegex.exec(contentXml)) !== null) {
+            var fullXmlMatch = calcMatch[0];
+            var calcParsed = parseCalcTag(fullXmlMatch);
+            if (calcParsed) {
+              calcReplacements.push({
+                xmlMatch: fullXmlMatch,
+                parsed: calcParsed
+              });
+            }
+          }
+
+          calcReplacements.forEach(function(item) {
+            var resultVal = evaluateFormula(item.parsed.formula, demandaState.unifiedData.fields);
+            contentXml = contentXml.split(item.xmlMatch).join(resultVal);
           });
 
           // 2. Reemplazar las etiquetas estándar (que ahora se hace dinámicamente)
