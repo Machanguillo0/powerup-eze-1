@@ -448,12 +448,6 @@
           inputHasta.addEventListener('focus', function(e) { e.target.style.borderColor = '#0079bf'; });
           inputHasta.addEventListener('blur', function(e) { e.target.style.borderColor = '#ced4da'; });
 
-          if (saved && saved[title]) {
-            inputDesde.value = saved[title].desde || '';
-            inputHasta.value = saved[title].hasta || '';
-            updateCalculatedDays(inputDesde);
-          }
-
           dateRangeContainer.appendChild(spanDesde);
           dateRangeContainer.appendChild(inputDesde);
           dateRangeContainer.appendChild(spanHasta);
@@ -461,6 +455,12 @@
           dateRangeContainer.appendChild(calcDaysResult);
 
           formGroup.appendChild(dateRangeContainer);
+
+          if (saved && saved[title]) {
+            inputDesde.value = saved[title].desde || '';
+            inputHasta.value = saved[title].hasta || '';
+            updateCalculatedDays(inputDesde);
+          }
         } else if (metaTag.type === 'text') {
           // Renderizar campo de entrada de texto largo estándar (vertical)
           var input = document.createElement('input');
