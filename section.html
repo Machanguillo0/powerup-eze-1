@@ -1441,11 +1441,14 @@
       }
       
       
-      // Buscar si es una etiqueta de entrada simple [int], [text], [number] o [float]
-      var inputMatch = innerClean.match(/^(.*?)\s*\[(int|text|number|float)\]\s*$/i);
+      // Buscar si es una etiqueta de entrada simple [int], [text], [number], [float] o [date range]
+      var inputMatch = innerClean.match(/^(.*?)\s*\[(int|text|number|float|date range|date-range|daterange)\]\s*$/i);
       if (inputMatch) {
         var title = inputMatch[1].trim();
         var type = inputMatch[2].toLowerCase();
+        if (type === 'date range' || type === 'daterange') {
+          type = 'date-range';
+        }
         return {
           title: title,
           type: type,

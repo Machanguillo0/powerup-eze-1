@@ -346,6 +346,113 @@
           }
 
           formGroup.appendChild(input);
+        } else if (metaTag.type === 'date-range') {
+          // Renderizar campo de rango de fechas
+          formGroup.className = 'form-group horizontal';
+          label.style.display = 'inline-block';
+          label.style.marginBottom = '0px';
+
+          var dateRangeContainer = document.createElement('div');
+          dateRangeContainer.style.display = 'inline-flex';
+          dateRangeContainer.style.alignItems = 'center';
+          dateRangeContainer.style.gap = '6px';
+          dateRangeContainer.style.fontSize = '13px';
+
+          var spanDesde = document.createElement('span');
+          spanDesde.textContent = 'desde el ';
+
+          var inputDesde = document.createElement('input');
+          inputDesde.type = 'text';
+          inputDesde.className = 'demanda-date-input-desde';
+          inputDesde.setAttribute('data-title', title);
+          inputDesde.placeholder = 'dd/mm/aaaa';
+          inputDesde.style.width = '95px';
+          inputDesde.style.height = '24px';
+          inputDesde.style.padding = '0 6px';
+          inputDesde.style.fontSize = '13px';
+          inputDesde.style.textAlign = 'center';
+          inputDesde.style.boxSizing = 'border-box';
+          inputDesde.style.border = '1px solid #ced4da';
+          inputDesde.style.borderRadius = '3px';
+
+          var spanHasta = document.createElement('span');
+          spanHasta.textContent = ' hasta el ';
+
+          var inputHasta = document.createElement('input');
+          inputHasta.type = 'text';
+          inputHasta.className = 'demanda-date-input-hasta';
+          inputHasta.setAttribute('data-title', title);
+          inputHasta.placeholder = 'dd/mm/aaaa';
+          inputHasta.style.width = '95px';
+          inputHasta.style.height = '24px';
+          inputHasta.style.padding = '0 6px';
+          inputHasta.style.fontSize = '13px';
+          inputHasta.style.textAlign = 'center';
+          inputHasta.style.boxSizing = 'border-box';
+          inputHasta.style.border = '1px solid #ced4da';
+          inputHasta.style.borderRadius = '3px';
+
+          // Autocompletado de barras '/' al escribir la fecha
+          function formatInputDate(e) {
+            var val = e.target.value.replace(/\D/g, '');
+            if (val.length > 2 && val.length <= 4) {
+              val = val.slice(0, 2) + '/' + val.slice(2);
+            } else if (val.length > 4) {
+              val = val.slice(0, 2) + '/' + val.slice(2, 4) + '/' + val.slice(4, 8);
+            }
+            e.target.value = val;
+          }
+          inputDesde.addEventListener('input', formatInputDate);
+          inputHasta.addEventListener('input', formatInputDate);
+
+          var calcDaysResult = document.createElement('span');
+          calcDaysResult.className = 'calc-days-result';
+          calcDaysResult.style.fontWeight = '600';
+          calcDaysResult.style.marginLeft = '8px';
+          calcDaysResult.style.fontSize = '13px';
+
+          function updateCalculatedDays() {
+            var desdeVal = inputDesde.value.trim();
+            var hastaVal = inputHasta.value.trim();
+            if (desdeVal && hastaVal) {
+              var d1 = parseSpanishDate(desdeVal);
+              var d2 = parseSpanishDate(hastaVal);
+              if (d1 && d2) {
+                var diff = Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+                if (diff >= 0) {
+                  calcDaysResult.textContent = ' (' + diff + ' días)';
+                  calcDaysResult.style.color = '#1f845a';
+                  return;
+                } else {
+                  calcDaysResult.textContent = ' (Fecha fin anterior a inicio)';
+                  calcDaysResult.style.color = '#bf2600';
+                  return;
+                }
+              }
+            }
+            calcDaysResult.textContent = '';
+          }
+          inputDesde.addEventListener('input', updateCalculatedDays);
+          inputHasta.addEventListener('input', updateCalculatedDays);
+
+          inputDesde.addEventListener('focus', function() { inputDesde.style.borderColor = '#0079bf'; });
+          inputDesde.addEventListener('blur', function() { inputDesde.style.borderColor = '#ced4da'; });
+          inputHasta.addEventListener('focus', function() { inputHasta.style.borderColor = '#0079bf'; });
+          inputHasta.addEventListener('blur', function() { inputHasta.style.borderColor = '#ced4da'; });
+
+          if (saved && saved[title]) {
+            inputDesde.value = saved[title].desde || '';
+            inputHasta.value = saved[title].hasta || '';
+            updateCalculatedDays();
+          }
+
+          dateRangeContainer.appendChild(spanDesde);
+          dateRangeContainer.appendChild(inputDesde);
+          dateRangeContainer.appendChild(spanHasta);
+          dateRangeContainer.appendChild(inputHasta);
+          dateRangeContainer.appendChild(calcDaysResult);
+
+          formGroup.appendChild(dateRangeContainer);
         } else if (metaTag.type === 'text') {
           // Renderizar campo de entrada de texto largo estándar (vertical)
           var input = document.createElement('input');
@@ -418,6 +525,45 @@
         rawSelections[title] = [val];
         formState[title] = val;
       });
+
+      // 1.3. Recopilar valores de campos de tipo date-range y calcular la diferencia de días
+      var dateRangeGroups = {};
+      var inputsDesde = document.querySelectorAll('.demanda-date-input-desde');
+      inputsDesde.forEach(function(inp) {
+        var title = inp.getAttribute('data-title');
+        if (!dateRangeGroups[title]) dateRangeGroups[title] = {};
+        dateRangeGroups[title].desde = inp.value.trim();
+      });
+      var inputsHasta = document.querySelectorAll('.demanda-date-input-hasta');
+      inputsHasta.forEach(function(inp) {
+        var title = inp.getAttribute('data-title');
+        if (!dateRangeGroups[title]) dateRangeGroups[title] = {};
+        dateRangeGroups[title].hasta = inp.value.trim();
+      });
+
+      for (var title in dateRangeGroups) {
+        var group = dateRangeGroups[title];
+        var desdeVal = group.desde;
+        var hastaVal = group.hasta;
+
+        var numDaysStr = '';
+        if (desdeVal && hastaVal) {
+          var dateDesde = parseSpanishDate(desdeVal);
+          var dateHasta = parseSpanishDate(hastaVal);
+          if (dateDesde && dateHasta) {
+            var diffTime = dateHasta.getTime() - dateDesde.getTime();
+            var diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays >= 0) {
+              numDaysStr = String(diffDays);
+            } else {
+              numDaysStr = '0';
+            }
+          }
+        }
+        selections[title] = numDaysStr;
+        rawSelections[title] = [numDaysStr];
+        formState[title] = { desde: desdeVal, hasta: hastaVal };
+      }
 
       // 2. Recopilar valores de checkboxes agrupados por título y ordenados por su índice original
       var allCheckboxGroups = document.querySelectorAll('.demanda-checkbox-option');
@@ -553,6 +699,21 @@
         t.sizeTo(document.body).catch(function(e){});
       }
     }, 1500);
+
+    function parseSpanishDate(str) {
+      if (!str) return null;
+      var match = str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (!match) return null;
+      var day = parseInt(match[1], 10);
+      var month = parseInt(match[2], 10) - 1; // 0-indexed en JS
+      var year = parseInt(match[3], 10);
+      
+      var date = new Date(year, month, day);
+      if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) {
+        return null;
+      }
+      return date;
+    }
 
     function resizeModal() {
       var fieldsEl = document.getElementById('demanda-form-fields');
