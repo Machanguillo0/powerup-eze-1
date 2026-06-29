@@ -411,39 +411,47 @@
           calcDaysResult.style.marginLeft = '8px';
           calcDaysResult.style.fontSize = '13px';
 
-          function updateCalculatedDays() {
-            var desdeVal = inputDesde.value.trim();
-            var hastaVal = inputHasta.value.trim();
+          function updateCalculatedDays(targetEl) {
+            var el = targetEl || inputDesde;
+            var parent = el.parentElement;
+            if (!parent) return;
+            var inpDesde = parent.querySelector('.demanda-date-input-desde');
+            var inpHasta = parent.querySelector('.demanda-date-input-hasta');
+            var resSpan = parent.querySelector('.calc-days-result');
+            if (!inpDesde || !inpHasta || !resSpan) return;
+
+            var desdeVal = inpDesde.value.trim();
+            var hastaVal = inpHasta.value.trim();
             if (desdeVal && hastaVal) {
               var d1 = parseSpanishDate(desdeVal);
               var d2 = parseSpanishDate(hastaVal);
               if (d1 && d2) {
                 var diff = Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
                 if (diff >= 0) {
-                  calcDaysResult.textContent = ' (' + diff + ' días)';
-                  calcDaysResult.style.color = '#1f845a';
+                  resSpan.textContent = ' (' + diff + ' días)';
+                  resSpan.style.color = '#1f845a';
                   return;
                 } else {
-                  calcDaysResult.textContent = ' (Fecha fin anterior a inicio)';
-                  calcDaysResult.style.color = '#bf2600';
+                  resSpan.textContent = ' (Fecha fin anterior a inicio)';
+                  resSpan.style.color = '#bf2600';
                   return;
                 }
               }
             }
-            calcDaysResult.textContent = '';
+            resSpan.textContent = '';
           }
-          inputDesde.addEventListener('input', updateCalculatedDays);
-          inputHasta.addEventListener('input', updateCalculatedDays);
+          inputDesde.addEventListener('input', function(e) { updateCalculatedDays(e.target); });
+          inputHasta.addEventListener('input', function(e) { updateCalculatedDays(e.target); });
 
-          inputDesde.addEventListener('focus', function() { inputDesde.style.borderColor = '#0079bf'; });
-          inputDesde.addEventListener('blur', function() { inputDesde.style.borderColor = '#ced4da'; });
-          inputHasta.addEventListener('focus', function() { inputHasta.style.borderColor = '#0079bf'; });
-          inputHasta.addEventListener('blur', function() { inputHasta.style.borderColor = '#ced4da'; });
+          inputDesde.addEventListener('focus', function(e) { e.target.style.borderColor = '#0079bf'; });
+          inputDesde.addEventListener('blur', function(e) { e.target.style.borderColor = '#ced4da'; });
+          inputHasta.addEventListener('focus', function(e) { e.target.style.borderColor = '#0079bf'; });
+          inputHasta.addEventListener('blur', function(e) { e.target.style.borderColor = '#ced4da'; });
 
           if (saved && saved[title]) {
             inputDesde.value = saved[title].desde || '';
             inputHasta.value = saved[title].hasta || '';
-            updateCalculatedDays();
+            updateCalculatedDays(inputDesde);
           }
 
           dateRangeContainer.appendChild(spanDesde);
