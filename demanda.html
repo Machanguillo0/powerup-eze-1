@@ -426,7 +426,7 @@
               var d1 = parseSpanishDate(desdeVal);
               var d2 = parseSpanishDate(hastaVal);
               if (d1 && d2) {
-                var diff = Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+                var diff = Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) + 1;
                 if (diff >= 0) {
                   resSpan.textContent = ' (' + diff + ' días)';
                   resSpan.style.color = '#1f845a';
@@ -560,7 +560,7 @@
           var dateHasta = parseSpanishDate(hastaVal);
           if (dateDesde && dateHasta) {
             var diffTime = dateHasta.getTime() - dateDesde.getTime();
-            var diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            var diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
             if (diffDays >= 0) {
               numDaysStr = String(diffDays);
             } else {
