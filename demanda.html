@@ -561,7 +561,15 @@
           }
         }
         selections[title] = numDaysStr;
+        selections[title + ": start"] = desdeVal || '';
+        selections[title + ":start"] = desdeVal || '';
+        selections[title + ": end"] = hastaVal || '';
+        selections[title + ":end"] = hastaVal || '';
         rawSelections[title] = [numDaysStr];
+        rawSelections[title + ": start"] = [desdeVal || ''];
+        rawSelections[title + ":start"] = [desdeVal || ''];
+        rawSelections[title + ": end"] = [hastaVal || ''];
+        rawSelections[title + ":end"] = [hastaVal || ''];
         formState[title] = { desde: desdeVal, hasta: hastaVal };
       }
 
