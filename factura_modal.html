@@ -1154,7 +1154,12 @@
 
                 var combinedFields = {};
                 for (var key in fields) combinedFields[key] = fields[key];
-                for (var key in clientImportesFields) combinedFields[key] = clientImportesFields[key];
+                for (var key in clientImportesFields) {
+                  var isInvoiceKey = /^(factura|fecha_facturacion|importe_facturacion|total_factura|importe_facturado|total_facturado)\d*$/i.test(key);
+                  if (!isInvoiceKey) {
+                    combinedFields[key] = clientImportesFields[key];
+                  }
+                }
                 combinedFields.nombre = clientFields.nombre;
                 combinedFields.dni = clientFields.dni;
                 combinedFields.domicilio = clientFields.domicilio;
