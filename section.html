@@ -2097,6 +2097,20 @@
       return contentXml;
     }
 
+    function normalizeListName(name) {
+      if (!name) return "";
+      return name.trim().toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, ' ');
+    }
+
+    function isBillingFieldKey(key) {
+      if (!key) return false;
+      var norm = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+      return /^(factura|fechadefacturacion|fechafacturacion|importedefacturacion|importefacturacion|totaldefactura|totalfactura|totalfacturado|totaldefacturado|importefacturado|importedefacturado)\d*$/i.test(norm);
+    }
+
     // Función para obtener datos unificados de toda la lista
     function getUnifiedFields(t) {
       return t.card('id', 'idList').then(function (currentCard) {
@@ -2383,7 +2397,7 @@
             return n.includes("historial de procesos") || n.includes("historial de avisos");
           });
 
-          if (historyCard && historyCard.desc) {
+          if (false && historyCard && historyCard.desc) { // Desactivado: las facturas solo se cargan de la checklist
             var lines = historyCard.desc.split('\n');
             lines.forEach(function (line) {
               line = line.trim();
@@ -2511,9 +2525,8 @@
                         if (!res.ok) throw new Error("Boards lists fetch failed");
                         return res.json();
                       })
-                      .then(function(lists) {
                         var billingList = lists.find(function(l) {
-                          return l.name.trim().toLowerCase() === listName.trim().toLowerCase();
+                          return normalizeListName(l.name) === normalizeListName(listName);
                         });
                         if (!billingList) {
                           unified._hasChecklistInvoices = false;
@@ -3691,7 +3704,7 @@
                 })
                 .then(function(lists) {
                   var foundList = lists.find(function(l) {
-                    return l.name.trim().toLowerCase() === currentListName.trim().toLowerCase();
+                    return normalizeListName(l.name) === normalizeListName(currentListName);
                   });
                   return foundList ? { listId: foundList.id, boardId: boardId } : null;
                 })
@@ -3831,8 +3844,7 @@
             var combinedFields = {};
             for (var key in fields) { combinedFields[key] = fields[key]; }
             for (var key in clientImportesFields) {
-              var isInvoiceKey = /^(factura|fecha_facturacion|importe_facturacion|total_factura|importe_facturado|total_facturado)\d*$/i.test(key);
-              if (!isInvoiceKey) {
+              if (!isBillingFieldKey(key)) {
                 combinedFields[key] = clientImportesFields[key];
               }
             }
@@ -3847,7 +3859,7 @@
               return n.includes("historial de procesos") || n.includes("historial de avisos");
             });
 
-            if (combinedFields._hasChecklistInvoices === undefined && historyCard && historyCard.desc) {
+            if (false && historyCard && historyCard.desc) { // Desactivado: las facturas solo se cargan de la checklist
               var lines = historyCard.desc.split('\n');
               lines.forEach(function (line) {
                 line = line.trim();

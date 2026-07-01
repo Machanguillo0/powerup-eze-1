@@ -928,6 +928,14 @@
         });
     }
 
+    function normalizeListName(name) {
+      if (!name) return "";
+      return name.trim().toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, ' ');
+    }
+
     // Helper para obtener y unificar de forma asíncrona datos cruzados del Tablero de Clientes y la tarjeta local de Importes
     function getCrossBoardBillingData(t) {
       return Promise.all([
@@ -982,7 +990,7 @@
                 })
                 .then(function(lists) {
                   var foundList = lists.find(function(l) {
-                    return l.name.trim().toLowerCase() === currentListName.trim().toLowerCase();
+                    return normalizeListName(l.name) === normalizeListName(currentListName);
                   });
                   if (foundList) {
                     debugInfo.listsFound.push({ listId: foundList.id, boardId: boardId, name: foundList.name });
