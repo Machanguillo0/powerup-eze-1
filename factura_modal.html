@@ -1489,12 +1489,7 @@
 
           var valClienteCobra = getNumericFieldValue(fields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']) || 0;
           var valCobraSumarizado = getLatestSequentialValue(fields, 'cliente cobra sumarizado');
-          var valTotalFacturado = getLatestSequentialValue(fields, 'total facturado');
-
-          // Si el total facturado en Importes es 0 pero hay facturas en el checklist, podemos usar globalFacturado como fallback
-          if (valTotalFacturado === 0 && globalFacturado > 0) {
-            valTotalFacturado = globalFacturado;
-          }
+          var valTotalFacturado = globalFacturado;
 
           document.getElementById('summary-cliente-cobra').textContent = formatSpanishCurrency(valClienteCobra);
           document.getElementById('summary-a-facturar').textContent = formatSpanishCurrency(globalAFacturar);
@@ -1573,18 +1568,27 @@
           }
 
           var prevCobraSumarizado = 0;
-          var prevTotalFacturado = 0;
           if (seqIndex > 1) {
             var prevSuffix = (seqIndex - 1 === 1) ? '' : (seqIndex - 1);
             var prevCobraKey = 'cliente cobra sumarizado' + prevSuffix;
-            var prevTotalKey = 'total facturado' + prevSuffix;
             
             prevCobraSumarizado = getNumericFieldValue(fields, [prevCobraKey]) || 0;
-            prevTotalFacturado = getNumericFieldValue(fields, [prevTotalKey]) || 0;
           }
           
           var newCobraSumarizado = prevCobraSumarizado + valClienteCobra;
-          var newTotalFacturado = prevTotalFacturado + baseNum;
+          
+          var sumFacturadoExistente = 0;
+          if (fields.importe_facturacion && fields.importe_facturacion !== "___________") {
+            sumFacturadoExistente += parseSpanishFloat(fields.importe_facturacion);
+          }
+          for (var s = 2; s <= 10; s++) {
+            var valKey = "importe_facturacion" + s;
+            if (fields[valKey] && fields[valKey] !== "___________") {
+              sumFacturadoExistente += parseSpanishFloat(fields[valKey]);
+            }
+          }
+          
+          var newTotalFacturado = sumFacturadoExistente + baseNum;
 
           var today = new Date().toLocaleDateString('es-ES');
           var taxPct = getTaxPercentage(fields);
