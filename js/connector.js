@@ -12,10 +12,10 @@ var getBoardTypeSafe = function (t) {
   return t.board('id', 'name').then(function (board) {
     if (board && board.name) {
       var nameUpper = board.name.toUpperCase();
-      if (nameUpper.includes('FACTURACIÓN') || nameUpper.includes('FACTURACION')) {
+      if (nameUpper.includes('FACTUR')) {
         return 'FACTURACIÓN';
       }
-      if (nameUpper.includes('CLIENTES') || nameUpper.includes('CLIENTE')) {
+      if (nameUpper.includes('CLIENT')) {
         return 'CLIENTES';
       }
     }
@@ -89,7 +89,7 @@ window.TrelloPowerUp.initialize({
       icon: './icon.svg', // Recomendado un icono gris, pero el SVG actual servirá
       content: {
         type: 'iframe',
-        url: t.signUrl('./section.html?v=82'), // Apuntamos a un nuevo archivo HTML que vamos a crear
+        url: t.signUrl('./section.html?v=83'), // Apuntamos a un nuevo archivo HTML que vamos a crear
         height: 250 // Altura inicial en píxeles (aumentado para evitar scrollbar)
       }
     };

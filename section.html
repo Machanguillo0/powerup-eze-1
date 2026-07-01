@@ -4261,7 +4261,7 @@
               if (token) {
                 window.isApiAuthorized = true;
                 t.modal({
-                  url: './factura_modal.html?v=81',
+                  url: './factura_modal.html?v=82',
                   height: 380,
                   title: 'Generar Factura',
                   accentColor: '#1f845a'
@@ -4274,7 +4274,7 @@
           return;
         }
         t.modal({
-          url: './factura_modal.html?v=81',
+          url: './factura_modal.html?v=82',
           height: 380,
           title: 'Generar Factura',
           accentColor: '#1f845a'
@@ -4286,10 +4286,10 @@
       return t.board('id', 'name').then(function(board) {
         if (board && board.name) {
           var nameUpper = board.name.toUpperCase();
-          if (nameUpper.includes('FACTURACIÓN') || nameUpper.includes('FACTURACION')) {
+          if (nameUpper.includes('FACTUR')) {
             return 'FACTURACIÓN';
           }
-          if (nameUpper.includes('CLIENTES') || nameUpper.includes('CLIENTE')) {
+          if (nameUpper.includes('CLIENT')) {
             return 'CLIENTES';
           }
         }
