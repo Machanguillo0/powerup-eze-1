@@ -9,34 +9,25 @@ var BASE_URL = window.location.href.substring(0, window.location.href.lastIndexO
 
 // Función de utilidad inyectada para detectar el tipo de tablero de forma segura
 var getBoardTypeSafe = function (t) {
-  return t.board('id', 'name').then(function (board) {
-    if (board && board.name) {
-      var nameUpper = board.name.toUpperCase();
-      if (nameUpper.includes('FACTUR')) {
-        return 'FACTURACIÓN';
-      }
-      if (nameUpper.includes('CLIENT')) {
-        return 'CLIENTES';
-      }
-    }
-    return t.lists('id', 'name').then(function (lists) {
-      var paramList = lists.find(function (l) {
-        var n = l.name.toUpperCase();
-        return n === 'PARÁMETROS' || n === 'PARAMETROS';
-      });
-      if (!paramList) return 'CLIENTES';
+  return t.lists('id', 'name').then(function (lists) {
+    var paramList = lists.find(function (l) {
+      var n = l.name.trim().toUpperCase();
+      return n === 'PARÁMETROS' || n === 'PARAMETROS';
+    });
+    if (!paramList) return 'CLIENTES';
 
-      return t.cards('id', 'name', 'idList').then(function (openCards) {
-        var typeCard = openCards.find(function (c) {
-          return c.idList === paramList.id && c.name && c.name.toLowerCase().startsWith('tipo tablero');
-        });
-        if (!typeCard) return 'CLIENTES';
-
-        var name = typeCard.name.toUpperCase();
-        if (name.includes('PLANNING')) return 'PLANNING';
-        if (name.includes('FACTURACIÓN') || name.includes('FACTURACION')) return 'FACTURACIÓN';
-        return 'CLIENTES';
+    return t.cards('id', 'name', 'idList').then(function (openCards) {
+      var typeCard = openCards.find(function (c) {
+        if (!c.name) return false;
+        var nameLower = c.name.trim().toLowerCase();
+        return c.idList === paramList.id && (nameLower.startsWith('tipo tablero') || nameLower.startsWith('tipo de tablero'));
       });
+      if (!typeCard) return 'CLIENTES';
+
+      var name = typeCard.name.toUpperCase();
+      if (name.includes('PLANNING')) return 'PLANNING';
+      if (name.includes('FACTURACIÓN') || name.includes('FACTURACION')) return 'FACTURACIÓN';
+      return 'CLIENTES';
     });
   }).catch(function (err) {
     console.error("Error detectando tablero:", err);
@@ -89,7 +80,7 @@ window.TrelloPowerUp.initialize({
       icon: './icon.svg', // Recomendado un icono gris, pero el SVG actual servirá
       content: {
         type: 'iframe',
-        url: t.signUrl('./section.html?v=83'), // Apuntamos a un nuevo archivo HTML que vamos a crear
+        url: t.signUrl('./section.html?v=85'), // Apuntamos a un nuevo archivo HTML que vamos a crear
         height: 250 // Altura inicial en píxeles (aumentado para evitar scrollbar)
       }
     };
