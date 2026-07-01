@@ -95,7 +95,7 @@
     }
     .billing-summary-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: 10px;
       margin-bottom: 20px;
     }
@@ -142,16 +142,20 @@
 
   <div class="billing-summary-grid">
     <div class="summary-card">
+      <span class="summary-label">Cliente Cobra</span>
+      <span class="summary-value" id="summary-cliente-cobra">0,00 €</span>
+    </div>
+    <div class="summary-card">
       <span class="summary-label">A Facturar</span>
       <span class="summary-value" id="summary-a-facturar">0,00 €</span>
     </div>
     <div class="summary-card">
-      <span class="summary-label">Facturado</span>
-      <span class="summary-value" id="summary-facturado">0,00 €</span>
+      <span class="summary-label">Cliente Cobra sumarizado</span>
+      <span class="summary-value" id="summary-cliente-cobra-sumarizado">0,00 €</span>
     </div>
-    <div class="summary-card" id="card-pendiente">
-      <span class="summary-label">Pendiente</span>
-      <span class="summary-value" id="summary-pendiente">0,00 €</span>
+    <div class="summary-card">
+      <span class="summary-label">Total facturado</span>
+      <span class="summary-value" id="summary-total-facturado">0,00 €</span>
     </div>
   </div>
 
@@ -246,6 +250,20 @@
     function formatSpanishCurrency(value) {
       if (isNaN(value)) return "0,00 €";
       return value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+    }
+
+    function getLatestSequentialValue(fields, baseKey) {
+      var cleanBaseKey = baseKey.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+      var latestVal = 0;
+      for (var idx = 1; idx <= 10; idx++) {
+        var suffix = (idx === 1) ? '' : idx;
+        var key = cleanBaseKey + suffix;
+        var val = getNumericFieldValue(fields, [key]);
+        if (val !== null) {
+          latestVal = val;
+        }
+      }
+      return latestVal;
     }
 
     function getTaxPercentage(fields) {
@@ -420,7 +438,7 @@
       });
     }
 
-    function updateFacturadoInImportesCard(t, token, newTotalFacturado) {
+    function updateFacturadoInImportesCard(t, token, newTotalFacturado, newCobraSumarizado, currentCobra, seqIndex) {
       return t.card('idList').then(function(currentCard) {
         return t.cards('id', 'name', 'desc', 'idList').then(function(cards) {
           var cardsInList = cards.filter(function(c) { return c.idList === currentCard.idList; });
@@ -432,8 +450,23 @@
           var appKey = t.getRestApi().appKey;
           var currentDesc = importesCard.desc || "";
           var lines = currentDesc.split(/\r?\n/);
-          var updated = false;
-          var formattedVal = newTotalFacturado.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+          
+          var formattedTotal = newTotalFacturado.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+          var formattedCobraSum = newCobraSumarizado.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+          var formattedCobra = currentCobra.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+          
+          var suffix = (seqIndex === 1) ? '' : seqIndex;
+          var labelCobraVal = "Cliente cobra" + suffix;
+          var labelCobraSum = "Cliente cobra sumarizado" + suffix;
+          var labelTotal = "Total facturado" + suffix;
+          
+          var cleanCobraValKey = labelCobraVal.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+          var cleanCobraSumKey = labelCobraSum.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+          var cleanTotalKey = labelTotal.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+          
+          var updatedCobraVal = false;
+          var updatedCobraSum = false;
+          var updatedTotal = false;
           
           var newLines = lines.map(function(line) {
             var sepIndex = line.indexOf(':');
@@ -441,28 +474,58 @@
             if (sepIndex > -1) {
               var key = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
               var keyClean = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
-              if (keyClean === "facturado") {
+              
+              if (keyClean === cleanCobraValKey) {
                 var formulaPart = line.substring(0, sepIndex + 1).trim();
                 var valPart = line.substring(sepIndex + 1).trim();
                 var lastBrace = valPart.lastIndexOf('}}');
                 if (lastBrace > -1) {
                   var formula = valPart.substring(0, lastBrace + 2).trim();
-                  var newLineText = formulaPart + " " + formula + " = " + formattedVal;
-                  updated = true;
-                  return newLineText;
+                  updatedCobraVal = true;
+                  return formulaPart + " " + formula + " = " + formattedCobra;
                 } else {
-                  var newLineText = key + ": " + formattedVal;
-                  updated = true;
-                  return newLineText;
+                  updatedCobraVal = true;
+                  return key + ": " + formattedCobra;
+                }
+              }
+              if (keyClean === cleanCobraSumKey) {
+                var formulaPart = line.substring(0, sepIndex + 1).trim();
+                var valPart = line.substring(sepIndex + 1).trim();
+                var lastBrace = valPart.lastIndexOf('}}');
+                if (lastBrace > -1) {
+                  var formula = valPart.substring(0, lastBrace + 2).trim();
+                  updatedCobraSum = true;
+                  return formulaPart + " " + formula + " = " + formattedCobraSum;
+                } else {
+                  updatedCobraSum = true;
+                  return key + ": " + formattedCobraSum;
+                }
+              }
+              if (keyClean === cleanTotalKey) {
+                var formulaPart = line.substring(0, sepIndex + 1).trim();
+                var valPart = line.substring(sepIndex + 1).trim();
+                var lastBrace = valPart.lastIndexOf('}}');
+                if (lastBrace > -1) {
+                  var formula = valPart.substring(0, lastBrace + 2).trim();
+                  updatedTotal = true;
+                  return formulaPart + " " + formula + " = " + formattedTotal;
+                } else {
+                  updatedTotal = true;
+                  return key + ": " + formattedTotal;
                 }
               }
             }
             return line;
           });
 
-          if (!updated) {
-            newLines.push("Facturado: " + formattedVal);
-            updated = true;
+          if (!updatedCobraVal) {
+            newLines.push(labelCobraVal + ": " + formattedCobra);
+          }
+          if (!updatedCobraSum) {
+            newLines.push(labelCobraSum + ": " + formattedCobraSum);
+          }
+          if (!updatedTotal) {
+            newLines.push(labelTotal + ": " + formattedTotal);
           }
 
           var newDesc = newLines.join('\n');
@@ -1424,25 +1487,19 @@
           }
           globalAFacturar = parseSpanishFloat(resolvedValue);
 
-          // Actualizar tarjetas resumen
-          var pendiente = globalAFacturar - globalFacturado;
+          var valClienteCobra = getNumericFieldValue(fields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']) || 0;
+          var valCobraSumarizado = getLatestSequentialValue(fields, 'cliente cobra sumarizado');
+          var valTotalFacturado = getLatestSequentialValue(fields, 'total facturado');
+
+          // Si el total facturado en Importes es 0 pero hay facturas en el checklist, podemos usar globalFacturado como fallback
+          if (valTotalFacturado === 0 && globalFacturado > 0) {
+            valTotalFacturado = globalFacturado;
+          }
+
+          document.getElementById('summary-cliente-cobra').textContent = formatSpanishCurrency(valClienteCobra);
           document.getElementById('summary-a-facturar').textContent = formatSpanishCurrency(globalAFacturar);
-          document.getElementById('summary-facturado').textContent = formatSpanishCurrency(globalFacturado);
-          
-          var pCard = document.getElementById('card-pendiente');
-          var pVal = document.getElementById('summary-pendiente');
-          if (pVal) {
-            pVal.textContent = formatSpanishCurrency(pendiente);
-          }
-          if (pCard) {
-            if (pendiente <= 0) {
-              pCard.classList.add('warning-style');
-              pCard.classList.remove('highlighted');
-            } else {
-              pCard.classList.add('highlighted');
-              pCard.classList.remove('warning-style');
-            }
-          }
+          document.getElementById('summary-cliente-cobra-sumarizado').textContent = formatSpanishCurrency(valCobraSumarizado);
+          document.getElementById('summary-total-facturado').textContent = formatSpanishCurrency(valTotalFacturado);
 
           document.getElementById('importe-factura').value = resolvedValue || "0,00";
           setStatus("Introduce el importe y concepto, luego haz clic en 'Facturar'.");
@@ -1499,18 +1556,7 @@
         var fields = data.fields;
         var token = data.token;
 
-        var sumFacturadoExistente = 0;
-        if (fields.importe_facturacion) {
-          sumFacturadoExistente += parseSpanishFloat(fields.importe_facturacion);
-        }
-        for (var s = 2; s <= 10; s++) {
-          var valKey = "importe_facturacion" + s;
-          if (fields[valKey]) {
-            sumFacturadoExistente += parseSpanishFloat(fields[valKey]);
-          }
-        }
-        
-        var newTotalFacturado = (sumFacturadoExistente > 0) ? (sumFacturadoExistente + baseNum) : (globalFacturado + baseNum);
+        var valClienteCobra = getNumericFieldValue(fields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']) || 0;
 
         setStatus('Autogenerando número de factura correlativo...');
 
@@ -1525,6 +1571,20 @@
               }
             }
           }
+
+          var prevCobraSumarizado = 0;
+          var prevTotalFacturado = 0;
+          if (seqIndex > 1) {
+            var prevSuffix = (seqIndex - 1 === 1) ? '' : (seqIndex - 1);
+            var prevCobraKey = 'cliente cobra sumarizado' + prevSuffix;
+            var prevTotalKey = 'total facturado' + prevSuffix;
+            
+            prevCobraSumarizado = getNumericFieldValue(fields, [prevCobraKey]) || 0;
+            prevTotalFacturado = getNumericFieldValue(fields, [prevTotalKey]) || 0;
+          }
+          
+          var newCobraSumarizado = prevCobraSumarizado + valClienteCobra;
+          var newTotalFacturado = prevTotalFacturado + baseNum;
 
           var today = new Date().toLocaleDateString('es-ES');
           var taxPct = getTaxPercentage(fields);
@@ -1635,7 +1695,7 @@
                     })
                     .then(function() {
                       setStatus('Actualizando acumulado facturado en Importes...');
-                      return updateFacturadoInImportesCard(t, token, newTotalFacturado);
+                      return updateFacturadoInImportesCard(t, token, newTotalFacturado, newCobraSumarizado, valClienteCobra, seqIndex);
                     });
                 })
                 .then(function() {
