@@ -2525,6 +2525,7 @@
                         if (!res.ok) throw new Error("Boards lists fetch failed");
                         return res.json();
                       })
+                      .then(function(lists) {
                         var billingList = lists.find(function(l) {
                           return normalizeListName(l.name) === normalizeListName(listName);
                         });
