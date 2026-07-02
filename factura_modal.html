@@ -160,6 +160,11 @@
   </div>
 
   <div class="form-group">
+    <label for="cliente-cobra-input">Cliente Cobra (€)</label>
+    <input type="text" id="cliente-cobra-input" placeholder="Ej. 10.000,00">
+  </div>
+
+  <div class="form-group">
     <label for="importe-factura">Importe Factura (€)</label>
     <input type="text" id="importe-factura" placeholder="Ej. 1.250,50">
   </div>
@@ -213,6 +218,7 @@
     var cachedData = null;
     var globalAFacturar = 0;
     var globalFacturado = 0;
+    var globalPorcentaje = 100;
 
     // Helper para actualizar el texto de estado en la UI de forma segura
     function setStatus(msg, allowHtml) {
@@ -438,7 +444,7 @@
       });
     }
 
-    function updateFacturadoInImportesCard(t, token, newTotalFacturado, newCobraSumarizado, currentCobra, seqIndex) {
+    function updateFacturadoInImportesCard(t, token, newTotalFacturado, newCobraSumarizado, currentCobra, seqIndex, invoiceAmount) {
       return t.card('idList').then(function(currentCard) {
         return t.cards('id', 'name', 'desc', 'idList').then(function(cards) {
           var cardsInList = cards.filter(function(c) { return c.idList === currentCard.idList; });
@@ -447,107 +453,108 @@
           });
           if (!importesCard) return;
 
-          var appKey = t.getRestApi().appKey;
           var currentDesc = importesCard.desc || "";
           var lines = currentDesc.split(/\r?\n/);
           
           var formattedTotal = newTotalFacturado.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
           var formattedCobraSum = newCobraSumarizado.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
           var formattedCobra = currentCobra.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+          var formattedInvoiceAmount = invoiceAmount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
           
-          var suffix = (seqIndex === 1) ? '' : seqIndex;
-          var labelCobraVal = "Cliente cobra" + suffix;
-          var labelCobraSum = "Cliente cobra sumarizado" + suffix;
-          var labelTotal = "Total facturado" + suffix;
-          
-          var cleanCobraValKey = labelCobraVal.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
-          var cleanCobraSumKey = labelCobraSum.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
-          var cleanTotalKey = labelTotal.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
-          
-          var updatedCobraVal = false;
-          var updatedCobraSum = false;
-          var updatedTotal = false;
-          
-          var newLines = [];
+          function isAnyBillingKey(keyClean) {
+            var norm = keyClean.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+            return /^(clientecobra|clientecobrasumarizado|totalfacturado|importefacturado|importefacturacion|totalfactura)\d*$/i.test(norm);
+          }
+
+          function isPercentageKey(keyClean) {
+            var norm = keyClean.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+            return norm.indexOf("porcentaje") > -1 || norm.indexOf("porcentage") > -1 || norm.indexOf("honorarios") > -1 || norm.indexOf("iva") > -1 || norm.indexOf("igic") > -1;
+          }
+
+          function isBaseKey(keyClean) {
+            var norm = keyClean.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+            return norm.indexOf("principal") > -1 || norm.indexOf("base") > -1 || norm.indexOf("cuantia") > -1 || norm.indexOf("afacturar") > -1;
+          }
+
+          var parsedSeqCobra = {};
+          var parsedSeqFacturado = {};
+
+          var prunedLines = [];
+          var lastPercentageIdx = -1;
+          var lastBaseIdx = -1;
+
           lines.forEach(function(line) {
             var sepIndex = line.indexOf(':');
             if (sepIndex === -1) sepIndex = line.indexOf('=');
             if (sepIndex > -1) {
               var key = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+              var val = line.substring(sepIndex + 1).trim();
               var keyClean = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
               
-              var match = keyClean.match(/^(cliente cobra|cliente cobra sumarizado|total facturado)(\d+)$/);
-              if (match) {
-                var sIdx = parseInt(match[2], 10);
-                if (sIdx > seqIndex) {
-                  return;
+              if (isAnyBillingKey(keyClean)) {
+                var matchCobra = keyClean.match(/^cliente cobra\s*(\d*)$/i);
+                if (matchCobra) {
+                  var idx = parseInt(matchCobra[1], 10) || 1;
+                  parsedSeqCobra[idx] = val;
                 }
-              }
-              if (seqIndex === 1) {
-                var match1 = keyClean.match(/^(cliente cobra sumarizado|total facturado)1$/);
-                if (match1) {
-                  return;
+                var matchFacturado = keyClean.match(/^(importe facturado|total facturado|importe facturacion|total factura)\s*(\d*)$/i);
+                if (matchFacturado) {
+                  var idx = parseInt(matchFacturado[2], 10) || 1;
+                  parsedSeqFacturado[idx] = val;
                 }
-              }
-              
-              if (keyClean === cleanCobraValKey) {
-                var formulaPart = line.substring(0, sepIndex + 1).trim();
-                var valPart = line.substring(sepIndex + 1).trim();
-                var lastBrace = valPart.lastIndexOf('}}');
-                if (lastBrace > -1) {
-                  var formula = valPart.substring(0, lastBrace + 2).trim();
-                  newLines.push(formulaPart + " " + formula + " = " + formattedCobra);
-                } else {
-                  newLines.push(key + ": " + formattedCobra);
-                }
-                updatedCobraVal = true;
                 return;
               }
-              if (keyClean === cleanCobraSumKey) {
-                var formulaPart = line.substring(0, sepIndex + 1).trim();
-                var valPart = line.substring(sepIndex + 1).trim();
-                var lastBrace = valPart.lastIndexOf('}}');
-                if (lastBrace > -1) {
-                  var formula = valPart.substring(0, lastBrace + 2).trim();
-                  newLines.push(formulaPart + " " + formula + " = " + formattedCobraSum);
-                } else {
-                  newLines.push(key + ": " + formattedCobraSum);
-                }
-                updatedCobraSum = true;
-                return;
-              }
-              if (keyClean === cleanTotalKey) {
-                var formulaPart = line.substring(0, sepIndex + 1).trim();
-                var valPart = line.substring(sepIndex + 1).trim();
-                var lastBrace = valPart.lastIndexOf('}}');
-                if (lastBrace > -1) {
-                  var formula = valPart.substring(0, lastBrace + 2).trim();
-                  newLines.push(formulaPart + " " + formula + " = " + formattedTotal);
-                } else {
-                  newLines.push(key + ": " + formattedTotal);
-                }
-                updatedTotal = true;
-                return;
+
+              if (isPercentageKey(keyClean)) {
+                lastPercentageIdx = prunedLines.length;
+              } else if (isBaseKey(keyClean)) {
+                lastBaseIdx = prunedLines.length;
               }
             }
-            newLines.push(line);
+            prunedLines.push(line);
           });
-          
-          if (!updatedCobraVal) {
-            newLines.push(labelCobraVal + ": " + formattedCobra);
-          }
-          if (!updatedCobraSum) {
-            newLines.push(labelCobraSum + ": " + formattedCobraSum);
-          }
-          if (!updatedTotal) {
-            newLines.push(labelTotal + ": " + formattedTotal);
+
+          var insertIdx = prunedLines.length;
+          if (lastPercentageIdx > -1) {
+            insertIdx = lastPercentageIdx + 1;
+          } else if (lastBaseIdx > -1) {
+            insertIdx = lastBaseIdx + 1;
           }
 
-          var newDesc = newLines.join('\n');
-          return fetch(`https://api.trello.com/1/cards/${importesCard.id}?key=${appKey}&token=${token}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ desc: newDesc })
+          var accumLines = [
+            "**Cliente cobra sumarizado**: " + formattedCobraSum,
+            "**TOTAL FACTURADO**: " + formattedTotal
+          ];
+
+          prunedLines.splice(insertIdx, 0, accumLines[0], accumLines[1]);
+
+          parsedSeqCobra[seqIndex] = formattedCobra;
+          parsedSeqFacturado[seqIndex] = formattedInvoiceAmount;
+
+          for (var i = 1; i <= seqIndex; i++) {
+            var suffix = (i === 1) ? '' : i;
+            var cobraVal = parsedSeqCobra[i] || (i === seqIndex ? formattedCobra : "___________");
+            var factVal = parsedSeqFacturado[i] || (i === seqIndex ? formattedInvoiceAmount : "___________");
+            
+            if (cobraVal && cobraVal !== "___________" && cobraVal.indexOf('€') === -1) {
+              cobraVal = cobraVal + " €";
+            }
+            if (factVal && factVal !== "___________" && factVal.indexOf('€') === -1) {
+              factVal = factVal + " €";
+            }
+
+            prunedLines.push("**Cliente cobra" + suffix + "**: " + cobraVal);
+            prunedLines.push("**Importe facturado" + suffix + "**: " + factVal);
+          }
+
+          var finalDesc = prunedLines.join('\n');
+          var appKey = t.getRestApi().appKey;
+
+          return fetch(`https://api.trello.com/1/cards/${importesCard.id}?desc=${encodeURIComponent(finalDesc)}&key=${appKey}&token=${token}`, {
+            method: 'PUT'
+          }).then(function(res) {
+            if (!res.ok) throw new Error("Failed to update Importes card desc");
+            return res.json();
           });
         });
       });
@@ -1598,43 +1605,98 @@
             }
           }
 
-          var resolvedValue = fields["a facturar"] || fields["A facturar"] || "";
-          if (resolvedValue) {
-            var lastEquals = resolvedValue.lastIndexOf('=');
-            if (lastEquals > -1) {
-              resolvedValue = resolvedValue.substring(lastEquals + 1).trim();
-            }
-            resolvedValue = resolvedValue.replace(/€/g, '').trim();
-          }
-
-          // Si NO existen facturas en la checklist, el acumulado facturado debe ser 0
-          if (!hasChecklistInvoices) {
-            globalFacturado = 0;
-          } else {
-            globalFacturado = sumFacturado;
-          }
-          globalAFacturar = parseSpanishFloat(resolvedValue);
-
-          var valClienteCobra = getNumericFieldValue(fields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']) || 0;
-          var valCobraSumarizado = 0;
-          var N = fields._checklistInvoicesCount || 0;
-          if (N > 0) {
-            var lastSuffix = (N === 1) ? '' : N;
-            valCobraSumarizado = getNumericFieldValue(fields, ['cliente cobra sumarizado' + lastSuffix]);
-            if (valCobraSumarizado === null || valCobraSumarizado === undefined) {
-              valCobraSumarizado = N * valClienteCobra;
-            }
-          }
-          var valTotalFacturado = globalFacturado;
-
-          document.getElementById('summary-cliente-cobra').textContent = formatSpanishCurrency(valClienteCobra);
-          document.getElementById('summary-a-facturar').textContent = formatSpanishCurrency(globalAFacturar);
-          document.getElementById('summary-cliente-cobra-sumarizado').textContent = formatSpanishCurrency(valCobraSumarizado);
-          document.getElementById('summary-total-facturado').textContent = formatSpanishCurrency(valTotalFacturado);
-
-          document.getElementById('importe-factura').value = resolvedValue || "0,00";
-          setStatus("Introduce el importe y concepto, luego haz clic en 'Facturar'.");
-        });
+           var N = fields._checklistInvoicesCount || 0;
+ 
+           // Si NO existen facturas en la checklist, el acumulado facturado debe ser 0
+           if (!hasChecklistInvoices) {
+             globalFacturado = 0;
+           } else {
+             globalFacturado = sumFacturado;
+           }
+ 
+           var valClienteCobra = getNumericFieldValue(fields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']) || 0;
+           
+           var pctVal = getNumericFieldValue(fields, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios', 'porcentage facturación', 'porcentage facturacion', 'porcentage', 'porcentage honorarios']);
+           globalPorcentaje = (pctVal !== null && pctVal !== undefined) ? pctVal : 100;
+ 
+           // Determine accumulated values
+           var valCobraSumarizado = getNumericFieldValue(fields, ['cliente cobra sumarizado']) || 0;
+           var valTotalFacturado = getNumericFieldValue(fields, ['total facturado']) || 0;
+           
+           var prevCobraSumarizado = 0;
+           var prevTotalFacturado = 0;
+           
+           if (N > 0) {
+             prevCobraSumarizado = valCobraSumarizado;
+             prevTotalFacturado = valTotalFacturado;
+           } else {
+             prevCobraSumarizado = 0;
+             prevTotalFacturado = 0;
+           }
+ 
+           // Populate the editable inputs
+           var inputCobra = document.getElementById('cliente-cobra-input');
+           var inputImporte = document.getElementById('importe-factura');
+           
+           inputCobra.value = valClienteCobra.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+           
+           function recalculateAFacturar() {
+             var parsedCobra = parseSpanishFloat(inputCobra.value);
+             var factor = globalPorcentaje;
+             if (factor > 1) {
+               factor = factor / 100;
+             }
+             var calculatedAFacturar = parsedCobra * factor;
+             globalAFacturar = calculatedAFacturar;
+             
+             // Update A Facturar and Importe Factura
+             document.getElementById('summary-a-facturar').textContent = formatSpanishCurrency(calculatedAFacturar);
+             inputImporte.value = calculatedAFacturar.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+             
+             // Update Cliente Cobra
+             document.getElementById('summary-cliente-cobra').textContent = formatSpanishCurrency(parsedCobra);
+             
+             // Update accumulated summary cards dynamically
+             var currentInvoiceAmount = parseSpanishFloat(inputImporte.value);
+             var currentCobraSum = prevCobraSumarizado + parsedCobra;
+             var currentTotalFact = prevTotalFacturado + currentInvoiceAmount;
+             
+             document.getElementById('summary-cliente-cobra-sumarizado').textContent = formatSpanishCurrency(currentCobraSum);
+             document.getElementById('summary-total-facturado').textContent = formatSpanishCurrency(currentTotalFact);
+           }
+ 
+           // Hook listeners for Cliente Cobra input
+           inputCobra.addEventListener('input', recalculateAFacturar);
+           inputCobra.addEventListener('change', recalculateAFacturar);
+           inputCobra.addEventListener('blur', function() {
+             var val = parseSpanishFloat(inputCobra.value);
+             inputCobra.value = val.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+             recalculateAFacturar();
+           });
+ 
+           // Hook listeners for Importe Factura input (in case they edit it manually)
+           inputImporte.addEventListener('input', function() {
+             var currentInvoiceAmount = parseSpanishFloat(inputImporte.value);
+             var currentTotalFact = prevTotalFacturado + currentInvoiceAmount;
+             document.getElementById('summary-total-facturado').textContent = formatSpanishCurrency(currentTotalFact);
+           });
+           inputImporte.addEventListener('change', function() {
+             var currentInvoiceAmount = parseSpanishFloat(inputImporte.value);
+             var currentTotalFact = prevTotalFacturado + currentInvoiceAmount;
+             document.getElementById('summary-total-facturado').textContent = formatSpanishCurrency(currentTotalFact);
+           });
+           inputImporte.addEventListener('blur', function() {
+             var val = parseSpanishFloat(inputImporte.value);
+             inputImporte.value = val.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+             var currentTotalFact = prevTotalFacturado + val;
+             document.getElementById('summary-total-facturado').textContent = formatSpanishCurrency(currentTotalFact);
+           });
+ 
+           // Perform initial calculation
+           recalculateAFacturar();
+ 
+           setStatus("Introduce el importe y concepto, luego haz clic en 'Facturar'.");
+         });
       }).catch(function(err) {
         setStatus("Error al inicializar: " + err.message);
       });
@@ -1687,7 +1749,7 @@
         var fields = data.fields;
         var token = data.token;
 
-        var valClienteCobra = getNumericFieldValue(fields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']) || 0;
+        var valClienteCobra = parseSpanishFloat(document.getElementById('cliente-cobra-input').value);
 
         setStatus('Autogenerando número de factura correlativo...');
 
@@ -1695,13 +1757,7 @@
           var N = fields._checklistInvoicesCount || 0;
           var seqIndex = N + 1;
 
-          var prevCobraSumarizado = 0;
-          if (N > 0) {
-            var prevSuffix = (N === 1) ? '' : N;
-            var prevCobraKey = 'cliente cobra sumarizado' + prevSuffix;
-            prevCobraSumarizado = getNumericFieldValue(fields, [prevCobraKey]) || (N * valClienteCobra);
-          }
-          
+          var prevCobraSumarizado = (seqIndex === 1) ? 0 : (getNumericFieldValue(fields, ['cliente cobra sumarizado']) || 0);
           var newCobraSumarizado = prevCobraSumarizado + valClienteCobra;
           
           var sumFacturadoExistente = globalFacturado;
@@ -1816,7 +1872,7 @@
                     })
                     .then(function() {
                       setStatus('Actualizando acumulado facturado en Importes...');
-                      return updateFacturadoInImportesCard(t, token, newTotalFacturado, newCobraSumarizado, valClienteCobra, seqIndex);
+                      return updateFacturadoInImportesCard(t, token, newTotalFacturado, newCobraSumarizado, valClienteCobra, seqIndex, baseNum);
                     });
                 })
                 .then(function() {

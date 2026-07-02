@@ -4100,6 +4100,8 @@
           standardKeys.push("cliente cobra" + s);
           standardKeys.push("cliente_cobra_sumarizado" + s);
           standardKeys.push("cliente cobra sumarizado" + s);
+          standardKeys.push("importe_facturado" + s);
+          standardKeys.push("importe facturado" + s);
         }
         
         var dynamicHtml = "";
@@ -4347,7 +4349,7 @@
               if (token) {
                 window.isApiAuthorized = true;
                 t.modal({
-                  url: './factura_modal.html?v=85',
+                  url: './factura_modal.html?v=86',
                   height: 380,
                   title: 'Generar Factura',
                   accentColor: '#1f845a'
@@ -4360,7 +4362,7 @@
           return;
         }
         t.modal({
-          url: './factura_modal.html?v=85',
+          url: './factura_modal.html?v=86',
           height: 380,
           title: 'Generar Factura',
           accentColor: '#1f845a'
