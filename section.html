@@ -1256,14 +1256,11 @@
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha del sistema\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_sistema = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha última actuación\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_ultima = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha cierre expediente\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_cierre = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha(?: de)? facturación\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_facturacion = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha de resolución\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_resolucion = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha de comunicación designa(?:ción)?\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_designa = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha(?: de)? reclamación previa\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_reclamacion = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha (?:apertura|creación) de? expediente\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_apertura = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha siniestro\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_siniestro = m[1].replace(/[*_~`]/g, '').trim(); }
-
-      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:NÚMERO DE FACTURA|Numero de factura|Nº Factura|Nº de Factura)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.factura = m[1].replace(/[*_~`]/g, '').trim(); }
 
       // --- EXTRACCIÓN CONTEXTUAL DE VEHÍCULOS ---
       var vehicleLookahead = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
@@ -1416,6 +1413,35 @@
           delete unified["total_factura" + s];
         }
       }
+    }
+
+    function cleanupUnifiedBillingFields(unified, N) {
+      var baseBillingKeys = [
+        "factura", "fecha_facturacion", "importe_facturacion", "total_factura", 
+        "total_facturado", "importe_facturado", "cliente cobra sumarizado", 
+        "total facturado", "cliente_cobra_sumarizado"
+      ];
+      
+      if (N === 0) {
+        baseBillingKeys.forEach(function(k) {
+          unified[k] = "___________";
+          unified[k.toLowerCase()] = "___________";
+          var normK = k.replace(/:/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+          unified[normK] = "___________";
+        });
+      }
+      
+      var keys = Object.keys(unified);
+      keys.forEach(function(k) {
+        var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        var match = normK.match(/^(.*?)\s*(\d+)$/);
+        if (match) {
+          var sIdx = parseInt(match[2], 10);
+          if (sIdx > N) {
+            delete unified[k];
+          }
+        }
+      });
     }
 
     // Función para parsear una meta-etiqueta multiselección preservando etiquetas XML de formato interno
@@ -2108,7 +2134,7 @@
     function isBillingFieldKey(key) {
       if (!key) return false;
       var norm = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
-      return /^(factura|fechadefacturacion|fechafacturacion|importedefacturacion|importefacturacion|totaldefactura|totalfactura|totalfacturado|totaldefacturado|importefacturado|importedefacturado)\d*$/i.test(norm);
+      return /^(factura|fechadefacturacion|fechafacturacion|importedefacturacion|importefacturacion|totaldefactura|totalfactura|totalfacturado|totaldefacturado|importefacturado|importedefacturado|clientecobrasumarizado|clientecobrasumarisado)\d*$/i.test(norm);
     }
 
     // Función para obtener datos unificados de toda la lista
@@ -2564,6 +2590,18 @@
                               })
                               .then(function(checklists) {
                                 parseChecklistsToUnified(checklists, unified);
+                                var N = 0;
+                                var ch = checklists.find(function(c) {
+                                  var n = c.name.trim().toLowerCase();
+                                  return n === "relación de facturas generadas" || 
+                                         n === "relacion de facturas generadas" || 
+                                         n.indexOf("relación de facturas") > -1 ||
+                                         n.indexOf("relacion de facturas") > -1;
+                                });
+                                if (ch && ch.checkItems) {
+                                  N = ch.checkItems.length;
+                                }
+                                unified._checklistInvoicesCount = N;
                                 return { 
                                   fields: unified, 
                                   count: cardsInList.length,
@@ -2592,6 +2630,18 @@
                 })
                 .then(function(checklists) {
                   parseChecklistsToUnified(checklists, unified);
+                  var N = 0;
+                  var ch = checklists.find(function(c) {
+                    var n = c.name.trim().toLowerCase();
+                    return n === "relación de facturas generadas" || 
+                           n === "relacion de facturas generadas" || 
+                           n.indexOf("relación de facturas") > -1 ||
+                           n.indexOf("relacion de facturas") > -1;
+                  });
+                  if (ch && ch.checkItems) {
+                    N = ch.checkItems.length;
+                  }
+                  unified._checklistInvoicesCount = N;
                   return { 
                     fields: unified, 
                     count: cardsInList.length,
@@ -2610,6 +2660,12 @@
             };
           });
         });
+      }).then(function(result) {
+        if (result && result.fields) {
+          var N = result.fields._checklistInvoicesCount || 0;
+          cleanupUnifiedBillingFields(result.fields, N);
+        }
+        return result;
       });
     }
 
@@ -4262,7 +4318,7 @@
               if (token) {
                 window.isApiAuthorized = true;
                 t.modal({
-                  url: './factura_modal.html?v=82',
+                  url: './factura_modal.html?v=83',
                   height: 380,
                   title: 'Generar Factura',
                   accentColor: '#1f845a'
@@ -4275,7 +4331,7 @@
           return;
         }
         t.modal({
-          url: './factura_modal.html?v=82',
+          url: './factura_modal.html?v=83',
           height: 380,
           title: 'Generar Factura',
           accentColor: '#1f845a'
