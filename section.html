@@ -4064,13 +4064,30 @@
         html += "• Importe final (estimado/actual): <strong>" + (fields["importe final"] || fields["Importe final"] || "___________") + "</strong><br>";
         
         // Renderizar campos dinámicos adicionales (como Honorarios, Gastos, etc. provenientes de la tarjeta Importes)
-        var standardKeys = ["nombre", "dni", "domicilio", "telefono", "profesion", "observaciones", "fecha", "hora", "lugar", "ciudad", "matricula1", "aseguradora1", "matricula2", "aseguradora2", "parrafada", "fecha_sistema", "fecha_ultima", "fecha_cierre", "fecha_facturacion", "fecha_resolucion", "fecha_designa", "fecha_reclamacion", "fecha_apertura", "fecha_siniestro", "factura", "num_expediente", "secuencial", "importe final", "dds", "mess", "aaaas", "importe_facturacion", "total_factura", "total factura", "importe_facturado", "importe facturado", "total_facturado", "total facturado", "_haschecklistinvoices"];
+        var standardKeys = [
+          "nombre", "dni", "domicilio", "telefono", "profesion", "observaciones", 
+          "fecha", "hora", "lugar", "ciudad", "matricula1", "aseguradora1", 
+          "matricula2", "aseguradora2", "parrafada", "fecha_sistema", "fecha_ultima", 
+          "fecha_cierre", "fecha_facturacion", "fecha_resolucion", "fecha_designa", 
+          "fecha_reclamacion", "fecha_apertura", "fecha_siniestro", "factura", 
+          "num_expediente", "secuencial", "importe final", "dds", "mess", "aaaas", 
+          "importe_facturacion", "total_factura", "total factura", "importe_facturado", 
+          "importe facturado", "total_facturado", "total facturado", "cliente cobra", 
+          "cliente cobra sumarizado", "cliente_cobra", "cliente_cobra_sumarizado",
+          "_haschecklistinvoices"
+        ];
         // Añadir también las claves secuenciales a las standard para que no aparezcan en adicionales
         for (var s = 2; s <= 10; s++) {
           standardKeys.push("factura" + s);
           standardKeys.push("fecha_facturacion" + s);
           standardKeys.push("importe_facturacion" + s);
           standardKeys.push("total_factura" + s);
+          standardKeys.push("total_facturado" + s);
+          standardKeys.push("total facturado" + s);
+          standardKeys.push("cliente_cobra" + s);
+          standardKeys.push("cliente cobra" + s);
+          standardKeys.push("cliente_cobra_sumarizado" + s);
+          standardKeys.push("cliente cobra sumarizado" + s);
         }
         
         var dynamicHtml = "";
@@ -5088,7 +5105,7 @@
           e.preventDefault();
           e.stopPropagation();
           t.modal({
-            url: './desglose.html?v=66',
+            url: './desglose.html?v=67',
             height: 600,
             title: 'Desglose de Factura (Colegio LP 2012)',
             accentColor: '#1f845a'
