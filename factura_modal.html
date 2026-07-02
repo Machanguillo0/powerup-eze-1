@@ -762,6 +762,32 @@
         .replace(/\s+/g, ' ');
     }
 
+    function getBoardTypeSafe(t) {
+      return t.lists('id', 'name').then(function(lists) {
+        var paramList = lists.find(function(l) { 
+          var n = l.name.trim().toUpperCase();
+          return n === 'PARÁMETROS' || n === 'PARAMETROS'; 
+        });
+        if (!paramList) return 'CLIENTES';
+
+        return t.cards('id', 'name', 'idList').then(function(openCards) {
+          var typeCard = openCards.find(function(c) {
+            if (!c.name) return false;
+            var nameLower = c.name.trim().toLowerCase();
+            return c.idList === paramList.id && (nameLower.startsWith('tipo tablero') || nameLower.startsWith('tipo de tablero'));
+          });
+          if (!typeCard) return 'CLIENTES';
+
+          var name = typeCard.name.toUpperCase();
+          if (name.includes('PLANNING')) return 'PLANNING';
+          if (name.includes('FACTURACIÓN') || name.includes('FACTURACION')) return 'FACTURACIÓN';
+          return 'CLIENTES';
+        });
+      }).catch(function(err) {
+        return 'ERROR: ' + (err.message || err);
+      });
+    }
+
     function isBillingFieldKey(key) {
       if (!key) return false;
       var norm = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
@@ -986,34 +1012,45 @@
               });
               
               if (!facturasCard) {
-                // Búsqueda cruzada en el tablero de FACTURACIÓN
-                var searchQuery = encodeURIComponent('name:"Tipo tablero"');
-                return fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
-                  .then(function(res) {
-                    if (!res.ok) throw new Error("Search failed");
-                    return res.json();
-                  })
-                  .then(function(searchData) {
-                    var cards = searchData.cards || [];
-                    var facturacionCard = cards.find(function(c) {
-                      var n = c.name.toUpperCase();
-                      return n.includes('TIPO TABLERO') && (n.includes('FACTURACIÓN') || n.includes('FACTURACION'));
-                    });
-                    if (!facturacionCard) {
-                      return { 
-                        fields: unified, 
-                        count: cardsInList.length,
-                        targetCardId: targetCardId || currentCardId,
-                        idList: idList
-                      };
-                    }
-                    var idBoardFacturacion = facturacionCard.idBoard;
-                    return fetch(`https://api.trello.com/1/boards/${idBoardFacturacion}/lists?key=${appKey}&token=${token}`)
-                      .then(function(res) {
-                        if (!res.ok) throw new Error("Boards lists fetch failed");
-                        return res.json();
-                      })
-                      .then(function(lists) {
+                return getBoardTypeSafe(t).then(function(boardType) {
+                  if (boardType === 'FACTURACIÓN') {
+                    unified._hasChecklistInvoices = false;
+                    return { 
+                      fields: unified, 
+                      count: cardsInList.length,
+                      targetCardId: targetCardId || currentCardId,
+                      idList: idList
+                    };
+                  }
+                  
+                  // Búsqueda cruzada en el tablero de FACTURACIÓN
+                  var searchQuery = encodeURIComponent('name:"Tipo tablero"');
+                  return fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
+                    .then(function(res) {
+                      if (!res.ok) throw new Error("Search failed");
+                      return res.json();
+                    })
+                    .then(function(searchData) {
+                      var cards = searchData.cards || [];
+                      var facturacionCard = cards.find(function(c) {
+                        var n = c.name.toUpperCase();
+                        return n.includes('TIPO TABLERO') && (n.includes('FACTURACIÓN') || n.includes('FACTURACION'));
+                      });
+                      if (!facturacionCard) {
+                        return { 
+                          fields: unified, 
+                          count: cardsInList.length,
+                          targetCardId: targetCardId || currentCardId,
+                          idList: idList
+                        };
+                      }
+                      var idBoardFacturacion = facturacionCard.idBoard;
+                      return fetch(`https://api.trello.com/1/boards/${idBoardFacturacion}/lists?key=${appKey}&token=${token}`)
+                        .then(function(res) {
+                          if (!res.ok) throw new Error("Boards lists fetch failed");
+                          return res.json();
+                        })
+                        .then(function(lists) {
                         var billingList = lists.find(function(l) {
                           return normalizeListName(l.name) === normalizeListName(listName);
                         });

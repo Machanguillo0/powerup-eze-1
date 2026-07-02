@@ -2519,9 +2519,20 @@
               });
               
               if (!facturasCard) {
-                // Búsqueda cruzada en el tablero de FACTURACIÓN
-                var searchQuery = encodeURIComponent('name:"Tipo tablero"');
-                return fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
+                return getBoardTypeSafe(t).then(function(boardType) {
+                  if (boardType === 'FACTURACIÓN') {
+                    unified._hasChecklistInvoices = false;
+                    return { 
+                      fields: unified, 
+                      count: cardsInList.length,
+                      targetCardId: targetCardId || currentCardId,
+                      idList: idList
+                    };
+                  }
+                  
+                  // Búsqueda cruzada en el tablero de FACTURACIÓN
+                  var searchQuery = encodeURIComponent('name:"Tipo tablero"');
+                  return fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
                   .then(function(res) {
                     if (res.status === 401) {
                       t.getRestApi().clearToken();
@@ -4335,7 +4346,7 @@
               if (token) {
                 window.isApiAuthorized = true;
                 t.modal({
-                  url: './factura_modal.html?v=83',
+                  url: './factura_modal.html?v=84',
                   height: 380,
                   title: 'Generar Factura',
                   accentColor: '#1f845a'
@@ -4348,7 +4359,7 @@
           return;
         }
         t.modal({
-          url: './factura_modal.html?v=83',
+          url: './factura_modal.html?v=84',
           height: 380,
           title: 'Generar Factura',
           accentColor: '#1f845a'
