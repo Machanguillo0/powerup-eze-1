@@ -1265,18 +1265,18 @@
       // --- EXTRACCIÓN CONTEXTUAL DE VEHÍCULOS ---
       var vehicleLookahead = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
       
-      var propioMatch = desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\\s*VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vehicleLookahead, "i"));
+      var propioMatch = desc.match(new RegExp("(?:^|\\n)[ \\t]*[^a-zA-Z0-9\\n\\r]*\\s*VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vehicleLookahead, "i"));
       if (propioMatch) {
         var pText = propioMatch[0];
-        if (m = pText.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula1 = m[1].trim(); }
-        if (m = pText.match(/(?:^|\n)[ \t]*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora1 = m[1].trim(); }
+        if (m = pText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula1 = m[1].replace(/[*_~`]/g, '').trim(); }
+        if (m = pText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora1 = m[1].replace(/[*_~`]/g, '').trim(); }
       }
 
-      var contrarioMatch = desc.match(new RegExp("(?:^|\\n)[ \\t]*[*_~`#]*\\s*VEH[ÍI]CULO CONTRARIO[\\s\\S]*?" + vehicleLookahead, "i"));
+      var contrarioMatch = desc.match(new RegExp("(?:^|\\n)[ \\t]*[^a-zA-Z0-9\\n\\r]*\\s*VEH[ÍI]CULO CONTRARIO[\\s\\S]*?" + vehicleLookahead, "i"));
       if (contrarioMatch) {
         var cText = contrarioMatch[0];
-        if (m = cText.match(/(?:^|\n)[ \t]*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula2 = m[1].trim(); }
-        if (m = cText.match(/(?:^|\n)[ \t]*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora2 = m[1].trim(); }
+        if (m = cText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula2 = m[1].replace(/[*_~`]/g, '').trim(); }
+        if (m = cText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora2 = m[1].replace(/[*_~`]/g, '').trim(); }
       }
 
       // Extracción multilínea para PARRAFADA (más robusta: busca el siguiente encabezado manualmente)
