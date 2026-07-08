@@ -1444,6 +1444,135 @@
       });
     }
 
+    function cleanImportesDescForSync(currentDesc, N) {
+      var lines = currentDesc.split(/\r?\n/);
+      var prunedLines = [];
+      
+      function isAnyBillingKey(keyClean) {
+        var norm = keyClean.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+        return /^(clientecobra|clientecobrasumarizado|totalfacturado|importefacturado|importefacturacion|totalfactura|facturado)\d*$/i.test(norm);
+      }
+
+      var parsedSeqCobra = {};
+      var parsedSeqFacturado = {};
+
+      lines.forEach(function(line) {
+        var sepIndex = line.indexOf(':');
+        if (sepIndex === -1) sepIndex = line.indexOf('=');
+        if (sepIndex > -1) {
+          var key = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+          var val = line.substring(sepIndex + 1).trim();
+          var keyClean = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+          
+          if (isAnyBillingKey(keyClean)) {
+            var matchCobra = keyClean.match(/^cliente cobra\s*(\d*)$/i);
+            if (matchCobra) {
+              var idx = parseInt(matchCobra[1], 10) || 1;
+              parsedSeqCobra[idx] = val;
+            }
+            var matchFacturado = keyClean.match(/^(importe facturado|total facturado|importe facturacion|total factura)\s*(\d*)$/i);
+            if (matchFacturado) {
+              var idx = parseInt(matchFacturado[2], 10) || 1;
+              parsedSeqFacturado[idx] = val;
+            }
+            return;
+          }
+        }
+        prunedLines.push(line);
+      });
+
+      if (N > 0) {
+        var lastPercentageIdx = -1;
+        var lastBaseIdx = -1;
+        
+        function isPercentageKey(keyClean) {
+          var norm = keyClean.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+          return norm.indexOf("porcentaje") > -1 || norm.indexOf("porcentage") > -1 || norm.indexOf("honorarios") > -1 || norm.indexOf("iva") > -1 || norm.indexOf("igic") > -1;
+        }
+        function isBaseKey(keyClean) {
+          var norm = keyClean.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+          return norm.indexOf("principal") > -1 || norm.indexOf("base") > -1 || norm.indexOf("cuantia") > -1 || norm.indexOf("afacturar") > -1;
+        }
+
+        prunedLines.forEach(function(line, index) {
+          var sepIndex = line.indexOf(':');
+          if (sepIndex === -1) sepIndex = line.indexOf('=');
+          if (sepIndex > -1) {
+            var key = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+            var keyClean = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+            if (isPercentageKey(keyClean)) {
+              lastPercentageIdx = index;
+            } else if (isBaseKey(keyClean)) {
+              lastBaseIdx = index;
+            }
+          }
+        });
+
+        var insertIdx = prunedLines.length;
+        if (lastPercentageIdx > -1) {
+          insertIdx = lastPercentageIdx + 1;
+        } else if (lastBaseIdx > -1) {
+          insertIdx = lastBaseIdx + 1;
+        }
+
+        var sumCobra = 0;
+        var sumFacturado = 0;
+        for (var i = 1; i <= N; i++) {
+          var cobraVal = parsedSeqCobra[i];
+          var factVal = parsedSeqFacturado[i];
+          if (cobraVal && cobraVal !== "___________") {
+            sumCobra += parseSpanishFloat(cobraVal);
+          }
+          if (factVal && factVal !== "___________") {
+            sumFacturado += parseSpanishFloat(factVal);
+          }
+        }
+
+        var formattedCobraSum = sumCobra.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+        var formattedTotal = sumFacturado.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+
+        var accumLines = [
+          "**Cliente cobra sumarizado**: " + formattedCobraSum,
+          "**TOTAL FACTURADO**: " + formattedTotal
+        ];
+
+        prunedLines.splice(insertIdx, 0, accumLines[0], accumLines[1]);
+
+        for (var i = 1; i <= N; i++) {
+          var suffix = (i === 1) ? '' : i;
+          var cobraVal = parsedSeqCobra[i] || "___________";
+          var factVal = parsedSeqFacturado[i] || "___________";
+          
+          if (cobraVal && cobraVal !== "___________" && cobraVal.indexOf('€') === -1) {
+            cobraVal = cobraVal + " €";
+          }
+          if (factVal && factVal !== "___________" && factVal.indexOf('€') === -1) {
+            factVal = factVal + " €";
+          }
+
+          prunedLines.push("**Cliente cobra" + suffix + "**: " + cobraVal);
+          prunedLines.push("**Importe facturado" + suffix + "**: " + factVal);
+        }
+      }
+
+      var finalLines = [];
+      prunedLines.forEach(function(line) {
+        if (line.trim() === "") {
+          if (finalLines.length > 0 && finalLines[finalLines.length - 1].trim() !== "") {
+            finalLines.push("");
+          }
+        } else {
+          finalLines.push(line);
+        }
+      });
+
+      while (finalLines.length > 0 && finalLines[finalLines.length - 1].trim() === "") {
+        finalLines.pop();
+      }
+
+      return finalLines.join('\n');
+    }
+
     // Función para parsear una meta-etiqueta multiselección preservando etiquetas XML de formato interno
     function parseMetaTag(fullTagText) {
       // Limpiar solo marcadores de corrección ortográfica/gramatical
@@ -2526,7 +2655,8 @@
                       fields: unified, 
                       count: cardsInList.length,
                       targetCardId: targetCardId || currentCardId,
-                      idList: idList
+                      idList: idList,
+                      token: token
                     };
                   }
                   
@@ -2553,7 +2683,8 @@
                         fields: unified, 
                         count: cardsInList.length,
                         targetCardId: targetCardId || currentCardId,
-                        idList: idList
+                        idList: idList,
+                        token: token
                       };
                     }
                     var idBoardFacturacion = facturacionCard.idBoard;
@@ -2572,7 +2703,8 @@
                             fields: unified, 
                             count: cardsInList.length,
                             targetCardId: targetCardId || currentCardId,
-                            idList: idList
+                            idList: idList,
+                            token: token
                           };
                         }
                         return fetch(`https://api.trello.com/1/lists/${billingList.id}/cards?key=${appKey}&token=${token}`)
@@ -2591,7 +2723,8 @@
                                 fields: unified, 
                                 count: cardsInList.length,
                                 targetCardId: targetCardId || currentCardId,
-                                idList: idList
+                                idList: idList,
+                                token: token
                               };
                             }
                             return fetch(`https://api.trello.com/1/cards/${facturasCardCross.id}/checklists?key=${appKey}&token=${token}`)
@@ -2617,7 +2750,8 @@
                                   fields: unified, 
                                   count: cardsInList.length,
                                   targetCardId: targetCardId || currentCardId,
-                                  idList: idList
+                                  idList: idList,
+                                  token: token
                                 };
                               });
                           });
@@ -2629,7 +2763,8 @@
                       fields: unified, 
                       count: cardsInList.length,
                       targetCardId: targetCardId || currentCardId,
-                      idList: idList
+                      idList: idList,
+                      token: token
                     };
                   });
                 });
@@ -2658,7 +2793,8 @@
                     fields: unified, 
                     count: cardsInList.length,
                     targetCardId: targetCardId || currentCardId,
-                    idList: idList
+                    idList: idList,
+                    token: token
                   };
                 });
             });
@@ -2676,6 +2812,18 @@
         if (result && result.fields) {
           var N = result.fields._checklistInvoicesCount || 0;
           cleanupUnifiedBillingFields(result.fields, N);
+          
+          if (result.token && importesCard) {
+            var currentDesc = importesCard.desc || "";
+            var newDesc = cleanImportesDescForSync(currentDesc, N);
+            if (currentDesc.trim() !== newDesc.trim()) {
+              importesCard.desc = newDesc; // Sync cached description
+              var appKey = t.getRestApi().appKey;
+              fetch(`https://api.trello.com/1/cards/${importesCard.id}?desc=${encodeURIComponent(newDesc)}&key=${appKey}&token=${result.token}`, {
+                method: 'PUT'
+              });
+            }
+          }
         }
         return result;
       });
@@ -3036,7 +3184,7 @@
                 "<div style='margin-top: 5px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; white-space: pre-wrap; font-family: monospace;'>" + (fields.parrafada || "(Sin descripción)") + "</div><br>";
 
         // Renderizar el bloque de facturas secuenciales (1 a 10) al final
-        if (fields.factura && fields.factura !== "___________") {
+        if (fields._hasChecklistInvoices !== false && fields.factura && fields.factura !== "___________") {
           html += "<br><strong>Factura nº 1:</strong><br>" +
                   "• Número de factura: <strong>" + fields.factura + "</strong><br>" +
                   "• Fecha de facturación: " + fields.fecha_facturacion + "<br>" +
@@ -4136,7 +4284,7 @@
         }
 
         // Renderizar el bloque de facturas secuenciales (1 a 10) al final
-        if (fields.factura && fields.factura !== "___________") {
+        if (fields._hasChecklistInvoices !== false && fields.factura && fields.factura !== "___________") {
           html += "<br><strong>Factura nº 1:</strong><br>" +
                   "• Número de factura: <strong>" + fields.factura + "</strong><br>" +
                   "• Fecha de facturación: " + fields.fecha_facturacion + "<br>" +
@@ -4186,7 +4334,7 @@
                   "• Domicilio del cliente: " + fields.domicilio + "<br><br>";
           
           // Renderizar el bloque de facturas secuenciales (1 a 10) al final
-          if (fields.factura && fields.factura !== "___________") {
+          if (fields._hasChecklistInvoices !== false && fields.factura && fields.factura !== "___________") {
             html += "<br><strong>Factura nº 1:</strong><br>" +
                     "• Número de factura: <strong>" + fields.factura + "</strong><br>" +
                     "• Fecha de facturación: " + fields.fecha_facturacion + "<br>" +
