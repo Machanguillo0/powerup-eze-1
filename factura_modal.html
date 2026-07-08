@@ -93,73 +93,50 @@
       color: #5e6c84;
       font-style: italic;
     }
-    .billing-summary-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    .summary-card {
-      background-color: #ffffff;
+    .billing-summary-bottom {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 16px;
+      margin-bottom: 16px;
+      padding: 10px 14px;
+      background-color: #f4f5f7;
       border: 1px solid #dfe1e6;
-      border-radius: 4px;
-      padding: 8px 6px;
-      text-align: center;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      border-radius: 3px;
     }
-    .summary-card.highlighted {
-      background-color: #e6fcf5;
-      border-color: #c3f6e3;
+    
+    .summary-item-bottom {
+      display: flex;
+      flex-direction: column;
     }
-    .summary-card.warning-style {
-      background-color: #ffebe6;
-      border-color: #ffbdad;
-    }
-    .summary-label {
-      display: block;
-      font-size: 10px;
+    
+    .summary-label-bottom {
+      font-size: 11px;
       text-transform: uppercase;
       font-weight: 700;
-      color: #6b778c;
-      margin-bottom: 4px;
+      color: #5e6c84;
+      margin-bottom: 2px;
       letter-spacing: 0.5px;
     }
-    .summary-value {
-      display: block;
-      font-size: 13px;
+    
+    .summary-value-bottom {
+      font-size: 14px;
       font-weight: 700;
       color: #172b4d;
     }
-    .summary-card.highlighted .summary-value {
-      color: #0e6245;
-    }
-    .summary-card.warning-style .summary-value {
-      color: #bf2600;
-    }
     
     .editable-input {
-      background-color: #f0f7ff !important;
-      border: 1px solid #bcd8f5 !important;
+      background-color: #eaf6ec !important;
+      border: 1px solid #b2dbaa !important;
     }
     
     .editable-input:focus {
-      border-color: #0052cc !important;
-      box-shadow: 0 0 0 2px rgba(0, 82, 204, 0.25) !important;
+      border-color: #1f845a !important;
+      box-shadow: 0 0 0 2px rgba(31, 132, 90, 0.25) !important;
     }
   </style>
 </head>
 <body>
-
-  <div class="billing-summary-grid">
-    <div class="summary-card">
-      <span class="summary-label">Cliente Cobra sumarizado</span>
-      <span class="summary-value" id="summary-cliente-cobra-sumarizado">0,00 €</span>
-    </div>
-    <div class="summary-card">
-      <span class="summary-label">Total facturado</span>
-      <span class="summary-value" id="summary-total-facturado">0,00 €</span>
-    </div>
-  </div>
 
   <div class="form-group">
     <label for="cliente-cobra-input">Cliente Cobra (€)</label>
@@ -174,6 +151,17 @@
   <div class="form-group">
     <label for="concepto-contabilidad">Concepto interno para contabilidad</label>
     <input type="text" id="concepto-contabilidad" value="Negociación">
+  </div>
+
+  <div class="billing-summary-bottom">
+    <div class="summary-item-bottom">
+      <span class="summary-label-bottom">Cliente Cobra sumarizado</span>
+      <span class="summary-value-bottom" id="summary-cliente-cobra-sumarizado">0,00 €</span>
+    </div>
+    <div class="summary-item-bottom">
+      <span class="summary-label-bottom">Total facturado</span>
+      <span class="summary-value-bottom" id="summary-total-facturado">0,00 €</span>
+    </div>
   </div>
 
   <div id="warning-exceso" style="display: none; background-color: #ffebe6; border-left: 4px solid #de350b; padding: 12px; margin-bottom: 16px; border-radius: 3px;">
