@@ -1148,11 +1148,7 @@
                       targetCardId: targetCardId || currentCardId,
                       idList: idList,
                       token: token
-                    };
-                  }
-                  
-                  // Búsqueda cruzada en el tablero de FACTURACIÓN
-                  var searchQuery = encodeURIComponent('name:"Tipo tablero"');
+                    };                  var searchQuery = encodeURIComponent('name:"Tipo tablero"');
                   return fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
                     .then(function(res) {
                       if (!res.ok) throw new Error("Search failed");
@@ -1160,11 +1156,11 @@
                     })
                     .then(function(searchData) {
                       var cards = searchData.cards || [];
-                      var facturacionCard = cards.find(function(c) {
+                      var candidates = cards.filter(function(c) {
                         var n = c.name.toUpperCase();
                         return n.includes('TIPO TABLERO') && (n.includes('FACTURACIÓN') || n.includes('FACTURACION'));
                       });
-                      if (!facturacionCard) {
+                      if (candidates.length === 0) {
                         return { 
                           fields: unified, 
                           count: cardsInList.length,
@@ -1173,18 +1169,38 @@
                           token: token
                         };
                       }
-                      var idBoardFacturacion = facturacionCard.idBoard;
-                      return fetch(`https://api.trello.com/1/boards/${idBoardFacturacion}/lists?key=${appKey}&token=${token}`)
-                        .then(function(res) {
-                          if (!res.ok) throw new Error("Boards lists fetch failed");
-                          return res.json();
-                        })
-                        .then(function(lists) {
-                        var billingList = lists.find(function(l) {
-                          return normalizeListName(l.name) === normalizeListName(listName);
+                      var boardPromises = candidates.map(function(card) {
+                        return fetch(`https://api.trello.com/1/boards/${card.idBoard}?fields=name&key=${appKey}&token=${token}`)
+                          .then(function(r) { return r.ok ? r.json() : null; })
+                          .then(function(b) {
+                            return b ? { card: card, boardName: b.name } : null;
+                          })
+                          .catch(function() { return null; });
+                      });
+                      return Promise.all(boardPromises).then(function(resultsList) {
+                        var list = resultsList.filter(Boolean);
+                        var bestCard = null;
+                        var bestScore = -1;
+                        list.forEach(function(item) {
+                          var score = 0;
+                          var bNameUpper = item.boardName.toUpperCase();
+                          var curNameUpper = currentBoardName.toUpperCase();
+                          var wordsCur = curNameUpper.replace(/CLIENTES/g, '').split(/\s+/).filter(Boolean);
+                          var wordsCand = bNameUpper.replace(/FACTURACION|FACTURACIÓN/g, '').split(/\s+/).filter(Boolean);
+                          var commonWords = wordsCur.filter(function(w) {
+                            return wordsCand.indexOf(w) > -1;
+                          });
+                          score = commonWords.length;
+                          if (bNameUpper.includes("FACTURACIÓN") || bNameUpper.includes("FACTURACION")) {
+                            score += 1;
+                          }
+                          if (score > bestScore) {
+                            bestScore = score;
+                            bestCard = item.card;
+                          }
                         });
-                        if (!billingList) {
-                          unified._hasChecklistInvoices = false;
+                        var facturacionCard = bestCard || candidates[0];
+                        if (!facturacionCard) {
                           return { 
                             fields: unified, 
                             count: cardsInList.length,
@@ -1193,17 +1209,17 @@
                             token: token
                           };
                         }
-                        return fetch(`https://api.trello.com/1/lists/${billingList.id}/cards?key=${appKey}&token=${token}`)
+                        var idBoardFacturacion = facturacionCard.idBoard;
+                        return fetch(`https://api.trello.com/1/boards/${idBoardFacturacion}/lists?key=${appKey}&token=${token}`)
                           .then(function(res) {
-                            if (!res.ok) throw new Error("List cards fetch failed");
+                            if (!res.ok) throw new Error("Boards lists fetch failed");
                             return res.json();
                           })
-                          .then(function(billingCards) {
-                            var facturasCardCross = billingCards.find(function(c) {
-                              var nameLower = c.name.trim().toLowerCase();
-                              return nameLower === "facturas" || nameLower === "facturación" || nameLower === "facturacion";
+                          .then(function(lists) {
+                            var billingList = lists.find(function(l) {
+                              return normalizeListName(l.name) === normalizeListName(listName);
                             });
-                            if (!facturasCardCross) {
+                            if (!billingList) {
                               unified._hasChecklistInvoices = false;
                               return { 
                                 fields: unified, 
@@ -1213,35 +1229,57 @@
                                 token: token
                               };
                             }
-                            return fetch(`https://api.trello.com/1/cards/${facturasCardCross.id}/checklists?key=${appKey}&token=${token}`)
+                            return fetch(`https://api.trello.com/1/lists/${billingList.id}/cards?key=${appKey}&token=${token}`)
                               .then(function(res) {
-                                if (!res.ok) throw new Error("Checklists fetch failed");
+                                if (!res.ok) throw new Error("List cards fetch failed");
                                 return res.json();
                               })
-                              .then(function(checklists) {
-                                parseChecklistsToUnified(checklists, unified);
-                                var N = 0;
-                                var ch = checklists.find(function(c) {
-                                  var n = c.name.trim().toLowerCase();
-                                  return n === "relación de facturas generadas" || 
-                                         n === "relacion de facturas generadas" || 
-                                         n.indexOf("relación de facturas") > -1 ||
-                                         n.indexOf("relacion de facturas") > -1;
+                              .then(function(billingCards) {
+                                var facturasCardCross = billingCards.find(function(c) {
+                                  var nameLower = c.name.trim().toLowerCase();
+                                  return nameLower === "facturas" || nameLower === "facturación" || nameLower === "facturacion";
                                 });
-                                if (ch && ch.checkItems) {
-                                  N = ch.checkItems.length;
+                                if (!facturasCardCross) {
+                                  unified._hasChecklistInvoices = false;
+                                  return { 
+                                    fields: unified, 
+                                    count: cardsInList.length,
+                                    targetCardId: targetCardId || currentCardId,
+                                    idList: idList,
+                                    token: token
+                                  };
                                 }
-                                unified._checklistInvoicesCount = N;
-                                return { 
-                                  fields: unified, 
-                                  count: cardsInList.length,
-                                  targetCardId: targetCardId || currentCardId,
-                                  idList: idList,
-                                  token: token
-                                };
+                                return fetch(`https://api.trello.com/1/cards/${facturasCardCross.id}/checklists?key=${appKey}&token=${token}`)
+                                  .then(function(res) {
+                                    if (!res.ok) throw new Error("Checklists fetch failed");
+                                    return res.json();
+                                  })
+                                  .then(function(checklists) {
+                                    parseChecklistsToUnified(checklists, unified);
+                                    var N = 0;
+                                    var ch = checklists.find(function(c) {
+                                      var n = c.name.trim().toLowerCase();
+                                      return n === "relación de facturas generadas" || 
+                                             n === "relacion de facturas generadas" || 
+                                             n.indexOf("relación de facturas") > -1 ||
+                                             n.indexOf("relacion de facturas") > -1;
+                                    });
+                                    if (ch && ch.checkItems) {
+                                      N = ch.checkItems.length;
+                                    }
+                                    unified._checklistInvoicesCount = N;
+                                    return { 
+                                      fields: unified, 
+                                      count: cardsInList.length,
+                                      targetCardId: targetCardId || currentCardId,
+                                      idList: idList,
+                                      token: token
+                                    };
+                                  });
                               });
                           });
                       });
+                    });
                   })
                   .catch(function(err) {
                     console.error("Error al buscar checklist cruzada de Facturación:", err);
@@ -1312,11 +1350,14 @@
       return Promise.all([
         getUnifiedFields(t),
         t.getRestApi().getToken(),
-        t.list('name') // Reemplazado 'all' por 'name' para evitar posibles fallos de campos no soportados en modal
+        t.list('name'),
+        t.board('id', 'name')
       ]).then(function (results) {
         var localData = results[0];
         var token = results[1];
         var currentListName = results[2].name;
+        var currentBoard = results[3];
+        var currentBoardName = currentBoard ? currentBoard.name : "";
         var fields = localData.fields;
         var appKey = t.getRestApi().appKey;
 
@@ -1347,7 +1388,44 @@
                   return foundList ? { listId: foundList.id, boardId: boardId } : null;
                 });
             });
-            return Promise.all(promises).then(res => res.find(r => r !== null));
+            return Promise.all(promises).then(res => {
+              var matches = res.filter(r => r !== null);
+              if (matches.length === 0) return null;
+              if (matches.length === 1) return matches[0];
+              
+              var rankingPromises = matches.map(match => {
+                return fetch(`https://api.trello.com/1/boards/${match.boardId}?fields=name&key=${appKey}&token=${token}`)
+                  .then(r => r.json())
+                  .then(b => {
+                    return { match: match, boardName: b.name };
+                  })
+                  .catch(() => {
+                    return { match: match, boardName: "" };
+                  });
+              });
+              
+              return Promise.all(rankingPromises).then(ranked => {
+                var bestMatch = null;
+                var bestScore = -1;
+                ranked.forEach(item => {
+                  var score = 0;
+                  var bNameUpper = item.boardName.toUpperCase();
+                  var curNameUpper = currentBoardName.toUpperCase();
+                  var wordsCur = curNameUpper.replace(/FACTURACION|FACTURACIÓN/g, '').split(/\s+/).filter(Boolean);
+                  var wordsCand = bNameUpper.replace(/CLIENTES/g, '').split(/\s+/).filter(Boolean);
+                  var commonWords = wordsCur.filter(w => wordsCand.indexOf(w) > -1);
+                  score = commonWords.length;
+                  if (bNameUpper.includes("CLIENTES")) {
+                    score += 1;
+                  }
+                  if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = item.match;
+                  }
+                });
+                return bestMatch || matches[0];
+              });
+            });
           })
           .then(match => {
             if (!match) throw new Error('No se encontró lista coincidente en Clientes.');
