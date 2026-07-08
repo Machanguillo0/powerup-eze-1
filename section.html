@@ -2268,6 +2268,7 @@
 
     // Función para obtener datos unificados de toda la lista
     function getUnifiedFields(t) {
+      var importesCard = null;
       return t.card('id', 'idList').then(function (currentCard) {
         var idList = currentCard.idList;
         var currentCardId = currentCard.id;
@@ -2328,7 +2329,7 @@
           };
 
           // Extraer de forma dinámica campos de la tarjeta "Importes" en la lista actual si existe
-          var importesCard = cardsInList.find(function (c) {
+          importesCard = cardsInList.find(function (c) {
             return c.name.toLowerCase().includes("importes");
           });
 

@@ -921,6 +921,7 @@
     }
 
     function getUnifiedFields(t) {
+      var importesCard = null;
       setStatus("Obteniendo tarjeta actual...");
       return t.card('id', 'idList').then(function (currentCard) {
         var idList = currentCard.idList;
@@ -979,7 +980,7 @@
             factura: "___________"
           };
 
-          var importesCard = cardsInList.find(function (c) { return c.name.toLowerCase().includes("importes"); });
+          importesCard = cardsInList.find(function (c) { return c.name.toLowerCase().includes("importes"); });
           if (importesCard && importesCard.desc) {
             setStatus("Parseando tarjeta Importes local...");
             var lines = importesCard.desc.split('\n');
