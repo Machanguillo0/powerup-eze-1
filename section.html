@@ -4073,7 +4073,6 @@
                 "• Nombre: " + fields.nombre + "<br>" +
                 "• DNI: " + fields.dni + "<br>" +
                 "• Domicilio del cliente: " + fields.domicilio + "<br><br>";
-        html += "• Importe final (estimado/actual): <strong>" + (fields["importe final"] || fields["Importe final"] || "___________") + "</strong><br>";
         
         // Renderizar campos dinámicos adicionales (como Honorarios, Gastos, etc. provenientes de la tarjeta Importes)
         var standardKeys = [
@@ -4185,8 +4184,6 @@
                   "• Nombre: " + fields.nombre + "<br>" +
                   "• DNI: " + fields.dni + "<br>" +
                   "• Domicilio del cliente: " + fields.domicilio + "<br><br>";
-          
-          html += "• Importe final (estimado/actual): <strong>" + (fields["importe final"] || fields["Importe final"] || "___________") + "</strong><br>";
           
           // Renderizar el bloque de facturas secuenciales (1 a 10) al final
           if (fields.factura && fields.factura !== "___________") {
