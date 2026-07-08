@@ -744,7 +744,9 @@
         var match = normK.match(/^(.*?)\s*(\d+)$/);
         if (match) {
           var sIdx = parseInt(match[2], 10);
-          if (sIdx > N) {
+          var stem = match[1].toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z]/g, "").trim();
+          var isInvoiceStem = /^(factura|fechafacturacion|importefacturacion|totalfactura|clientecobra|importefacturado)$/.test(stem);
+          if (isInvoiceStem && sIdx > N) {
             delete unified[k];
           }
         }
