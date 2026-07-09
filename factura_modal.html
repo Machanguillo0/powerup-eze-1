@@ -540,8 +540,10 @@
           var finalDesc = prunedLines.join('\n');
           var appKey = t.getRestApi().appKey;
 
-          return fetch(`https://api.trello.com/1/cards/${importesCard.id}?desc=${encodeURIComponent(finalDesc)}&key=${appKey}&token=${token}`, {
-            method: 'PUT'
+          return fetch(`https://api.trello.com/1/cards/${importesCard.id}?key=${appKey}&token=${token}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ desc: finalDesc })
           }).then(function(res) {
             if (!res.ok) throw new Error("Failed to update Importes card desc");
             return res.json();
@@ -1107,21 +1109,31 @@
             var suffix = (idx === 1) ? '' : idx;
             var baseKey = 'importe_facturacion' + suffix;
             var totalKey = 'total_factura' + suffix;
+            var igicKey = 'igic' + suffix;
             
             var baseVal = unified[baseKey];
             if (baseVal && baseVal !== '___________') {
               var baseAmount = parseSpanishFloat(baseVal);
-              var totalAmount = baseAmount + (baseAmount * taxPct / 100);
+              var igicAmount = baseAmount * taxPct / 100;
+              var totalAmount = baseAmount + igicAmount;
+              unified[igicKey] = formatSpanishCurrency(igicAmount);
+              unified[igicKey.toUpperCase()] = formatSpanishCurrency(igicAmount);
               unified[totalKey] = formatSpanishCurrency(totalAmount);
               if (idx === 1) {
                 unified['total_factura'] = unified[totalKey];
                 unified['total factura'] = unified[totalKey];
+                unified['igic'] = unified[igicKey];
+                unified['IGIC'] = unified[igicKey];
               }
             } else {
+              unified[igicKey] = '___________';
+              unified[igicKey.toUpperCase()] = '___________';
               unified[totalKey] = '___________';
               if (idx === 1) {
                 unified['total_factura'] = '___________';
                 unified['total factura'] = '___________';
+                unified['igic'] = '___________';
+                unified['IGIC'] = '___________';
               }
             }
           }
@@ -1334,17 +1346,19 @@
               var N = result.fields._checklistInvoicesCount || 0;
               cleanupUnifiedBillingFields(result.fields, N);
               
-              if (result.token && importesCard) {
-                var currentDesc = importesCard.desc || "";
-                var newDesc = cleanImportesDescForSync(currentDesc, N);
-                if (currentDesc.trim() !== newDesc.trim()) {
-                  importesCard.desc = newDesc; // Sync cached description
-                  var appKey = t.getRestApi().appKey;
-                  fetch(`https://api.trello.com/1/cards/${importesCard.id}?desc=${encodeURIComponent(newDesc)}&key=${appKey}&token=${result.token}`, {
-                    method: 'PUT'
-                  });
-                }
-              }
+               if (result.token && importesCard) {
+                 var currentDesc = importesCard.desc || "";
+                 var newDesc = cleanImportesDescForSync(currentDesc, N);
+                 if (currentDesc.trim() !== newDesc.trim()) {
+                   importesCard.desc = newDesc; // Sync cached description
+                   var appKey = t.getRestApi().appKey;
+                   fetch(`https://api.trello.com/1/cards/${importesCard.id}?key=${appKey}&token=${result.token}`, {
+                     method: 'PUT',
+                     headers: { 'Content-Type': 'application/json' },
+                     body: JSON.stringify({ desc: newDesc })
+                   });
+                 }
+               }
             }
             return result;
           });

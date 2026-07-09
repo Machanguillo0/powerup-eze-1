@@ -2617,21 +2617,31 @@
             var suffix = (idx === 1) ? '' : idx;
             var baseKey = 'importe_facturacion' + suffix;
             var totalKey = 'total_factura' + suffix;
+            var igicKey = 'igic' + suffix;
             
             var baseVal = unified[baseKey];
             if (baseVal && baseVal !== '___________') {
               var baseAmount = parseSpanishFloat(baseVal);
-              var totalAmount = baseAmount + (baseAmount * taxPct / 100);
+              var igicAmount = baseAmount * taxPct / 100;
+              var totalAmount = baseAmount + igicAmount;
+              unified[igicKey] = formatSpanishCurrency(igicAmount);
+              unified[igicKey.toUpperCase()] = formatSpanishCurrency(igicAmount);
               unified[totalKey] = formatSpanishCurrency(totalAmount);
               if (idx === 1) {
                 unified['total_factura'] = unified[totalKey];
                 unified['total factura'] = unified[totalKey];
+                unified['igic'] = unified[igicKey];
+                unified['IGIC'] = unified[igicKey];
               }
             } else {
+              unified[igicKey] = '___________';
+              unified[igicKey.toUpperCase()] = '___________';
               unified[totalKey] = '___________';
               if (idx === 1) {
                 unified['total_factura'] = '___________';
                 unified['total factura'] = '___________';
+                unified['igic'] = '___________';
+                unified['IGIC'] = '___________';
               }
             }
           }
@@ -2866,8 +2876,10 @@
             if (currentDesc.trim() !== newDesc.trim()) {
               importesCard.desc = newDesc; // Sync cached description
               var appKey = t.getRestApi().appKey;
-              fetch(`https://api.trello.com/1/cards/${importesCard.id}?desc=${encodeURIComponent(newDesc)}&key=${appKey}&token=${result.token}`, {
-                method: 'PUT'
+              fetch(`https://api.trello.com/1/cards/${importesCard.id}?key=${appKey}&token=${result.token}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ desc: newDesc })
               });
             }
           }
@@ -4573,7 +4585,7 @@
               if (token) {
                 window.isApiAuthorized = true;
                 t.modal({
-                  url: './factura_modal.html?v=92',
+                  url: './factura_modal.html?v=94',
                   height: 500,
                   title: 'Generar Factura',
                   accentColor: '#1f845a'
@@ -4586,7 +4598,7 @@
           return;
         }
         t.modal({
-          url: './factura_modal.html?v=92',
+          url: './factura_modal.html?v=94',
           height: 500,
           title: 'Generar Factura',
           accentColor: '#1f845a'
