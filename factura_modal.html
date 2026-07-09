@@ -2074,7 +2074,31 @@
                           }
                         });
                       } else if (typeof cell.value === 'string') {
-                        cell.value = replaceExcelPlaceholders(cell.value, fields, false);
+                        var originalVal = cell.value.trim();
+                        var replaced = replaceExcelPlaceholders(cell.value, fields, false);
+                        
+                        var isSinglePlaceholder = originalVal.startsWith('{{') && originalVal.endsWith('}}');
+                        if (isSinglePlaceholder) {
+                          var cleanNum = replaced.replace(/[^\d.,-]/g, '').trim();
+                          if (cleanNum) {
+                            var checkVal = cleanNum;
+                            if (checkVal.indexOf(',') > -1) {
+                              checkVal = checkVal.replace(/\./g, '').replace(',', '.');
+                            }
+                            var num = parseFloat(checkVal);
+                            var expectedReplaced = replaced.replace(/[\s€]/g, '').trim();
+                            if (!isNaN(num) && cleanNum === expectedReplaced) {
+                              cell.value = num;
+                            } else {
+                              cell.value = replaced;
+                            }
+                          } else {
+                            cell.value = replaced;
+                          }
+                        } else {
+                          cell.value = replaced;
+                        }
+                        
                         if (fields.parrafada && fields.parrafada.includes('\n')) cell.alignment = { wrapText: true };
                       }
                     }
