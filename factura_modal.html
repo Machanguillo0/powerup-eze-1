@@ -931,10 +931,13 @@
         setStatus("Obteniendo tarjetas y listas locales...");
         return Promise.all([
           t.cards('id', 'name', 'desc', 'idList'),
-          t.lists('all')
+          t.lists('all'),
+          t.board('id', 'name')
         ]).then(function (results) {
           var allCards = results[0];
           var allLists = results[1];
+          var currentBoard = results[2];
+          var currentBoardName = currentBoard ? currentBoard.name : "";
           var currentList = allLists.find(function(l) { return l.id === idList; });
           var listName = currentList ? currentList.name : "___________";
           
@@ -1023,7 +1026,7 @@
             var hasFormula = (rawAFacturar.indexOf('{{') > -1 && rawAFacturar.indexOf('}}') > -1);
             if (!hasFormula) {
               var cobraVal = getNumericFieldValue(unified, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']);
-              var pctVal = getNumericFieldValue(unified, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios', 'porcentage facturación', 'porcentage facturacion', 'porcentage', 'porcentage honorarios']);
+              var pctVal = getNumericFieldValue(unified, ['porcentaje facturacion', 'porcentaje facturación', 'porcentaje facturcion', 'porcentaje facturción', 'porcentaje', 'porcentaje honorarios', 'porcentage facturacion', 'porcentage facturación', 'porcentage facturcion', 'porcentage facturción', 'porcentage', 'porcentage honorarios']);
               if (cobraVal !== null && pctVal !== null) {
                 var factor = pctVal;
                 if (factor > 1) factor = factor / 100;
@@ -1490,7 +1493,7 @@
                   }
                   if (!hasAFacturar) {
                     var cobraVal = getNumericFieldValue(clientImportesFields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']);
-                    var pctVal = getNumericFieldValue(clientImportesFields, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios', 'porcentage facturación', 'porcentage facturacion', 'porcentage', 'porcentage honorarios']);
+                    var pctVal = getNumericFieldValue(clientImportesFields, ['porcentaje facturacion', 'porcentaje facturación', 'porcentaje facturcion', 'porcentaje facturción', 'porcentaje', 'porcentaje honorarios', 'porcentage facturacion', 'porcentage facturación', 'porcentage facturcion', 'porcentage facturción', 'porcentage', 'porcentage honorarios']);
                     if (cobraVal !== null && pctVal !== null) {
                       var factor = pctVal;
                       if (factor > 1) factor = factor / 100;
@@ -1835,7 +1838,7 @@
  
            var valClienteCobra = getNumericFieldValue(fields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']) || 0;
            
-           var pctVal = getNumericFieldValue(fields, ['porcentaje facturación', 'porcentaje facturacion', 'porcentaje', 'porcentaje honorarios', 'porcentage facturación', 'porcentage facturacion', 'porcentage', 'porcentage honorarios']);
+           var pctVal = getNumericFieldValue(fields, ['porcentaje facturacion', 'porcentaje facturación', 'porcentaje facturcion', 'porcentaje facturción', 'porcentaje', 'porcentaje honorarios', 'porcentage facturacion', 'porcentage facturación', 'porcentage facturcion', 'porcentage facturción', 'porcentage', 'porcentage honorarios']);
            globalPorcentaje = (pctVal !== null && pctVal !== undefined) ? pctVal : 100;
  
            // Determine accumulated values
@@ -1919,6 +1922,14 @@
  
            // Perform initial calculation
            recalculateAFacturar();
+           
+           // Asynchronously fetch cross-board percentage from Clientes board and recalculate if found
+           getCrossBoardPercentage(t).then(function(pct) {
+             if (pct !== null && pct !== undefined) {
+               globalPorcentaje = pct;
+               recalculateAFacturar();
+             }
+           });
  
            setStatus("Introduce el importe y concepto, luego haz clic en 'Facturar'.");
          });
