@@ -2040,6 +2040,15 @@
           fields["total factura"] = currentTotal;
           fields.importe_factura = currentAmount;
           fields.concepto_contabilidad = currentConcept;
+          fields.igic = currentIgic;
+          fields.IGIC = currentIgic;
+          var formattedIgic = igicNum.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          fields.igic_num = formattedIgic;
+          fields.IGIC_num = formattedIgic;
+          fields.IGIC_NUM = formattedIgic;
+          fields["igic num"] = formattedIgic;
+          fields["IGIC num"] = formattedIgic;
+          fields["IGIC NUM"] = formattedIgic;
           
           // Campos con el formato y texto exacto para los marcadores del Excel
           fields["Importe Factura"] = currentAmount;
