@@ -512,11 +512,12 @@
           }
 
           var accumLines = [
+            "",
             "**Cliente cobra sumarizado**: " + formattedCobraSum,
             "**TOTAL FACTURADO**: " + formattedTotal
           ];
 
-          prunedLines.splice(insertIdx, 0, accumLines[0], accumLines[1]);
+          prunedLines.splice(insertIdx, 0, accumLines[0], accumLines[1], accumLines[2]);
 
           parsedSeqCobra[seqIndex] = formattedCobra;
           parsedSeqFacturado[seqIndex] = formattedInvoiceAmount;
@@ -843,11 +844,12 @@
         var formattedTotal = sumFacturado.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
 
         var accumLines = [
+          "",
           "**Cliente cobra sumarizado**: " + formattedCobraSum,
           "**TOTAL FACTURADO**: " + formattedTotal
         ];
 
-        prunedLines.splice(insertIdx, 0, accumLines[0], accumLines[1]);
+        prunedLines.splice(insertIdx, 0, accumLines[0], accumLines[1], accumLines[2]);
 
         for (var i = 1; i <= N; i++) {
           var suffix = (i === 1) ? '' : i;
@@ -1960,23 +1962,11 @@
       t.closeModal();
     });
 
-    // Acción de Clicar Facturar -> Abre el selector de archivos o muestra advertencia
+    // Acción de Clicar Facturar -> Abre el selector de archivos
     document.getElementById('btn-facturar').addEventListener('click', function(e) {
       e.preventDefault();
-      
-      var inputImporte = document.getElementById('importe-factura').value.trim();
-      var baseNum = parseSpanishFloat(inputImporte);
-      var totalFacturadoAcumulado = globalFacturado + baseNum;
-      
-      if (globalAFacturar > 0 && totalFacturadoAcumulado > globalAFacturar) {
-        // Mostrar advertencia de exceso de importe
-        document.getElementById('warning-exceso').style.display = 'block';
-        t.sizeTo(document.body).done();
-      } else {
-        // Proceder directamente
-        document.getElementById('warning-exceso').style.display = 'none';
-        document.getElementById('factura-upload').click();
-      }
+      document.getElementById('warning-exceso').style.display = 'none';
+      document.getElementById('factura-upload').click();
     });
 
     // Acción del botón de validar exceso en el aviso
