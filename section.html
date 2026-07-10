@@ -1541,6 +1541,9 @@
 
         prunedLines.splice(insertIdx, 0, accumLines[0], accumLines[1], accumLines[2]);
 
+        if (N > 0) {
+          prunedLines.push("");
+        }
         for (var i = 1; i <= N; i++) {
           var suffix = (i === 1) ? '' : i;
           var cobraVal = parsedSeqCobra[i] || "___________";
@@ -4326,6 +4329,7 @@
           "importe facturado", "total_facturado", "total facturado", "cliente cobra", 
           "cliente cobra sumarizado", "cliente_cobra", "cliente_cobra_sumarizado",
           "facturado", "a facturar", "a_facturar",
+          "igic", "igic_num", "igic num",
           "_haschecklistinvoices"
         ];
         // Añadir también las claves secuenciales a las standard para que no aparezcan en adicionales
@@ -4342,6 +4346,9 @@
           standardKeys.push("cliente cobra sumarizado" + s);
           standardKeys.push("importe_facturado" + s);
           standardKeys.push("importe facturado" + s);
+          standardKeys.push("igic" + s);
+          standardKeys.push("igic_num" + s);
+          standardKeys.push("igic num" + s);
         }
         
         var dynamicHtml = "";
@@ -4587,7 +4594,7 @@
               if (token) {
                 window.isApiAuthorized = true;
                 t.modal({
-                  url: './factura_modal.html?v=99',
+                  url: './factura_modal.html?v=101',
                   height: 500,
                   title: 'Generar Factura',
                   accentColor: '#1f845a'
@@ -4600,7 +4607,7 @@
           return;
         }
         t.modal({
-          url: './factura_modal.html?v=99',
+          url: './factura_modal.html?v=101',
           height: 500,
           title: 'Generar Factura',
           accentColor: '#1f845a'

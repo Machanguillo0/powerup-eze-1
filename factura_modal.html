@@ -522,6 +522,9 @@
           parsedSeqCobra[seqIndex] = formattedCobra;
           parsedSeqFacturado[seqIndex] = formattedInvoiceAmount;
 
+          if (seqIndex > 0) {
+            prunedLines.push("");
+          }
           for (var i = 1; i <= seqIndex; i++) {
             var suffix = (i === 1) ? '' : i;
             var cobraVal = parsedSeqCobra[i] || (i === seqIndex ? formattedCobra : "___________");
@@ -851,6 +854,9 @@
 
         prunedLines.splice(insertIdx, 0, accumLines[0], accumLines[1], accumLines[2]);
 
+        if (N > 0) {
+          prunedLines.push("");
+        }
         for (var i = 1; i <= N; i++) {
           var suffix = (i === 1) ? '' : i;
           var cobraVal = parsedSeqCobra[i] || "___________";
