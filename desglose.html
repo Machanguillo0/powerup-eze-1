@@ -563,7 +563,7 @@
 
   <!-- Panel de Total -->
   <div class="total-panel">
-    <div class="total-label">IMPORTE TOTAL ESTIMADO:</div>
+    <div class="total-label">IMPORTE TOTAL:</div>
     <div class="total-amount" id="desglose-total">0,00 €</div>
   </div>
 
@@ -1971,12 +1971,26 @@
             debugText += "<b>Claves en Importes local (Tablero Facturación):</b> " + Object.keys(fields).join(', ') + "<br>";
             
             // Extraer y parsear valores de Facturado y A facturar para el descuento especial
-            globalFacturado = cleanAndParseFloat(fields["facturado"] || fields["Facturado"] || "");
+            globalFacturado = cleanAndParseFloat(
+              fields["total facturado"] || 
+              fields["total_facturado"] || 
+              fields["total facturado"] || 
+              fields["facturado"] || 
+              fields["Facturado"] || 
+              ""
+            );
             globalAFacturar = cleanAndParseFloat(fields["a facturar"] || fields["A facturar"] || "");
             
             var baseAmount = 0;
             // Buscar exclusivamente Cliente Cobra en base a la puntualización del usuario
-            var possibleKeys = ['cliente cobra', 'ciente cobra', 'cliente cobra acumulado'];
+            var possibleKeys = [
+              'cliente cobra sumarizado', 
+              'cliente_cobra_sumarizado', 
+              'clientecobrasumarizado',
+              'cliente cobra', 
+              'ciente cobra', 
+              'cliente cobra acumulado'
+            ];
             for (var i = 0; i < possibleKeys.length; i++) {
               var k = possibleKeys[i];
               debugText += "Probando clave '" + k + "': " + fields[k] + " (tipo: " + typeof fields[k] + ")<br>";
