@@ -282,7 +282,7 @@
       });
 
       Promise.all([
-        t.cards('id', 'name', 'idList', 'pos'),
+        t.cards('id', 'name', 'desc', 'idList', 'pos'),
         t.lists('id', 'name')
       ]).then(function (results) {
         var cards = results[0];
@@ -298,8 +298,9 @@
           cardsByList[c.idList].push(c);
         });
 
-        // Nombre de cliente por primera tarjeta de la lista
+        // Nombre y DNI de cliente por primera tarjeta de la lista
         var clientePorLista = {};
+        var dniPorLista = {};
         lists.forEach(function(l) {
           var listCards = cardsByList[l.id] || [];
           listCards.sort(function(a, b) { return a.pos - b.pos; });
@@ -315,6 +316,15 @@
           });
 
           clientePorLista[l.id] = firstCard ? firstCard.name : "Sin Cliente";
+
+          var dniVal = "";
+          if (firstCard && firstCard.desc) {
+            var m = firstCard.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DNI[^:]*[:\s-]+\s*([^\n\r]*)/i);
+            if (m) {
+              dniVal = m[1].replace(/[*_~`]/g, '').trim();
+            }
+          }
+          dniPorLista[l.id] = dniVal;
         });
 
         var facturasCards = cards.filter(function(c) {
@@ -395,36 +405,57 @@
                     var parts = item.name.split('|').map(function(s) { return s.trim(); });
                     var fDate = "";
                     var fNum = "";
-                    var fAmount = "";
+                    var fClient = clientName;
+                    var fDni = dniPorLista[card.idList] || "";
+                    var fBase = "";
+                    var fIgic = "";
                     var fTotal = "";
+                    var fModo = "";
+                    var fConcepto = "";
 
-                    if (parts.length >= 2) {
+                    if (parts.length >= 8) {
                       fDate = parts[0] || "";
+                      fNum = (parts[1] || "").replace(/^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)\s*/i, '').trim();
+                      fClient = parts[2] || clientName;
+                      fDni = (parts[3] || "").replace(/^(?:DNI:)\s*/i, '').trim() || fDni;
+                      fBase = (parts[4] || "").replace(/^(?:Base:|Importe:)\s*/i, '').trim();
+                      fIgic = (parts[5] || "").replace(/^(?:Igic:)\s*/i, '').trim();
+                      fTotal = (parts[6] || "").replace(/^(?:Total:)\s*/i, '').trim();
+                      fModo = (parts[7] || "").replace(/^(?:MODO:)\s*/i, '').trim();
+                      fConcepto = parts[8] || "";
+                    } else if (parts.length >= 2) {
+                      fDate = parts[0] || "";
+                      
+                      parts.forEach(function(part) {
+                        var pTrimmed = part.trim();
+                        if (/^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)/i.test(pTrimmed)) {
+                          fNum = pTrimmed.replace(/^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)\s*/i, '').trim();
+                        } else if (/^(?:DNI:)/i.test(pTrimmed)) {
+                          fDni = pTrimmed.replace(/^(?:DNI:)\s*/i, '').trim();
+                        } else if (/^(?:Base:|Importe:)/i.test(pTrimmed)) {
+                          fBase = pTrimmed.replace(/^(?:Base:|Importe:)\s*/i, '').trim();
+                        } else if (/^(?:Igic:)/i.test(pTrimmed)) {
+                          fIgic = pTrimmed.replace(/^(?:Igic:)\s*/i, '').trim();
+                        } else if (/^(?:Total:)/i.test(pTrimmed)) {
+                          fTotal = pTrimmed.replace(/^(?:Total:)\s*/i, '').trim();
+                        } else if (/^(?:MODO:)/i.test(pTrimmed)) {
+                          fModo = pTrimmed.replace(/^(?:MODO:)\s*/i, '').trim();
+                        }
+                      });
 
-                      var numPart = parts.find(function(p) { return /^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)/i.test(p); });
-                      if (numPart) {
-                        fNum = numPart.replace(/^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)\s*/i, '').trim();
-                      } else {
-                        fNum = parts[1] || "";
+                      if (!fNum) fNum = parts[1] || "";
+                      if (!fBase) {
+                        var basePart = parts.find(function(p) { return /^(?:Base:|Importe:)/i.test(p); });
+                        fBase = basePart ? basePart.replace(/^(?:Base:|Importe:)\s*/i, '').trim() : parts[parts.length - 1] || "";
                       }
-
-                      var basePart = parts.find(function(p) { return /^(?:Base:|Importe:)/i.test(p); });
-                      if (basePart) {
-                        fAmount = basePart.replace(/^(?:Base:|Importe:)\s*/i, '').trim();
-                      } else {
-                        fAmount = parts[parts.length - 1] || "";
-                      }
-
-                      var totalPart = parts.find(function(p) { return /^(?:Total:)/i.test(p); });
-                      if (totalPart) {
-                        fTotal = totalPart.replace(/^(?:Total:)\s*/i, '').trim();
-                      } else {
-                        fTotal = fAmount;
+                      if (!fTotal) {
+                        var totalPart = parts.find(function(p) { return /^(?:Total:)/i.test(p); });
+                        fTotal = totalPart ? totalPart.replace(/^(?:Total:)\s*/i, '').trim() : fBase;
                       }
                     } else {
                       fDate = "";
                       fNum = item.name;
-                      fAmount = "";
+                      fBase = "";
                       fTotal = "";
                     }
 
@@ -433,13 +464,16 @@
                     // Solo agregamos la factura si tiene fecha válida y es igual o posterior a la del filtro
                     if (itemDate && itemDate >= filterDate) {
                       invoiceRows.push({
-                        expediente: listName,
-                        cliente: clientName,
-                        fecha: fDate,
                         factura: fNum,
-                        base: fAmount,
+                        fecha: fDate,
+                        cliente: fClient,
+                        dni: fDni,
+                        expediente: listName,
+                        base: fBase,
+                        igic: fIgic,
                         total: fTotal,
-                        estado: item.state === "complete" ? "Cobrada" : "Pendiente"
+                        modo: fModo,
+                        concepto: fConcepto
                       });
                     }
                   });
@@ -473,13 +507,16 @@
                 var sheet = workbook.addWorksheet('Relación de Facturas');
 
                 sheet.columns = [
-                  { header: 'Expediente / Lista', key: 'expediente', width: 25 },
-                  { header: 'Cliente', key: 'cliente', width: 30 },
+                  { header: 'Factura', key: 'factura', width: 15 },
                   { header: 'Fecha', key: 'fecha', width: 15 },
-                  { header: 'Nº Factura', key: 'factura', width: 15 },
-                  { header: 'Importe Base', key: 'base', width: 15 },
-                  { header: 'Importe Total', key: 'total', width: 15 },
-                  { header: 'Estado', key: 'estado', width: 15 }
+                  { header: 'Cliente', key: 'cliente', width: 30 },
+                  { header: 'DNI', key: 'dni', width: 15 },
+                  { header: 'Expediente', key: 'expediente', width: 25 },
+                  { header: 'Base', key: 'base', width: 15 },
+                  { header: 'Igic', key: 'igic', width: 15 },
+                  { header: 'Total', key: 'total', width: 15 },
+                  { header: 'Modo', key: 'modo', width: 15 },
+                  { header: 'Concepto interno para contabilidad', key: 'concepto', width: 40 }
                 ];
 
                 var headerRow = sheet.getRow(1);
