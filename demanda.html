@@ -572,14 +572,23 @@
         formState[title] = s.value;
       });
 
-      // 1.2. Recopilar valores de campos de texto (int, text, number, float)
+      // 1.2. Recopilar valores de campos de texto (int, text, number, float, date)
       var inputs = document.querySelectorAll('.demanda-input-field');
       inputs.forEach(function(inp) {
         var title = inp.getAttribute('data-title');
         var val = inp.value.trim();
-        selections[title] = val;
-        rawSelections[title] = [val];
+        var type = inp.getAttribute('data-type');
+        
         formState[title] = val;
+        
+        if (type === 'date' && val) {
+          var formattedVal = formatSpanishLongDate(val);
+          selections[title] = formattedVal;
+          rawSelections[title] = [formattedVal];
+        } else {
+          selections[title] = val;
+          rawSelections[title] = [val];
+        }
       });
 
       // 1.3. Recopilar valores de campos de tipo date-range y calcular la diferencia de días
@@ -777,6 +786,22 @@
         return null;
       }
       return date;
+    }
+
+    function formatSpanishLongDate(str) {
+      if (!str) return '';
+      var dateObj = parseSpanishDate(str);
+      if (!dateObj) return str;
+      
+      var day = dateObj.getDate();
+      var monthNames = [
+        "enero", "febrero", "marzo", "abril", "mayo", "junio",
+        "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+      ];
+      var month = monthNames[dateObj.getMonth()];
+      var year = dateObj.getFullYear();
+      
+      return day + " de " + month + " de " + year;
     }
 
     function resizeModal() {
