@@ -76,11 +76,11 @@ window.TrelloPowerUp.initialize({
   // Capability para añadir una sección grande dentro del cuerpo de la tarjeta
   'card-back-section': function (t, options) {
     return {
-      title: 'Powerup opciones 104',
+      title: 'Powerup opciones 105',
       icon: './icon.svg', // Recomendado un icono gris, pero el SVG actual servirá
       content: {
         type: 'iframe',
-        url: t.signUrl('./section.html?v=101'), // Apuntamos a un nuevo archivo HTML que vamos a crear
+        url: t.signUrl('./section.html?v=' + Date.now()), // Evita el caché de la sección trasera de la tarjeta
         height: 250 // Altura inicial en píxeles (aumentado para evitar scrollbar)
       }
     };
