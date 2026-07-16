@@ -461,6 +461,48 @@
             inputHasta.value = saved[title].hasta || '';
             updateCalculatedDays(inputDesde);
           }
+        } else if (metaTag.type === 'date') {
+          // Renderizar campo de entrada de fecha única horizontal y estrecho
+          formGroup.className = 'form-group horizontal';
+          label.style.display = 'inline-block';
+          label.style.marginBottom = '0px';
+          label.style.flexShrink = '0';
+
+          var inputDate = document.createElement('input');
+          inputDate.type = 'text';
+          inputDate.className = 'demanda-input-field';
+          inputDate.setAttribute('data-title', title);
+          inputDate.setAttribute('data-type', 'date');
+          inputDate.placeholder = 'dd/mm/aaaa';
+          inputDate.style.width = '95px';
+          inputDate.style.height = '24px';
+          inputDate.style.padding = '0 6px';
+          inputDate.style.fontSize = '13px';
+          inputDate.style.textAlign = 'center';
+          inputDate.style.boxSizing = 'border-box';
+          inputDate.style.border = '1px solid #ced4da';
+          inputDate.style.borderRadius = '3px';
+          inputDate.style.flexShrink = '0';
+
+          // Autocompletado de barras '/' al escribir la fecha
+          inputDate.addEventListener('input', function(e) {
+            var val = e.target.value.replace(/\D/g, '');
+            if (val.length > 2 && val.length <= 4) {
+              val = val.slice(0, 2) + '/' + val.slice(2);
+            } else if (val.length > 4) {
+              val = val.slice(0, 2) + '/' + val.slice(2, 4) + '/' + val.slice(4, 8);
+            }
+            e.target.value = val;
+          });
+
+          inputDate.addEventListener('focus', function(e) { e.target.style.borderColor = '#0079bf'; });
+          inputDate.addEventListener('blur', function(e) { e.target.style.borderColor = '#ced4da'; });
+
+          if (saved && saved[title] !== undefined) {
+            inputDate.value = saved[title];
+          }
+
+          formGroup.appendChild(inputDate);
         } else if (metaTag.type === 'text') {
           // Renderizar campo de entrada de texto largo estándar (vertical)
           var input = document.createElement('input');
