@@ -3341,15 +3341,11 @@
         var selections = event.data.selections;
         var rawSelections = event.data.rawSelections || {};
         var statusDiv = document.getElementById('upload-status');
-        statusDiv.textContent = 'Procesando opciones y generando documento [V3-SafeRegex]...';
+        // Mostrar depuración directamente en el contenedor del Power-up
+        var debugMsg = "DEBUG - Selections: " + JSON.stringify(selections) + " | MetaTags en memoria: " + Object.keys(demandaState.metaTags || {}).join(", ");
+        console.log(debugMsg);
+        statusDiv.innerHTML = 'Generando documento...<br/><small style="color: #626f84; word-break: break-all; display: block; margin-top: 8px;">' + debugMsg + '</small>';
         t.sizeTo(document.body).done();
-
-        // ALERTA DE DEPURACIÓN TEMPORAL
-        t.alert({
-          message: "DEBUG - Selections: " + JSON.stringify(selections) + " | MetaTags en memoria: " + Object.keys(demandaState.metaTags || {}).join(", "),
-          duration: 15,
-          display: "info"
-        });
 
         try {
           var contentXml = demandaState.contentXml;
