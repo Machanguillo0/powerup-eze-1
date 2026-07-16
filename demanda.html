@@ -477,9 +477,15 @@
           formGroup.appendChild(input);
         } else {
           // Renderizar select desplegable estándar
+          formGroup.className = 'form-group horizontal';
+          label.style.display = 'inline-block';
+          label.style.marginBottom = '0px';
+          label.style.flexShrink = '0';
+
           var select = document.createElement('select');
           select.className = 'demanda-select';
           select.setAttribute('data-title', title);
+          select.style.flex = '1';
  
           metaTag.options.forEach(function (opt) {
             var option = document.createElement('option');
