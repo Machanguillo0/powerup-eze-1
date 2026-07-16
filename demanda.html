@@ -630,11 +630,58 @@
         selections[title + ":start"] = desdeVal || '';
         selections[title + ": end"] = hastaVal || '';
         selections[title + ":end"] = hastaVal || '';
+
+        // Formato largo de texto para :start y :end en español
+        var desdeText = desdeVal ? formatSpanishLongDate(desdeVal) : '';
+        var hastaText = hastaVal ? formatSpanishLongDate(hastaVal) : '';
+
+        // Variaciones sintácticas con guion, espacios, corchetes o palabra "texto"
+        selections[title + ":start-text"] = desdeText;
+        selections[title + ": start-text"] = desdeText;
+        selections[title + ":end-text"] = hastaText;
+        selections[title + ": end-text"] = hastaText;
+        
+        selections[title + ":start - text"] = desdeText;
+        selections[title + ": start - text"] = desdeText;
+        selections[title + ":end - text"] = hastaText;
+        selections[title + ": end - text"] = hastaText;
+        
+        selections[title + ":start[text]"] = desdeText;
+        selections[title + ": start[text]"] = desdeText;
+        selections[title + ":end[text]"] = hastaText;
+        selections[title + ": end[text]"] = hastaText;
+
+        selections[title + ":start-texto"] = desdeText;
+        selections[title + ": start-texto"] = desdeText;
+        selections[title + ":end-texto"] = hastaText;
+        selections[title + ": end-texto"] = hastaText;
+
         rawSelections[title] = [numDaysStr];
         rawSelections[title + ": start"] = [desdeVal || ''];
         rawSelections[title + ":start"] = [desdeVal || ''];
         rawSelections[title + ": end"] = [hastaVal || ''];
         rawSelections[title + ":end"] = [hastaVal || ''];
+
+        rawSelections[title + ":start-text"] = [desdeText];
+        rawSelections[title + ": start-text"] = [desdeText];
+        rawSelections[title + ":end-text"] = [hastaText];
+        rawSelections[title + ": end-text"] = [hastaText];
+        
+        rawSelections[title + ":start - text"] = [desdeText];
+        rawSelections[title + ": start - text"] = [desdeText];
+        rawSelections[title + ":end - text"] = [hastaText];
+        rawSelections[title + ": end - text"] = [hastaText];
+        
+        rawSelections[title + ":start[text]"] = [desdeText];
+        rawSelections[title + ": start[text]"] = [desdeText];
+        rawSelections[title + ":end[text]"] = [hastaText];
+        rawSelections[title + ": end[text]"] = [hastaText];
+
+        rawSelections[title + ":start-texto"] = [desdeText];
+        rawSelections[title + ": start-texto"] = [desdeText];
+        rawSelections[title + ":end-texto"] = [hastaText];
+        rawSelections[title + ": end-texto"] = [hastaText];
+
         formState[title] = { desde: desdeVal, hasta: hastaVal };
       }
 
