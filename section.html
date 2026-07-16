@@ -3344,6 +3344,13 @@
         statusDiv.textContent = 'Procesando opciones y generando documento [V3-SafeRegex]...';
         t.sizeTo(document.body).done();
 
+        // ALERTA DE DEPURACIÓN TEMPORAL
+        t.alert({
+          message: "DEBUG - Selections: " + JSON.stringify(selections) + " | MetaTags en memoria: " + Object.keys(demandaState.metaTags || {}).join(", "),
+          duration: 15,
+          display: "info"
+        });
+
         try {
           var contentXml = demandaState.contentXml;
 

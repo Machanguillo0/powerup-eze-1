@@ -755,6 +755,7 @@
         })
         .then(function() {
           // Enviar selecciones a la ventana principal
+          console.log("DEMANDA GENERAR - selections:", JSON.stringify(selections), "rawSelections:", JSON.stringify(rawSelections));
           bc.postMessage({ type: 'generate', selections: selections, rawSelections: rawSelections });
           t.closeModal();
         });
