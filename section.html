@@ -1644,7 +1644,18 @@
       }
       
       // Obtener la subcadena de opciones a partir de la primera llave en el XML local normalizado
-      var firstBraceIdx = localXml.indexOf('{', 2);
+      // Buscamos dinámicamente la tercera llave '{' (ya que las dos primeras inician el tag '{{')
+      var firstBraceIdx = -1;
+      var braceCount = 0;
+      for (var i = 0; i < localXml.length; i++) {
+        if (localXml.charAt(i) === '{') {
+          braceCount++;
+          if (braceCount === 3) {
+            firstBraceIdx = i;
+            break;
+          }
+        }
+      }
       if (firstBraceIdx === -1) return null;
       var optionsStr = localXml.substring(firstBraceIdx).trim();
 
@@ -3618,7 +3629,17 @@
             if (cleanText.startsWith('{{') && cleanText.endsWith('}}')) {
               var innerClean = cleanText.substring(2, cleanText.length - 2).trim();
               if (innerClean.toLowerCase().startsWith('lista de documentos numerados')) {
-                var firstBraceIdx = fullXmlMatch.indexOf('{', 2);
+                var firstBraceIdx = -1;
+                var braceCount = 0;
+                for (var i = 0; i < fullXmlMatch.length; i++) {
+                  if (fullXmlMatch.charAt(i) === '{') {
+                    braceCount++;
+                    if (braceCount === 3) {
+                      firstBraceIdx = i;
+                      break;
+                    }
+                  }
+                }
                 var lastBraceIdx = -1;
                 var closeCount = 0;
                 for (var i = fullXmlMatch.length - 1; i >= 0; i--) {
