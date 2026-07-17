@@ -466,6 +466,7 @@
                       invoiceRows.push({
                         factura: fNum,
                         fecha: fDate,
+                        dateObj: itemDate, // Guardamos el objeto Date para ordenar
                         cliente: fClient,
                         dni: fDni,
                         expediente: listName,
@@ -478,6 +479,11 @@
                     }
                   });
                 }
+              });
+
+              // Ordenar facturas cronológicamente
+              invoiceRows.sort(function(a, b) {
+                return a.dateObj - b.dateObj;
               });
 
               if (invoiceRows.length === 0) {
@@ -506,29 +512,138 @@
                 var workbook = new ExcelJS.Workbook();
                 var sheet = workbook.addWorksheet('Relación de Facturas');
 
+                // Ajustamos los nombres de cabeceras, anchos y claves según el pantallazo
                 sheet.columns = [
-                  { header: 'Factura', key: 'factura', width: 15 },
-                  { header: 'Fecha', key: 'fecha', width: 15 },
-                  { header: 'Cliente', key: 'cliente', width: 30 },
+                  { header: 'Nº DE FRA.', key: 'factura', width: 15 },
+                  { header: 'FECHA', key: 'fecha', width: 15 },
+                  { header: 'CLIENTE', key: 'cliente', width: 35 },
                   { header: 'DNI', key: 'dni', width: 15 },
-                  { header: 'Expediente', key: 'expediente', width: 25 },
-                  { header: 'Base', key: 'base', width: 15 },
-                  { header: 'Igic', key: 'igic', width: 15 },
-                  { header: 'Total', key: 'total', width: 15 },
-                  { header: 'Modo', key: 'modo', width: 15 },
-                  { header: 'Concepto interno para contabilidad', key: 'concepto', width: 40 }
+                  { header: 'EXPED.', key: 'expediente', width: 18 },
+                  { header: 'IMPORTE SIN\nIGIC', key: 'base', width: 18 },
+                  { header: 'IGIC', key: 'igic', width: 15 },
+                  { header: 'IMPORTE TOTAL', key: 'total', width: 18 },
+                  { header: 'MODO', key: 'modo', width: 15 },
+                  { header: 'CONCEPTO', key: 'concepto', width: 40 }
                 ];
 
+                // Estilizar la fila de cabecera para que coincida exactamente con la foto (Azul con texto blanco)
                 var headerRow = sheet.getRow(1);
-                headerRow.font = { bold: true };
-                headerRow.fill = {
-                  type: 'pattern',
-                  pattern: 'solid',
-                  fgColor: { argb: 'FFE6F4EA' }
-                };
+                headerRow.height = 30; // Altura para dar espacio al salto de línea
+                headerRow.eachCell(function(cell) {
+                  cell.font = {
+                    name: 'Segoe UI',
+                    size: 10,
+                    bold: true,
+                    color: { argb: 'FFFFFFFF' }
+                  };
+                  cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF1054A2' } // Azul corporativo / Trello
+                  };
+                  cell.alignment = {
+                    vertical: 'middle',
+                    horizontal: 'center',
+                    wrapText: true
+                  };
+                  cell.border = {
+                    top: { style: 'thin', color: { argb: 'FF0D3C75' } },
+                    left: { style: 'thin', color: { argb: 'FF0D3C75' } },
+                    bottom: { style: 'thin', color: { argb: 'FF0D3C75' } },
+                    right: { style: 'thin', color: { argb: 'FF0D3C75' } }
+                  };
+                });
 
-                invoiceRows.forEach(function(row) {
-                  sheet.addRow(row);
+                // Función auxiliar para parsear los importes con comas de Trello a números reales de JS
+                function parseToNumber(val) {
+                  if (typeof val === 'number') return val;
+                  if (!val) return null;
+                  var clean = String(val).replace(/[^0-9.,-]/g, '').trim();
+                  if (!clean) return null;
+                  // Si tiene puntos y comas (ej. 2.115,28) convertimos a estándar (2115.28)
+                  if (clean.indexOf('.') > -1 && clean.indexOf(',') > -1) {
+                    clean = clean.replace(/\./g, '').replace(',', '.');
+                  } else if (clean.indexOf(',') > -1) {
+                    clean = clean.replace(',', '.');
+                  }
+                  var num = parseFloat(clean);
+                  return isNaN(num) ? null : num;
+                }
+
+                // Agregar datos con formato premium y condicionales
+                invoiceRows.forEach(function(rowData) {
+                  var row = sheet.addRow({
+                    factura: rowData.factura,
+                    fecha: rowData.fecha,
+                    cliente: rowData.cliente,
+                    dni: rowData.dni,
+                    expediente: rowData.expediente,
+                    base: parseToNumber(rowData.base),
+                    igic: parseToNumber(rowData.igic),
+                    total: parseToNumber(rowData.total),
+                    modo: rowData.modo,
+                    concepto: rowData.concepto
+                  });
+
+                  row.height = 20; // Altura cómoda para la lectura
+
+                  // Alinear y dar formato celda por celda
+                  var cellFactura = row.getCell(1);
+                  cellFactura.alignment = { horizontal: 'center', vertical: 'middle' };
+
+                  var cellFecha = row.getCell(2);
+                  cellFecha.alignment = { horizontal: 'center', vertical: 'middle' };
+
+                  var cellCliente = row.getCell(3);
+                  cellCliente.alignment = { horizontal: 'left', vertical: 'middle' };
+
+                  var cellDni = row.getCell(4);
+                  cellDni.alignment = { horizontal: 'center', vertical: 'middle' };
+
+                  var cellExp = row.getCell(5);
+                  cellExp.alignment = { horizontal: 'center', vertical: 'middle' };
+
+                  var cellBase = row.getCell(6);
+                  cellBase.alignment = { horizontal: 'right', vertical: 'middle' };
+                  cellBase.numFmt = '#,##0.00" €"';
+
+                  var cellIgic = row.getCell(7);
+                  cellIgic.alignment = { horizontal: 'right', vertical: 'middle' };
+                  cellIgic.numFmt = '#,##0.00" €"';
+
+                  var cellTotal = row.getCell(8);
+                  cellTotal.alignment = { horizontal: 'right', vertical: 'middle' };
+                  cellTotal.numFmt = '#,##0.00" €"';
+
+                  var cellModo = row.getCell(9);
+                  cellModo.alignment = { horizontal: 'center', vertical: 'middle' };
+                  
+                  // Pintamos de rosa si es T/T como en el pantallazo
+                  var mVal = String(rowData.modo || '').trim().toUpperCase();
+                  if (mVal === 'T/T') {
+                    cellModo.fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FFEAD1DC' } // Rosa claro exacto al pantallazo
+                    };
+                  }
+
+                  var cellConcepto = row.getCell(10);
+                  cellConcepto.alignment = { horizontal: 'left', vertical: 'middle' };
+
+                  // Bordes y fuentes para toda la fila
+                  row.eachCell(function(cell) {
+                    cell.font = {
+                      name: 'Segoe UI',
+                      size: 10
+                    };
+                    cell.border = {
+                      top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+                      left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+                      bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+                      right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+                    };
+                  });
                 });
 
                 return workbook.xlsx.writeBuffer();
