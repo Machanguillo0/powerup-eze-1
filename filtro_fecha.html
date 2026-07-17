@@ -554,13 +554,47 @@
                   };
                 });
 
+                // Nombres de los meses en español para los separadores
+                var SPANISH_MONTHS = [
+                  "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO",
+                  "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"
+                ];
+
+                // Función auxiliar para extraer solo el número del expediente
+                function extractExpedienteNumber(listName) {
+                  if (!listName) return "";
+                  var cleaned = listName.replace(/^(?:expediente|exped|expdt|expte|exp)\.?\s*/i, '').trim();
+                  var match = cleaned.match(/^([\d\/\-\.]+)/);
+                  if (match) {
+                    return match[1].trim();
+                  }
+                  return cleaned;
+                }
+
+                // Función auxiliar para generar el bloque enriquecido del Período
+                function getPeriodRichText(quarter, year) {
+                  var rangeText = "";
+                  var qLabel = "(" + quarter + "T)";
+                  if (quarter === 1) rangeText = "01 DE ENERO A 31 DE MARZO DE " + year + " ";
+                  else if (quarter === 2) rangeText = "01 DE ABRIL A 30 DE JUNIO DE " + year + " ";
+                  else if (quarter === 3) rangeText = "01 DE JULIO A 30 DE SEPTIEMBRE DE " + year + " ";
+                  else if (quarter === 4) rangeText = "01 DE OCTUBRE A 31 DE DICIEMBRE DE " + year + " ";
+                  
+                  return {
+                    richText: [
+                      { text: 'PERÍODO: ', font: { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF172B4D' } } },
+                      { text: rangeText, font: { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF172B4D' } } },
+                      { text: qLabel, font: { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFF0000' } } } // Rojo
+                    ]
+                  };
+                }
+
                 // Función auxiliar para parsear los importes con comas de Trello a números reales de JS
                 function parseToNumber(val) {
                   if (typeof val === 'number') return val;
                   if (!val) return null;
                   var clean = String(val).replace(/[^0-9.,-]/g, '').trim();
                   if (!clean) return null;
-                  // Si tiene puntos y comas (ej. 2.115,28) convertimos a estándar (2115.28)
                   if (clean.indexOf('.') > -1 && clean.indexOf(',') > -1) {
                     clean = clean.replace(/\./g, '').replace(',', '.');
                   } else if (clean.indexOf(',') > -1) {
@@ -570,14 +604,82 @@
                   return isNaN(num) ? null : num;
                 }
 
+                // Variables para control de agrupaciones
+                var currentQuarter = null;
+                var currentYear = null;
+                var currentMonth = null;
+
                 // Agregar datos con formato premium y condicionales
                 invoiceRows.forEach(function(rowData) {
+                  var invoiceYear = rowData.dateObj.getFullYear();
+                  var invoiceMonth = rowData.dateObj.getMonth();
+                  var invoiceQuarter = Math.floor(invoiceMonth / 3) + 1;
+
+                  // 1. Verificar si hay cambio de Periodo (Año/Trimestre)
+                  if (invoiceQuarter !== currentQuarter || invoiceYear !== currentYear) {
+                    currentQuarter = invoiceQuarter;
+                    currentYear = invoiceYear;
+                    currentMonth = null; 
+
+                    var periodRow = sheet.addRow([]);
+                    periodRow.height = 24;
+                    
+                    var cellA = periodRow.getCell(1);
+                    cellA.value = getPeriodRichText(invoiceQuarter, invoiceYear);
+                    cellA.alignment = { vertical: 'middle', horizontal: 'left' };
+
+                    for (var col = 1; col <= 10; col++) {
+                      var cell = periodRow.getCell(col);
+                      cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFEAEAEA' }
+                      };
+                      cell.border = {
+                        top: { style: 'thin', color: { argb: 'FFD5D5D5' } },
+                        bottom: { style: 'thin', color: { argb: 'FFD5D5D5' } }
+                      };
+                    }
+                  }
+
+                  // 2. Verificar si hay cambio de Mes
+                  if (invoiceMonth !== currentMonth) {
+                    currentMonth = invoiceMonth;
+
+                    var monthRow = sheet.addRow([]);
+                    monthRow.height = 22;
+                    
+                    var mCell = monthRow.getCell(1);
+                    mCell.value = SPANISH_MONTHS[invoiceMonth];
+                    mCell.font = {
+                      name: 'Segoe UI',
+                      size: 10,
+                      bold: true,
+                      color: { argb: 'FFFFFFFF' }
+                    };
+                    mCell.fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FF1054A2' }
+                    };
+                    mCell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+                    for (var col = 2; col <= 10; col++) {
+                      var cell = monthRow.getCell(col);
+                      cell.border = {
+                        top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+                        bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+                      };
+                    }
+                  }
+
+                  // 3. Insertar la fila de datos
                   var row = sheet.addRow({
                     factura: rowData.factura,
                     fecha: rowData.fecha,
                     cliente: rowData.cliente,
                     dni: rowData.dni,
-                    expediente: rowData.expediente,
+                    expediente: extractExpedienteNumber(rowData.expediente),
                     base: parseToNumber(rowData.base),
                     igic: parseToNumber(rowData.igic),
                     total: parseToNumber(rowData.total),
@@ -585,23 +687,22 @@
                     concepto: rowData.concepto
                   });
 
-                  row.height = 20; // Altura cómoda para la lectura
+                  row.height = 20;
 
-                  // Alinear y dar formato celda por celda
                   var cellFactura = row.getCell(1);
-                  cellFactura.alignment = { horizontal: 'center', vertical: 'middle' };
+                  cellFactura.alignment = { horizontal: 'left', vertical: 'middle' };
 
                   var cellFecha = row.getCell(2);
-                  cellFecha.alignment = { horizontal: 'center', vertical: 'middle' };
+                  cellFecha.alignment = { horizontal: 'right', vertical: 'middle' };
 
                   var cellCliente = row.getCell(3);
                   cellCliente.alignment = { horizontal: 'left', vertical: 'middle' };
 
                   var cellDni = row.getCell(4);
-                  cellDni.alignment = { horizontal: 'center', vertical: 'middle' };
+                  cellDni.alignment = { horizontal: 'left', vertical: 'middle' };
 
                   var cellExp = row.getCell(5);
-                  cellExp.alignment = { horizontal: 'center', vertical: 'middle' };
+                  cellExp.alignment = { horizontal: 'left', vertical: 'middle' };
 
                   var cellBase = row.getCell(6);
                   cellBase.alignment = { horizontal: 'right', vertical: 'middle' };
@@ -616,27 +717,22 @@
                   cellTotal.numFmt = '#,##0.00" €"';
 
                   var cellModo = row.getCell(9);
-                  cellModo.alignment = { horizontal: 'center', vertical: 'middle' };
+                  cellModo.alignment = { horizontal: 'left', vertical: 'middle' };
                   
-                  // Pintamos de rosa si es T/T como en el pantallazo
                   var mVal = String(rowData.modo || '').trim().toUpperCase();
                   if (mVal === 'T/T') {
                     cellModo.fill = {
                       type: 'pattern',
                       pattern: 'solid',
-                      fgColor: { argb: 'FFEAD1DC' } // Rosa claro exacto al pantallazo
+                      fgColor: { argb: 'FFEAD1DC' }
                     };
                   }
 
                   var cellConcepto = row.getCell(10);
                   cellConcepto.alignment = { horizontal: 'left', vertical: 'middle' };
 
-                  // Bordes y fuentes para toda la fila
                   row.eachCell(function(cell) {
-                    cell.font = {
-                      name: 'Segoe UI',
-                      size: 10
-                    };
+                    cell.font = { name: 'Segoe UI', size: 10 };
                     cell.border = {
                       top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
                       left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
