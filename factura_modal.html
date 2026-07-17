@@ -150,7 +150,7 @@
 
   <div class="form-group">
     <label for="concepto-contabilidad">Concepto interno para contabilidad</label>
-    <input type="text" id="concepto-contabilidad" class="editable-input" value="Negociación">
+    <input type="text" id="concepto-contabilidad" class="editable-input" value="Negociación IS">
   </div>
 
   <div class="billing-summary-bottom">
@@ -1686,7 +1686,7 @@
       var cleanBase = (importeBase || "___________").replace(/\|/g, " ");
       var cleanIgic = (importeIgic || "___________").replace(/\|/g, " ");
       var cleanTotal = (importeTotal || "___________").replace(/\|/g, " ");
-      var cleanConcepto = (concepto || "Negociación").replace(/\|/g, " ");
+      var cleanConcepto = (concepto || "Negociación IS").replace(/\|/g, " ");
 
       return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?key=${appKey}&token=${token}`)
         .then(res => res.json())
@@ -2019,7 +2019,7 @@
           var formattedAmountWithSymbol = formattedAmount + " €";
           
           var currentAmount = formattedAmount;
-          var currentConcept = inputConcepto || "Negociación";
+          var currentConcept = inputConcepto || "Negociación IS";
 
           var igicNum = baseNum * (taxPct / 100);
           var currentIgic = formatSpanishCurrency(igicNum);

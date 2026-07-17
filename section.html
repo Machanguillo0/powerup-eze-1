@@ -3829,7 +3829,7 @@
       var cleanBase = (importeBase || "___________").replace(/\|/g, " ");
       var cleanIgic = (importeIgic || "___________").replace(/\|/g, " ");
       var cleanTotal = (importeTotal || "___________").replace(/\|/g, " ");
-      var cleanConcepto = (concepto || "Negociación").replace(/\|/g, " ");
+      var cleanConcepto = (concepto || "Negociación IS").replace(/\|/g, " ");
 
       // ACTUALIZAR LISTA DE COMPROBACIÓN NATIVA (Interactiva y visual en Trello)
       return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?key=${appKey}&token=${token}`)
@@ -4615,7 +4615,7 @@
               if (token) {
                 window.isApiAuthorized = true;
                 t.modal({
-                  url: './factura_modal.html?v=101',
+                  url: './factura_modal.html?v=102',
                   height: 500,
                   title: 'Generar Factura',
                   accentColor: '#1f845a'
@@ -4628,7 +4628,7 @@
           return;
         }
         t.modal({
-          url: './factura_modal.html?v=101',
+          url: './factura_modal.html?v=102',
           height: 500,
           title: 'Generar Factura',
           accentColor: '#1f845a'
