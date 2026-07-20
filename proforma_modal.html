@@ -869,9 +869,39 @@
     }
 
     // --- LEER CAMPOS UNIFICADOS DEL TABLERO LOCAL ---
+    function getBoardTypeSafe(t) {
+      return t.lists('id', 'name').then(function(lists) {
+        var paramList = lists.find(function(l) { 
+          var n = l.name.trim().toUpperCase();
+          return n === 'PARÁMETROS' || n === 'PARAMETROS'; 
+        });
+        if (!paramList) return 'CLIENTES';
+
+        return t.cards('id', 'name', 'idList').then(function(openCards) {
+          var typeCard = openCards.find(function(c) {
+            if (!c.name) return false;
+            var nameLower = c.name.trim().toLowerCase();
+            return c.idList === paramList.id && (nameLower.startsWith('tipo tablero') || nameLower.startsWith('tipo de tablero'));
+          });
+          if (!typeCard) return 'CLIENTES';
+
+          var name = typeCard.name.toUpperCase();
+          if (name.includes('PLANNING')) return 'PLANNING';
+          if (name.includes('FACTURACIÓN') || name.includes('FACTURACION')) return 'FACTURACIÓN';
+          return 'CLIENTES';
+        });
+      }).catch(function(err) {
+        return 'ERROR: ' + (err.message || err);
+      });
+    }
+
     function getUnifiedFields(t) {
+      var importesCard = null;
+      setStatus("Obteniendo tarjeta actual...");
       return t.card('id', 'idList').then(function (currentCard) {
         var idList = currentCard.idList;
+        var currentCardId = currentCard.id;
+        setStatus("Obteniendo tarjetas y listas locales...");
         return Promise.all([
           t.cards('id', 'name', 'desc', 'idList'),
           t.lists('all'),
@@ -881,30 +911,370 @@
           var allLists = results[1];
           var currentBoard = results[2];
           var currentBoardName = currentBoard ? currentBoard.name : "";
-          var currentList = allLists.find(l => l.id === idList);
+          var currentList = allLists.find(function(l) { return l.id === idList; });
           var listName = currentList ? currentList.name : "___________";
+          
+          var numExpediente = "___________";
+          if (listName !== "___________") {
+            var match = listName.match(/(?:expediente|exped|exp)\.?\s*([\d\/\-\.]+)/i);
+            if (match) {
+              numExpediente = match[1].trim();
+            } else {
+              var directMatch = listName.match(/(\d+[\/\-][\d\/\-\.]+)/);
+              numExpediente = directMatch ? directMatch[1] : listName;
+            }
+          }
 
-          var fields = {
+          var cardsInList = allCards.filter(function (c) { return c.idList === idList; });
+          var unified = {
             nombre: "Cliente Desconocido",
             dni: "___________",
             domicilio: "___________",
+            telefono: "___________",
+            profesion: "___________",
+            observaciones: "___________",
+            fecha: "___________",
+            hora: "___________",
+            lugar: "___________",
+            ciudad: "___________",
+            matricula1: "___________",
+            aseguradora1: "___________",
+            matricula2: "___________",
+            aseguradora2: "___________",
+            parrafada: "",
             fecha_sistema: new Date().toLocaleDateString('es-ES'),
             fecha_ultima: new Date().toLocaleDateString('es-ES'),
-            idList: idList,
-            targetCardId: currentCard.id
+            fecha_cierre: "___________",
+            fecha_facturacion: "___________",
+            fecha_resolucion: "___________",
+            fecha_designa: "___________",
+            fecha_reclamacion: "___________",
+            fecha_apertura: "___________",
+            fecha_siniestro: "___________",
+            num_expediente: numExpediente,
+            dds: "___",
+            mess: "_________",
+            aaaas: "____",
+            factura: "___________"
           };
 
-          var cardsInList = allCards.filter(c => c.idList === idList);
-          var facturasCard = cardsInList.find(c => {
-            var n = c.name.trim().toLowerCase();
-            return n === "facturas" || n === "facturación" || n === "facturacion";
-          });
+          importesCard = cardsInList.find(function (c) { return c.name.toLowerCase().includes("importes"); });
+          if (importesCard && importesCard.desc) {
+            setStatus("Parseando tarjeta Importes local...");
+            var lines = importesCard.desc.split('\n');
+            var rawMap = {};
+            var parsedPairs = [];
+            lines.forEach(function (line) {
+              line = line.trim();
+              if (!line) return;
+              var sepIndex = line.indexOf(':');
+              if (sepIndex === -1) sepIndex = line.indexOf('=');
+              if (sepIndex > -1) {
+                var k = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+                var v = line.substring(sepIndex + 1).replace(/[*_~`#]/g, '').trim();
+                if (k) {
+                  parsedPairs.push({ key: k, val: v });
+                  var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+                  rawMap[normK] = v;
+                }
+              }
+            });
 
-          if (facturasCard) {
-            fields._facturasCardId = facturasCard.id;
+            parsedPairs.forEach(function (pair) {
+              var calculatedV = evaluateValueWithContext(pair.val, rawMap);
+              unified[pair.key] = calculatedV;
+              unified[pair.key.toLowerCase()] = calculatedV;
+              var normK = pair.key.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+              unified[normK] = calculatedV;
+              unified[normK.toLowerCase()] = calculatedV;
+            });
           }
 
-          return { fields: fields, idList: idList, targetCardId: currentCard.id };
+          var found = { nombre: false, dni: false, domicilio: false, telefono: false, profesion: false, observaciones: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false, fecha_sistema: false, fecha_ultima: false, fecha_cierre: false, fecha_facturacion: false, fecha_resolucion: false, fecha_designa: false, fecha_reclamacion: false, fecha_apertura: false, fecha_siniestro: false, factura: false };
+          var targetCardId = null;
+          var maxScore = -1;
+
+          cardsInList.forEach(function (card) {
+            var fields = extractFields(card.desc);
+            var score = 0;
+            if (card.name.toLowerCase().includes("datos personales")) score += 100;
+            if (fields.nombre !== "Cliente Desconocido" && fields.nombre.replace(/[_\s]+/g, '').length > 2) score += 10;
+            if (fields.dni !== "___________" && fields.dni.replace(/[_\s]+/g, '').length > 2) score += 5;
+            if (fields.telefono !== "___________" && fields.telefono.replace(/[_\s]+/g, '').length > 2) score += 3;
+            if (score > maxScore) {
+              maxScore = score;
+              targetCardId = card.id;
+            }
+
+            if (!found.nombre && fields.nombre !== "Cliente Desconocido") { unified.nombre = fields.nombre; found.nombre = true; }
+            if (!found.dni && fields.dni !== "___________") { unified.dni = fields.dni; found.dni = true; }
+            if (!found.domicilio && fields.domicilio !== "___________") { unified.domicilio = fields.domicilio; found.domicilio = true; }
+            if (!found.telefono && fields.telefono !== "___________") { unified.telefono = fields.telefono; found.telefono = true; }
+            if (!found.profesion && fields.profesion !== "___________") { unified.profesion = fields.profesion; found.profesion = true; }
+            if (!found.observaciones && fields.observaciones !== "___________") { unified.observaciones = fields.observaciones; found.observaciones = true; }
+            if (!found.fecha && fields.fecha !== "___________") { unified.fecha = fields.fecha; found.fecha = true; }
+            if (!found.hora && fields.hora !== "___________") { unified.hora = fields.hora; found.hora = true; }
+            if (!found.lugar && fields.lugar !== "___________") { unified.lugar = fields.lugar; found.lugar = true; }
+            if (!found.ciudad && fields.ciudad !== "___________") { unified.ciudad = fields.ciudad; found.ciudad = true; }
+            if (!found.matricula1 && fields.matricula1 !== "___________") { unified.matricula1 = fields.matricula1; found.matricula1 = true; }
+            if (!found.aseguradora1 && fields.aseguradora1 !== "___________") { unified.aseguradora1 = fields.aseguradora1; found.aseguradora1 = true; }
+            if (!found.matricula2 && fields.matricula2 !== "___________") { unified.matricula2 = fields.matricula2; found.matricula2 = true; }
+            if (!found.aseguradora2 && fields.aseguradora2 !== "___________") { unified.aseguradora2 = fields.aseguradora2; found.aseguradora2 = true; }
+            if (!found.fecha_sistema && fields.fecha_sistema !== "___________") { unified.fecha_sistema = fields.fecha_sistema; found.fecha_sistema = true; }
+            if (!found.fecha_ultima && fields.fecha_ultima !== "___________") { unified.fecha_ultima = fields.fecha_ultima; found.fecha_ultima = true; }
+            if (!found.fecha_cierre && fields.fecha_cierre !== "___________") { unified.fecha_cierre = fields.fecha_cierre; found.fecha_cierre = true; }
+            if (!found.fecha_facturacion && fields.fecha_facturacion !== "___________") { unified.fecha_facturacion = fields.fecha_facturacion; found.fecha_facturacion = true; }
+            if (!found.fecha_resolucion && fields.fecha_resolucion !== "___________") { unified.fecha_resolucion = fields.fecha_resolucion; found.fecha_resolucion = true; }
+            if (!found.fecha_designa && fields.fecha_designa !== "___________") { unified.fecha_designa = fields.fecha_designa; found.fecha_designa = true; }
+            if (!found.fecha_reclamacion && fields.fecha_reclamacion !== "___________") { unified.fecha_reclamacion = fields.fecha_reclamacion; found.fecha_reclamacion = true; }
+            if (!found.fecha_apertura && fields.fecha_apertura !== "___________") { unified.fecha_apertura = fields.fecha_apertura; found.fecha_apertura = true; }
+            if (!found.fecha_siniestro && fields.fecha_siniestro !== "___________") { unified.fecha_siniestro = fields.fecha_siniestro; found.fecha_siniestro = true; }
+            if (!found.factura && fields.factura !== "___________") { unified.factura = fields.factura; found.factura = true; }
+
+            var parts = unified.fecha_sistema.split('/');
+            if (parts.length === 3) {
+              unified.dds = parts[0];
+              var monthNames = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+              var monthIndex = parseInt(parts[1], 10) - 1;
+              unified.mess = monthNames[monthIndex] || "_________";
+              unified.aaaas = parts[2];
+            }
+
+            if (fields.parrafada) {
+              if (unified.parrafada) {
+                unified.parrafada += "\n\n---\n\n" + fields.parrafada;
+              } else {
+                unified.parrafada = fields.parrafada;
+              }
+            }
+          });
+
+          var appKey = t.getRestApi().appKey;
+          return t.getRestApi().isAuthorized().then(function(auth) {
+            if (!auth) {
+              return { 
+                fields: unified, 
+                count: cardsInList.length,
+                targetCardId: targetCardId || currentCardId,
+                idList: idList
+              };
+            }
+            
+            return t.getRestApi().getToken().then(function(token) {
+              var facturasCard = cardsInList.find(function(c) {
+                var nameLower = c.name.trim().toLowerCase();
+                return nameLower === "facturas" || nameLower === "facturación" || nameLower === "facturacion";
+              });
+              
+              if (!facturasCard) {
+                return getBoardTypeSafe(t).then(function(boardType) {
+                  if (boardType === 'FACTURACIÓN') {
+                    unified._hasChecklistProformas = false;
+                    return { 
+                      fields: unified, 
+                      count: cardsInList.length,
+                      targetCardId: targetCardId || currentCardId,
+                      idList: idList,
+                      token: token
+                    };
+                  }
+                  
+                  var searchQuery = encodeURIComponent('name:"Tipo tablero"');
+                  return fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
+                    .then(function(res) {
+                      if (!res.ok) throw new Error("Search failed");
+                      return res.json();
+                    })
+                    .then(function(searchData) {
+                      var cards = searchData.cards || [];
+                      var candidates = cards.filter(function(c) {
+                        var n = c.name.toUpperCase();
+                        return n.includes('TIPO TABLERO') && (n.includes('FACTURACIÓN') || n.includes('FACTURACION'));
+                      });
+                      if (candidates.length === 0) {
+                        return { 
+                          fields: unified, 
+                          count: cardsInList.length,
+                          targetCardId: targetCardId || currentCardId,
+                          idList: idList,
+                          token: token
+                        };
+                      }
+                      var boardPromises = candidates.map(function(card) {
+                        return fetch(`https://api.trello.com/1/boards/${card.idBoard}?fields=name&key=${appKey}&token=${token}`)
+                          .then(function(r) { return r.ok ? r.json() : null; })
+                          .then(function(b) {
+                            return b ? { card: card, boardName: b.name } : null;
+                          })
+                          .catch(function() { return null; });
+                      });
+                      return Promise.all(boardPromises).then(function(resultsList) {
+                        var list = resultsList.filter(Boolean);
+                        var bestCard = null;
+                        var bestScore = -1;
+                        list.forEach(function(item) {
+                          var score = 0;
+                          var bNameUpper = item.boardName.toUpperCase();
+                          var curNameUpper = currentBoardName.toUpperCase();
+                          var wordsCur = curNameUpper.replace(/CLIENTES/g, '').split(/\s+/).filter(Boolean);
+                          var wordsCand = bNameUpper.replace(/FACTURACION|FACTURACIÓN/g, '').split(/\s+/).filter(Boolean);
+                          var commonWords = wordsCur.filter(function(w) {
+                            return wordsCand.indexOf(w) > -1;
+                          });
+                          score = commonWords.length;
+                          if (bNameUpper.includes("FACTURACIÓN") || bNameUpper.includes("FACTURACION")) {
+                            score += 1;
+                          }
+                          if (score > bestScore) {
+                            bestScore = score;
+                            bestCard = item.card;
+                          }
+                        });
+                        var facturacionCard = bestCard || candidates[0];
+                        if (!facturacionCard) {
+                          return { 
+                            fields: unified, 
+                            count: cardsInList.length,
+                            targetCardId: targetCardId || currentCardId,
+                            idList: idList,
+                            token: token
+                          };
+                        }
+                        var idBoardFacturacion = facturacionCard.idBoard;
+                        return fetch(`https://api.trello.com/1/boards/${idBoardFacturacion}/lists?key=${appKey}&token=${token}`)
+                          .then(function(res) {
+                            if (!res.ok) throw new Error("Boards lists fetch failed");
+                            return res.json();
+                          })
+                          .then(function(lists) {
+                            var billingList = lists.find(function(l) {
+                              return normalizeListName(l.name) === normalizeListName(listName);
+                            });
+                            if (!billingList) {
+                              unified._hasChecklistProformas = false;
+                              return { 
+                                fields: unified, 
+                                count: cardsInList.length,
+                                targetCardId: targetCardId || currentCardId,
+                                idList: idList,
+                                token: token
+                              };
+                            }
+                            return fetch(`https://api.trello.com/1/lists/${billingList.id}/cards?key=${appKey}&token=${token}`)
+                              .then(function(res) {
+                                if (!res.ok) throw new Error("List cards fetch failed");
+                                  return res.json();
+                              })
+                              .then(function(billingCards) {
+                                var facturasCardCross = billingCards.find(function(c) {
+                                  var nameLower = c.name.trim().toLowerCase();
+                                  return nameLower === "facturas" || nameLower === "facturación" || nameLower === "facturacion";
+                                });
+                                if (!facturasCardCross) {
+                                  unified._hasChecklistProformas = false;
+                                  return { 
+                                    fields: unified, 
+                                    count: cardsInList.length,
+                                    targetCardId: targetCardId || currentCardId,
+                                    idList: idList,
+                                    token: token
+                                  };
+                                }
+                                return fetch(`https://api.trello.com/1/cards/${facturasCardCross.id}/checklists?key=${appKey}&token=${token}`)
+                                  .then(function(res) {
+                                    if (!res.ok) throw new Error("Checklists fetch failed");
+                                    return res.json();
+                                  })
+                                  .then(function(checklists) {
+                                    parseChecklistsToUnified(checklists, unified);
+                                    var N = 0;
+                                    var ch = checklists.find(function(c) {
+                                      var n = c.name.trim().toLowerCase();
+                                      return n === "relación de facturas generadas" || 
+                                             n === "relacion de facturas generadas" || 
+                                             n.indexOf("relación de facturas") > -1 ||
+                                             n.indexOf("relacion de facturas") > -1;
+                                    });
+                                    if (ch && ch.checkItems) {
+                                      N = ch.checkItems.length;
+                                    }
+                                    unified._checklistInvoicesCount = N;
+
+                                    var N_prof = 0;
+                                    var ch_prof = checklists.find(function(c) {
+                                      var n = c.name.trim().toLowerCase();
+                                      return n === "relación de proformas" || n === "relacion de proformas";
+                                    });
+                                    if (ch_prof && ch_prof.checkItems) {
+                                      N_prof = ch_prof.checkItems.length;
+                                    }
+                                    unified._checklistProformasCount = N_prof;
+
+                                    return { 
+                                      fields: unified, 
+                                      count: cardsInList.length,
+                                      targetCardId: targetCardId || currentCardId,
+                                      idList: idList,
+                                      token: token
+                                    };
+                                  });
+                              });
+                          });
+                      });
+                    })
+                  .catch(function(err) {
+                    console.error("Error al buscar checklist cruzada de Facturación:", err);
+                    return { 
+                      fields: unified, 
+                      count: cardsInList.length,
+                      targetCardId: targetCardId || currentCardId,
+                      idList: idList,
+                      token: token
+                    };
+                  });
+                });
+              }
+              
+              return fetch(`https://api.trello.com/1/cards/${facturasCard.id}/checklists?key=${appKey}&token=${token}`)
+                .then(function(res) {
+                  if (!res.ok) throw new Error("Error fetching checklists");
+                  return res.json();
+                })
+                .then(function(checklists) {
+                  parseChecklistsToUnified(checklists, unified);
+                  var N = 0;
+                  var ch = checklists.find(function(c) {
+                    var n = c.name.trim().toLowerCase();
+                    return n === "relación de facturas generadas" || 
+                           n === "relacion de facturas generadas" || 
+                           n.indexOf("relación de facturas") > -1 ||
+                           n.indexOf("relacion de facturas") > -1;
+                  });
+                  if (ch && ch.checkItems) {
+                    N = ch.checkItems.length;
+                  }
+                  unified._checklistInvoicesCount = N;
+
+                  var N_prof = 0;
+                  var ch_prof = checklists.find(function(c) {
+                    var n = c.name.trim().toLowerCase();
+                    return n === "relación de proformas" || n === "relacion de proformas";
+                  });
+                  if (ch_prof && ch_prof.checkItems) {
+                    N_prof = ch_prof.checkItems.length;
+                  }
+                  unified._checklistProformasCount = N_prof;
+
+                  return { 
+                    fields: unified, 
+                    count: cardsInList.length,
+                    targetCardId: targetCardId || currentCardId,
+                    idList: idList,
+                    token: token
+                  };
+                });
+            });
+          });
         });
       });
     }
