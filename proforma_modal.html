@@ -860,7 +860,7 @@
                 return {
                   fields: combinedFields,
                   token: token,
-                  idList: match.listId,
+                  idList: localData.idList,
                   idListClientes: match.listId
                 };
               });
@@ -1681,7 +1681,7 @@
 
               setStatus('Obteniendo tarjeta de Facturas...');
 
-              getOrCreateFacturasCard(t, fields.idList, token)
+              getOrCreateFacturasCard(t, data.idList, token)
                 .then(function(targetCardId) {
                   setStatus('Subiendo Proforma a Trello...');
 
@@ -1720,7 +1720,7 @@
                 })
                 .then(function(checklistProformas) {
                   setStatus('Actualizando Historial de procesos...');
-                  var targetHistoryListId = fields.idListClientes || fields.idList;
+                  var targetHistoryListId = data.idListClientes || data.idList;
                   return updateHistoryCard(t, targetHistoryListId, true, checklistProformas);
                 })
                 .then(function() {
