@@ -1699,9 +1699,14 @@
         var paramList = lists.find(l => l.name.toUpperCase() === 'PARÁMETROS' || l.name.toUpperCase() === 'PARAMETROS');
         if (!paramList) throw new Error("No se encontró la lista 'PARÁMETROS'");
 
-        return t.cards('id', 'name', 'desc', 'idList').then(openCards => {
-          var configCard = openCards.find(c => c.idList === paramList.id && c.name && (c.name.toLowerCase().includes('gestión de facturas') || c.name.toLowerCase().includes('gestion de facturas')));
-          if (!configCard) throw new Error("No se encontró tarjeta 'Gestión de facturas'");
+        return fetch(`https://api.trello.com/1/lists/${paramList.id}/cards?fields=name,desc&key=${appKey}&token=${token}`)
+          .then(res => {
+            if (!res.ok) throw new Error("Error al obtener tarjetas de PARÁMETROS");
+            return res.json();
+          })
+          .then(cards => {
+            var configCard = cards.find(c => c.name && (c.name.toLowerCase().includes('gestión de facturas') || c.name.toLowerCase().includes('gestion de facturas')));
+            if (!configCard) throw new Error("No se encontró tarjeta 'Gestión de facturas'");
             
             var desc = configCard.desc || "";
             var lines = desc.split(/\r?\n/);
@@ -1736,7 +1741,7 @@
               return numFactura;
             });
           });
-        });
+      });
     }
 
     function getOrCreateFacturasCard(t, idList, token) {

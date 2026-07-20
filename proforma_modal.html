@@ -208,43 +208,48 @@
         var paramList = lists.find(l => l.name.toUpperCase() === 'PARÁMETROS' || l.name.toUpperCase() === 'PARAMETROS');
         if (!paramList) throw new Error("No se encontró la lista 'PARÁMETROS'");
 
-        return t.cards('id', 'name', 'desc', 'idList').then(openCards => {
-          var configCard = openCards.find(c => c.idList === paramList.id && c.name && (c.name.toLowerCase().includes('gestión de facturas') || c.name.toLowerCase().includes('gestion de facturas')));
-          if (!configCard) throw new Error("No se encontró tarjeta 'Gestión de facturas'");
+        return fetch(`https://api.trello.com/1/lists/${paramList.id}/cards?fields=name,desc&key=${appKey}&token=${token}`)
+          .then(res => {
+            if (!res.ok) throw new Error("Error al obtener tarjetas de PARÁMETROS");
+            return res.json();
+          })
+          .then(cards => {
+            var configCard = cards.find(c => c.name && (c.name.toLowerCase().includes('gestión de facturas') || c.name.toLowerCase().includes('gestion de facturas')));
+            if (!configCard) throw new Error("No se encontró tarjeta 'Gestión de facturas'");
             
-          var desc = configCard.desc || "";
-          var lines = desc.split(/\r?\n/);
-          var year = new Date().getFullYear();
-          var seq = 0;
-          var otherLines = [];
-          
-          lines.forEach(line => {
-            var trimmed = line.trim();
-            if (!trimmed) return;
-            if (/año.*proforma/i.test(trimmed)) {
-              var m = trimmed.match(/\d+/);
-              if (m) year = parseInt(m[0], 10);
-            } else if (/secuencial.*proforma/i.test(trimmed)) {
-              var m = trimmed.match(/\d+/);
-              if (m) seq = Math.max(seq, parseInt(m[0], 10));
-            } else {
-              otherLines.push(line);
-            }
-          });
-          
-          var nextSeq = seq + 1;
-          var numProforma = year + "/" + nextSeq;
-          var newDesc = ["Año de proforma: " + year, "Secuencial de proforma: " + nextSeq].concat(otherLines).join("\n");
+            var desc = configCard.desc || "";
+            var lines = desc.split(/\r?\n/);
+            var year = new Date().getFullYear();
+            var seq = 0;
+            var otherLines = [];
+            
+            lines.forEach(line => {
+              var trimmed = line.trim();
+              if (!trimmed) return;
+              if (/año.*proforma/i.test(trimmed)) {
+                var m = trimmed.match(/\d+/);
+                if (m) year = parseInt(m[0], 10);
+              } else if (/secuencial.*proforma/i.test(trimmed)) {
+                var m = trimmed.match(/\d+/);
+                if (m) seq = Math.max(seq, parseInt(m[0], 10));
+              } else {
+                otherLines.push(line);
+              }
+            });
+            
+            var nextSeq = seq + 1;
+            var numProforma = year + "/" + nextSeq;
+            var newDesc = ["Año de proforma: " + year, "Secuencial de proforma: " + nextSeq].concat(otherLines).join("\n");
 
-          return fetch(`https://api.trello.com/1/cards/${configCard.id}?key=${appKey}&token=${token}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ desc: newDesc })
-          }).then(res => {
-            if (!res.ok) throw new Error("Error al actualizar secuencial de proforma");
-            return numProforma;
+            return fetch(`https://api.trello.com/1/cards/${configCard.id}?key=${appKey}&token=${token}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ desc: newDesc })
+            }).then(res => {
+              if (!res.ok) throw new Error("Error al actualizar secuencial de proforma");
+              return numProforma;
+            });
           });
-        });
       });
     }
 
