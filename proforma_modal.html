@@ -868,6 +868,196 @@
       });
     }
 
+    // --- PARSEAR CHECKLISTS A OBJETO UNIFICADO ---
+    function parseChecklistsToUnified(checklists, unified) {
+      var ch = checklists.find(function(c) {
+        var n = c.name.trim().toLowerCase();
+        return n === "relación de facturas generadas" || 
+               n === "relacion de facturas generadas" || 
+               n === "relaación de facturas generadas" || 
+               n === "relaacion de facturas generadas" ||
+               n.indexOf("relación de facturas") > -1 ||
+               n.indexOf("relacion de facturas") > -1 ||
+               n.indexOf("relaación de facturas") > -1;
+      });
+      if (ch && ch.checkItems && ch.checkItems.length > 0) {
+        unified._hasChecklistInvoices = true;
+        unified.factura = "___________";
+        unified.fecha_facturacion = "___________";
+        unified.importe_facturacion = "___________";
+        unified.total_factura = "___________";
+        unified.total_facturado = "___________";
+        unified.importe_facturado = "___________";
+        for (var s = 2; s <= 10; s++) {
+          delete unified["factura" + s];
+          delete unified["fecha_facturacion" + s];
+          delete unified["importe_facturacion" + s];
+          delete unified["total_factura" + s];
+        }
+        var checkItems = ch.checkItems.concat().sort(function(a, b) { return a.pos - b.pos; });
+        checkItems.forEach(function(item, index) {
+          var idx = index + 1;
+          var suffix = (idx === 1) ? '' : idx;
+          var parts = item.name.split('|').map(function(s) { return s.trim(); });
+          if (parts.length >= 2) {
+            var fDate = parts[0] || "___________";
+            var fNum = "___________";
+            var numPart = parts.find(function(p) { return /^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)/i.test(p); });
+            if (numPart) {
+              fNum = numPart.replace(/^(?:N[º°o]:|N[º°o]\s*:|Factura:|Num:)\s*/i, '').trim();
+            } else {
+              fNum = parts[1] || "___________";
+            }
+            var fAmount = "___________";
+            var basePart = parts.find(function(p) { return /^(?:Base:|Importe:)/i.test(p); });
+            if (basePart) {
+              fAmount = basePart.replace(/^(?:Base:|Importe:)\s*/i, '').trim();
+            } else {
+              fAmount = parts[parts.length - 1] || "___________";
+            }
+            var fTotal = "___________";
+            var totalPart = parts.find(function(p) { return /^(?:Total:)/i.test(p); });
+            if (totalPart) {
+              fTotal = totalPart.replace(/^(?:Total:)\s*/i, '').trim();
+            } else {
+              fTotal = fAmount;
+            }
+            unified["factura" + suffix] = fNum;
+            unified["fecha_facturacion" + suffix] = fDate;
+            unified["importe_facturacion" + suffix] = fAmount;
+            unified["total_factura" + suffix] = fTotal;
+            if (idx === 1) {
+              unified.factura = fNum;
+              unified.fecha_facturacion = fDate;
+              unified.importe_facturacion = fAmount;
+              unified.importe_facturado = fAmount;
+              unified.total_factura = fTotal;
+              unified.total_facturado = fTotal;
+              unified["total factura"] = fTotal;
+            }
+          }
+        });
+      } else {
+        unified._hasChecklistInvoices = false;
+        unified.factura = "___________";
+        unified.fecha_facturacion = "___________";
+        unified.importe_facturacion = "___________";
+        unified.total_factura = "___________";
+        unified.total_facturado = "___________";
+        unified.importe_facturado = "___________";
+        for (var s = 2; s <= 10; s++) {
+          delete unified["factura" + s];
+          delete unified["fecha_facturacion" + s];
+          delete unified["importe_facturacion" + s];
+          delete unified["total_factura" + s];
+        }
+      }
+
+      // PARSEAR PROFORMAS
+      var chProformas = checklists.find(function(c) {
+        var n = c.name.trim().toLowerCase();
+        return n === "relación de proformas" || n === "relacion de proformas";
+      });
+      if (chProformas && chProformas.checkItems && chProformas.checkItems.length > 0) {
+        unified._hasChecklistProformas = true;
+        unified.proforma = "___________";
+        unified.fecha_proforma = "___________";
+        unified.importe_proforma = "___________";
+        unified.igic_proforma = "___________";
+        unified.total_proforma = "___________";
+        unified.cliente_cobra_proforma = "___________";
+        for (var s = 2; s <= 10; s++) {
+          delete unified["proforma" + s];
+          delete unified["fecha_proforma" + s];
+          delete unified["importe_proforma" + s];
+          delete unified["igic_proforma" + s];
+          delete unified["total_proforma" + s];
+          delete unified["cliente_cobra_proforma" + s];
+        }
+        var checkItemsProformas = chProformas.checkItems.concat().sort(function(a, b) {
+          return a.pos - b.pos;
+        });
+        checkItemsProformas.forEach(function(item, index) {
+          var idx = index + 1;
+          var suffix = (idx === 1) ? '' : idx;
+          var parts = item.name.split('|').map(function(s) { return s.trim(); });
+          if (parts.length >= 2) {
+            var fDate = parts[0] || "___________";
+            var fNum = "___________";
+            var numPart = parts.find(function(p) { return /^(?:N[º°o]:|N[º°o]\s*:|Proforma:|Num:)/i.test(p); });
+            if (numPart) {
+              fNum = numPart.replace(/^(?:N[º°o]:|N[º°o]\s*:|Proforma:|Num:)\s*/i, '').trim();
+            } else {
+              fNum = parts[1] || "___________";
+            }
+            
+            var fAmount = "___________";
+            var basePart = parts.find(function(p) { return /^(?:Importe:)/i.test(p); });
+            if (basePart) {
+              fAmount = basePart.replace(/^(?:Importe:)\s*/i, '').trim();
+            } else {
+              var basePart2 = parts.find(p => p.toLowerCase().includes("importe:"));
+              if (basePart2) {
+                fAmount = basePart2.replace(/^(?:Importe:)\s*/i, '').trim();
+              } else {
+                fAmount = parts[parts.length - 2] || parts[parts.length - 1] || "___________";
+              }
+            }
+            
+            var fIgic = "___________";
+            var igicPart = parts.find(function(p) { return /^(?:IGIC:)/i.test(p); });
+            if (igicPart) {
+              fIgic = igicPart.replace(/^(?:IGIC:)\s*/i, '').trim();
+            }
+            
+            var fTotal = "___________";
+            var totalPart = parts.find(function(p) { return /^(?:Total:)/i.test(p); });
+            if (totalPart) {
+              fTotal = totalPart.replace(/^(?:Total:)\s*/i, '').trim();
+            }
+            
+            var fCobra = "___________";
+            var cobraPart = parts.find(function(p) { return /^(?:Cliente Cobra:)/i.test(p); });
+            if (cobraPart) {
+              fCobra = cobraPart.replace(/^(?:Cliente Cobra:)\s*/i, '').trim();
+            }
+
+            unified["proforma" + suffix] = fNum;
+            unified["fecha_proforma" + suffix] = fDate;
+            unified["importe_proforma" + suffix] = fAmount;
+            unified["igic_proforma" + suffix] = fIgic;
+            unified["total_proforma" + suffix] = fTotal;
+            unified["cliente_cobra_proforma" + suffix] = fCobra;
+
+            if (idx === 1) {
+              unified.proforma = fNum;
+              unified.fecha_proforma = fDate;
+              unified.importe_proforma = fAmount;
+              unified.igic_proforma = fIgic;
+              unified.total_proforma = fTotal;
+              unified.cliente_cobra_proforma = fCobra;
+            }
+          }
+        });
+      } else {
+        unified._hasChecklistProformas = false;
+        unified.proforma = "___________";
+        unified.fecha_proforma = "___________";
+        unified.importe_proforma = "___________";
+        unified.igic_proforma = "___________";
+        unified.total_proforma = "___________";
+        unified.cliente_cobra_proforma = "___________";
+        for (var s = 2; s <= 10; s++) {
+          delete unified["proforma" + s];
+          delete unified["fecha_proforma" + s];
+          delete unified["importe_proforma" + s];
+          delete unified["igic_proforma" + s];
+          delete unified["total_proforma" + s];
+          delete unified["cliente_cobra_proforma" + s];
+        }
+      }
+    }
+
     // --- LEER CAMPOS UNIFICADOS DEL TABLERO LOCAL ---
     function getBoardTypeSafe(t) {
       return t.lists('id', 'name').then(function(lists) {
