@@ -1421,11 +1421,15 @@
         unified.proforma = "___________";
         unified.fecha_proforma = "___________";
         unified.importe_proforma = "___________";
+        unified.igic_proforma = "___________";
+        unified.total_proforma = "___________";
         unified.cliente_cobra_proforma = "___________";
         for (var s = 2; s <= 10; s++) {
           delete unified["proforma" + s];
           delete unified["fecha_proforma" + s];
           delete unified["importe_proforma" + s];
+          delete unified["igic_proforma" + s];
+          delete unified["total_proforma" + s];
           delete unified["cliente_cobra_proforma" + s];
         }
         var checkItemsProformas = chProformas.checkItems.concat().sort(function(a, b) {
@@ -1444,6 +1448,7 @@
             } else {
               fNum = parts[1] || "___________";
             }
+            
             var fAmount = "___________";
             var basePart = parts.find(function(p) { return /^(?:Importe:)/i.test(p); });
             if (basePart) {
@@ -1456,6 +1461,19 @@
                 fAmount = parts[parts.length - 2] || parts[parts.length - 1] || "___________";
               }
             }
+            
+            var fIgic = "___________";
+            var igicPart = parts.find(function(p) { return /^(?:IGIC:)/i.test(p); });
+            if (igicPart) {
+              fIgic = igicPart.replace(/^(?:IGIC:)\s*/i, '').trim();
+            }
+            
+            var fTotal = "___________";
+            var totalPart = parts.find(function(p) { return /^(?:Total:)/i.test(p); });
+            if (totalPart) {
+              fTotal = totalPart.replace(/^(?:Total:)\s*/i, '').trim();
+            }
+            
             var fCobra = "___________";
             var cobraPart = parts.find(function(p) { return /^(?:Cliente Cobra:)/i.test(p); });
             if (cobraPart) {
@@ -1465,12 +1483,16 @@
             unified["proforma" + suffix] = fNum;
             unified["fecha_proforma" + suffix] = fDate;
             unified["importe_proforma" + suffix] = fAmount;
+            unified["igic_proforma" + suffix] = fIgic;
+            unified["total_proforma" + suffix] = fTotal;
             unified["cliente_cobra_proforma" + suffix] = fCobra;
 
             if (idx === 1) {
               unified.proforma = fNum;
               unified.fecha_proforma = fDate;
               unified.importe_proforma = fAmount;
+              unified.igic_proforma = fIgic;
+              unified.total_proforma = fTotal;
               unified.cliente_cobra_proforma = fCobra;
             }
           }
@@ -1480,11 +1502,15 @@
         unified.proforma = "___________";
         unified.fecha_proforma = "___________";
         unified.importe_proforma = "___________";
+        unified.igic_proforma = "___________";
+        unified.total_proforma = "___________";
         unified.cliente_cobra_proforma = "___________";
         for (var s = 2; s <= 10; s++) {
           delete unified["proforma" + s];
           delete unified["fecha_proforma" + s];
           delete unified["importe_proforma" + s];
+          delete unified["igic_proforma" + s];
+          delete unified["total_proforma" + s];
           delete unified["cliente_cobra_proforma" + s];
         }
       }

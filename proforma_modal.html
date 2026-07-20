@@ -181,17 +181,49 @@
 
     function replaceExcelPlaceholders(text, fields, cleanEmpty) {
       if (!text || typeof text !== 'string') return text;
-      var res = text;
       
-      // Mapear número de proforma
-      if (fields.proforma) {
-        fields["número de proforma"] = fields.proforma;
-        fields["numero de proforma"] = fields.proforma;
-        fields["número proforma"] = fields.proforma;
-        fields["numero proforma"] = fields.proforma;
-        fields["proforma"] = fields.proforma;
-      }
+      var proformaVal = fields.proforma || "___________";
       
+      var res = text.replace(/\{\{Nombre\}\}/gi, fields.nombre)
+        .replace(/\{\{DNI\}\}/gi, fields.dni)
+        .replace(/\{\{Domicilio\}\}/gi, fields.domicilio)
+        .replace(/\{\{Teléfono\}\}/gi, fields.telefono || "___________")
+        .replace(/\{\{Telefono\}\}/gi, fields.telefono || "___________")
+        .replace(/\{\{Profesión\}\}/gi, fields.profesion || "___________")
+        .replace(/\{\{Observaciones\}\}/gi, fields.observaciones || "___________")
+        .replace(/\{\{Fecha del siniestro\}\}/gi, fields.fecha || "___________")
+        .replace(/\{\{Hora\}\}/gi, fields.hora || "___________")
+        .replace(/\{\{Lugar\}\}/gi, fields.lugar || "___________")
+        .replace(/\{\{Ciudad\}\}/gi, fields.ciudad || "___________")
+        .replace(/\{\{Matrícula1\}\}/gi, fields.matricula1 || "___________")
+        .replace(/\{\{Aseguradora1\}\}/gi, fields.aseguradora1 || "___________")
+        .replace(/\{\{Matrícula2\}\}/gi, fields.matricula2 || "___________")
+        .replace(/\{\{Aseguradora2\}\}/gi, fields.aseguradora2 || "___________")
+        .replace(/\{\{Fecha del sistema\}\}/gi, fields.fecha_sistema || "___________")
+        .replace(/\{\{Fecha última actuación\}\}/gi, fields.fecha_ultima || "___________")
+        .replace(/\{\{Fecha cierre expediente\}\}/gi, fields.fecha_cierre || "___________")
+        .replace(/\{\{Fecha facturación\}\}/gi, fields.fecha_facturacion || "___________")
+        .replace(/\{\{Fecha de resolución\}\}/gi, fields.fecha_resolucion || "___________")
+        .replace(/\{\{Fecha comunicación designa\}\}/gi, fields.fecha_designa || "___________")
+        .replace(/\{\{Fecha reclamación previa\}\}/gi, fields.fecha_reclamacion || "___________")
+        .replace(/\{\{Fecha apertura expediente\}\}/gi, fields.fecha_apertura || "___________")
+        .replace(/\{\{Fecha apertura del expediente\}\}/gi, fields.fecha_apertura || "___________")
+        .replace(/\{\{Fecha del siniestro\}\}/gi, fields.fecha_siniestro || "___________")
+        .replace(/\{\{Nº de proforma\}\}/gi, proformaVal)
+        .replace(/\{\{Numero de proforma\}\}/gi, proformaVal)
+        .replace(/\{\{Nº proforma\}\}/gi, proformaVal)
+        .replace(/\{\{Numero proforma\}\}/gi, proformaVal)
+        .replace(/\{\{Proforma\}\}/gi, proformaVal)
+        .replace(/\{\{Importe proforma\}\}/gi, fields.importe_proforma || "___________")
+        .replace(/\{\{Importe de proforma\}\}/gi, fields.importe_proforma || "___________")
+        .replace(/\{\{Importe_proforma\}\}/gi, fields.importe_proforma || "___________")
+        .replace(/\{\{Cliente cobra\}\}/gi, fields.cliente_cobra_proforma || "___________")
+        .replace(/\{\{Cliente_cobra\}\}/gi, fields.cliente_cobra_proforma || "___________")
+        .replace(/\{\{Igic proforma\}\}/gi, fields.igic_proforma || "___________")
+        .replace(/\{\{Igic_proforma\}\}/gi, fields.igic_proforma || "___________")
+        .replace(/\{\{Total proforma\}\}/gi, fields.total_proforma || "___________")
+        .replace(/\{\{Total_proforma\}\}/gi, fields.total_proforma || "___________");
+
       for (var key in fields) {
         if (fields.hasOwnProperty(key) && key.trim() !== "") {
           var regex = new RegExp("\\{\\{\\s*" + escapeRegExp(key) + "\\s*\\}\\}", "gi");
@@ -199,6 +231,128 @@
         }
       }
       return res;
+    }
+
+    function getTaxPercentage(fields) {
+      var pctKey = Object.keys(fields).find(function(k) {
+        var normalized = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return normalized === 'porcentajeimpuestos' || normalized === 'impuestos';
+      });
+      if (pctKey) {
+        var valStr = String(fields[pctKey]);
+        var cleaned = valStr.replace(/[^0-9.,]/g, '').replace(',', '.');
+        var val = parseFloat(cleaned) || 0;
+        if (val > 0 && val < 1) {
+          val = val * 100;
+        }
+        return val;
+      }
+      return 0;
+    }
+
+    function evalFormulaIfNeeded(val) {
+      if (!val) return val;
+      var trimmed = val.trim();
+      if (/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/.test(trimmed)) return trimmed;
+      if (/[a-zA-ZáéíóúÁÉÍÓÚñÑ]/.test(trimmed)) return trimmed;
+      if (/^\+[0-9\s]+$/.test(trimmed)) return trimmed;
+      
+      if (/^[0-9\s\+\-\*\/\.\(\)\%]+$/.test(trimmed)) {
+        try {
+          var expr = trimmed.replace(/%/g, '/100');
+          var result = new Function('return ' + expr)();
+          if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
+            return String(Math.round(result * 100) / 100);
+          }
+        } catch (e) {
+          return trimmed;
+        }
+      }
+      return trimmed;
+    }
+
+    function evaluateValueWithContext(rawVal, contextMap) {
+      if (!rawVal) return "";
+      var val = rawVal.trim();
+      var lastBraceIndex = val.lastIndexOf('}}');
+      if (lastBraceIndex > -1) {
+        var tail = val.substring(lastBraceIndex + 2);
+        var tailEquals = tail.indexOf('=');
+        var tailColon = tail.indexOf(':');
+        var stripIndex = -1;
+        if (tailEquals > -1 && tailColon > -1) {
+          stripIndex = Math.min(tailEquals, tailColon);
+        } else if (tailEquals > -1) {
+          stripIndex = tailEquals;
+        } else if (tailColon > -1) {
+          stripIndex = tailColon;
+        }
+        if (stripIndex > -1) {
+          val = val.substring(0, lastBraceIndex + 2 + stripIndex).trim();
+        }
+      }
+      
+      if (val.indexOf('{{') > -1 && val.indexOf('}}') > -1) {
+        var replaced = val.replace(/\{\{([^}]+)\}\}/g, function(match, keyInside) {
+          var normalizedKey = keyInside.toLowerCase()
+                                       .normalize("NFD")
+                                       .replace(/[\u0300-\u036f]/g, "")
+                                       .replace(/\s+/g, ' ')
+                                       .trim();
+          var resolvedVal = contextMap[normalizedKey];
+          if (resolvedVal === undefined || resolvedVal === null) resolvedVal = "0";
+          var cleanedNum = String(resolvedVal).replace(/[^0-9.,-]/g, '');
+          if (cleanedNum.indexOf('.') > -1 && cleanedNum.indexOf(',') > -1) {
+            cleanedNum = cleanedNum.replace(/\./g, '').replace(',', '.');
+          } else if (cleanedNum.indexOf(',') > -1) {
+            cleanedNum = cleanedNum.replace(',', '.');
+          } else if (cleanedNum.indexOf('.') > -1) {
+            var parts = cleanedNum.split('.');
+            var lastPart = parts[parts.length - 1];
+            if (lastPart.length === 3) {
+              cleanedNum = cleanedNum.replace(/\./g, '');
+            }
+          }
+          return cleanedNum || "0";
+        });
+        return evalFormulaIfNeeded(replaced);
+      }
+      return evalFormulaIfNeeded(val);
+    }
+
+    function getNumericFieldValue(fields, possibleKeys) {
+      for (var i = 0; i < possibleKeys.length; i++) {
+        var rawKey = possibleKeys[i];
+        var cleanKey = rawKey.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+        var val = null;
+        for (var k in fields) {
+          if (fields.hasOwnProperty(k)) {
+            var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+            if (normK === cleanKey) {
+              val = fields[k];
+              break;
+            }
+          }
+        }
+        if (val !== undefined && val !== null) {
+          var cleanVal = String(val).replace(/[^0-9.,-]/g, '');
+          if (!cleanVal) continue;
+          if (cleanVal.indexOf('.') > -1 && cleanVal.indexOf(',') > -1) {
+            cleanVal = cleanVal.replace(/\./g, '').replace(',', '.');
+          } else if (cleanVal.indexOf(',') > -1) {
+            cleanVal = cleanVal.replace(',', '.');
+          } else if (cleanVal.indexOf('.') > -1) {
+            var parts = cleanVal.split('.');
+            var lastPart = parts[parts.length - 1];
+            if (lastPart.length === 3) {
+              cleanVal = cleanVal.replace(/\./g, '');
+            }
+          }
+          var parsedFloat = parseFloat(cleanVal);
+          if (!isNaN(parsedFloat)) return parsedFloat;
+        }
+      }
+      return null;
     }
 
     // --- CORRELATIVO DE PROFORMA ---
@@ -276,11 +430,13 @@
     }
 
     // Función para actualizar la checklist "Relación de proformas"
-    function updateProformasChecklistOnCard(t, targetCardId, token, today, numProforma, nombreCliente, dniCliente, proformaAmount, cobraAmount) {
+    function updateProformasChecklistOnCard(t, targetCardId, token, today, numProforma, nombreCliente, dniCliente, proformaAmount, igicAmount, totalAmount, cobraAmount) {
       var appKey = t.getRestApi().appKey;
       var cleanNombre = (nombreCliente || "Cliente Desconocido").replace(/\|/g, " ");
       var cleanDni = (dniCliente || "___________").replace(/\|/g, " ");
       var cleanProforma = proformaAmount.replace(/\|/g, " ");
+      var cleanIgic = igicAmount.replace(/\|/g, " ");
+      var cleanTotal = totalAmount.replace(/\|/g, " ");
       var cleanCobra = cobraAmount.replace(/\|/g, " ");
 
       return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?key=${appKey}&token=${token}`)
@@ -288,7 +444,7 @@
         .then(checklists => {
           var targetChecklistName = "Relación de proformas";
           var ch = checklists.find(c => c.name.trim().toLowerCase() === targetChecklistName.toLowerCase());
-          var newItemText = `${today} | Nº: ${numProforma} | ${cleanNombre} | DNI: ${cleanDni} | Importe: ${cleanProforma} | Cliente Cobra: ${cleanCobra} | MODO: T/T`;
+          var newItemText = `${today} | Nº: ${numProforma} | ${cleanNombre} | DNI: ${cleanDni} | Importe: ${cleanProforma} | IGIC: ${cleanIgic} | Total: ${cleanTotal} | Cliente Cobra: ${cleanCobra} | MODO: T/T`;
 
           if (ch) {
             // Eliminar si ya existe un ítem con este número para evitar duplicados
@@ -468,13 +624,84 @@
     }
 
     // --- CARGAR DATOS CRUZADOS ---
+    function isBillingFieldKey(key) {
+      if (!key) return false;
+      var norm = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+      return /^(factura|fechadefacturacion|fechafacturacion|importedefacturacion|importefacturacion|totaldefactura|totalfactura|totalfacturado|totaldefacturado|importefacturado|importedefacturado|clientecobrasumarizado|clientecobrasumarisado|proforma|fechadeproforma|fechaproforma|importedeproforma|importeproforma|totaldeproforma|totalproforma|totalproformado|totaldeproformado|importeproformado|importedeproformado)\d*$/i.test(norm);
+    }
+
     function extractFields(desc) {
-      var fields = { nombre: "Cliente Desconocido", dni: "___________", domicilio: "___________", fecha_apertura: "___________" };
+      var fields = {
+        nombre: "Cliente Desconocido",
+        dni: "___________",
+        domicilio: "___________",
+        telefono: "___________",
+        profesion: "___________",
+        observaciones: "___________",
+        fecha: "___________",
+        hora: "___________",
+        lugar: "___________",
+        ciudad: "___________",
+        matricula1: "___________",
+        aseguradora1: "___________",
+        matricula2: "___________",
+        aseguradora2: "___________",
+        parrafada: "",
+        fecha_sistema: "___________",
+        fecha_ultima: "___________",
+        fecha_cierre: "___________",
+        fecha_facturacion: "___________",
+        fecha_resolucion: "___________",
+        fecha_designa: "___________",
+        fecha_reclamacion: "___________",
+        fecha_apertura: "___________",
+        fecha_siniestro: "___________",
+        factura: "___________"
+      };
+
       if (!desc) return fields;
+
       var m;
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*NOMBRE Y APELLIDOS\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DNI\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DOMICILIO\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*PROFESI[OÓ]N\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*OBSERVACIONES\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:FECHA DEL SINIESTRO|Fecha)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha = m[1].replace(/[*_~`]/g, '').replace(/\s*\(.*\)\s*$/, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:HORA)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.hora = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:LUGAR)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.lugar = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:CIUDAD)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.ciudad = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha del sistema\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_sistema = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha última actuación\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_ultima = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha cierre expediente\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_cierre = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha de resolución\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_resolucion = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha de comunicación designa(?:ción)?\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_designa = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha(?: de)? reclamación previa\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_reclamacion = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha (?:apertura|creación) de? expediente\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_apertura = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha siniestro\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_siniestro = m[1].replace(/[*_~`]/g, '').trim(); }
+
+      var vehicleLookahead = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
+      var propioMatch = desc.match(new RegExp("(?:^|\\n)[ \\t]*[^a-zA-Z0-9\\n\\r]*\\s*VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vehicleLookahead, "i"));
+      if (propioMatch) {
+        var pText = propioMatch[0];
+        if (m = pText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula1 = m[1].replace(/[*_~`]/g, '').trim(); }
+        if (m = pText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora1 = m[1].replace(/[*_~`]/g, '').trim(); }
+      }
+      var contrarioMatch = desc.match(new RegExp("(?:^|\\n)[ \\t]*[^a-zA-Z0-9\\n\\r]*\\s*VEH[ÍI]CULO CONTRARIO[\\s\\S]*?" + vehicleLookahead, "i"));
+      if (contrarioMatch) {
+        var cText = contrarioMatch[0];
+        if (m = cText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula2 = m[1].replace(/[*_~`]/g, '').trim(); }
+        if (m = cText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora2 = m[1].replace(/[*_~`]/g, '').trim(); }
+      }
+
+      var parrafadaRegex = /PARRAFADA[^:]*[:\s-]+\s*/i;
+      var startMatch = desc.match(parrafadaRegex);
+      if (startMatch) {
+        var startIdx = startMatch.index + startMatch[0].length;
+        fields.parrafada = desc.substring(startIdx).trim();
+      }
+
       return fields;
     }
 
@@ -484,12 +711,13 @@
     }
 
     function getCrossBoardBillingData(t) {
+      setStatus("Iniciando getCrossBoardBillingData...");
       return Promise.all([
         getUnifiedFields(t),
         t.getRestApi().getToken(),
         t.list('name'),
         t.board('id', 'name')
-      ]).then(results => {
+      ]).then(function (results) {
         var localData = results[0];
         var token = results[1];
         var currentListName = results[2].name;
@@ -498,6 +726,7 @@
         var fields = localData.fields;
         var appKey = t.getRestApi().appKey;
 
+        setStatus("Búsqueda cruzada de tablero de Clientes...");
         if (!token) throw new Error('REQUIRED_AUTHORIZATION');
 
         var searchQuery = encodeURIComponent('name:"Tipo tablero"');
@@ -505,7 +734,7 @@
           .then(res => res.json())
           .then(searchData => {
             var cards = searchData.cards || [];
-            var clientCards = cards.filter(c => {
+            var clientCards = cards.filter(function(c) {
               var n = c.name.toUpperCase();
               return n.includes('TIPO TABLERO') && n.includes('CLIENTES');
             });
@@ -515,6 +744,7 @@
             return uniqueBoardIds;
           })
           .then(idBoardsClientes => {
+            setStatus("Obteniendo listas de tableros de Clientes (" + idBoardsClientes.length + ")...");
             var promises = idBoardsClientes.map(boardId => {
               return fetch(`https://api.trello.com/1/boards/${boardId}/lists?key=${appKey}&token=${token}`)
                 .then(res => res.ok ? res.json() : [])
@@ -526,12 +756,17 @@
             return Promise.all(promises).then(res => {
               var matches = res.filter(r => r !== null);
               if (matches.length === 0) return null;
+              if (matches.length === 1) return matches[0];
               
               var rankingPromises = matches.map(match => {
                 return fetch(`https://api.trello.com/1/boards/${match.boardId}?fields=name&key=${appKey}&token=${token}`)
                   .then(r => r.json())
-                  .then(b => { return { match: match, boardName: b.name }; })
-                  .catch(() => { return { match: match, boardName: "" }; });
+                  .then(b => {
+                    return { match: match, boardName: b.name };
+                  })
+                  .catch(() => {
+                    return { match: match, boardName: "" };
+                  });
               });
               
               return Promise.all(rankingPromises).then(ranked => {
@@ -545,7 +780,9 @@
                   var wordsCand = bNameUpper.replace(/CLIENTES/g, '').split(/\s+/).filter(Boolean);
                   var commonWords = wordsCur.filter(w => wordsCand.indexOf(w) > -1);
                   score = commonWords.length;
-                  if (bNameUpper.includes("CLIENTES")) score += 1;
+                  if (bNameUpper.includes("CLIENTES")) {
+                    score += 1;
+                  }
                   if (score > bestScore) {
                     bestScore = score;
                     bestMatch = item.match;
@@ -557,9 +794,11 @@
           })
           .then(match => {
             if (!match) throw new Error('No se encontró lista coincidente en Clientes.');
+            setStatus("Obteniendo tarjetas de la lista en Clientes...");
             return fetch(`https://api.trello.com/1/lists/${match.listId}/cards?fields=name,desc&key=${appKey}&token=${token}`)
               .then(res => res.json())
               .then(clientCards => {
+                setStatus("Unificando datos de tarjetas del cliente...");
                 var clientFields = { nombre: "___________", dni: "___________", domicilio: "___________", fecha_apertura: "___________" };
                 var found = { nombre: false, dni: false, domicilio: false, fecha_apertura: false };
                 var cards = clientCards || [];
@@ -570,17 +809,60 @@
                   if (!found.nombre && parsed.nombre !== "Cliente Desconocido") { clientFields.nombre = parsed.nombre; found.nombre = true; }
                   if (!found.dni && parsed.dni !== "___________") { clientFields.dni = parsed.dni; found.dni = true; }
                   if (!found.domicilio && parsed.domicilio !== "___________") { clientFields.domicilio = parsed.domicilio; found.domicilio = true; }
+                  if (!found.fecha_apertura && parsed.fecha_apertura !== "___________") { clientFields.fecha_apertura = parsed.fecha_apertura; found.fecha_apertura = true; }
                 });
 
-                // Adjuntar idList de clientes para posterior actualización de historial
-                clientFields.idListClientes = match.listId;
-
-                // Cruzar con campos unificados locales
-                for (var key in clientFields) {
-                  fields[key] = clientFields[key];
-                  fields[key.toLowerCase()] = clientFields[key];
+                var clientImportesCard = cards.find(c => c.name.toLowerCase().includes("importes"));
+                var clientImportesFields = {};
+                if (clientImportesCard && clientImportesCard.desc) {
+                  setStatus("Parseando tarjeta Importes cruzada...");
+                  var lines = clientImportesCard.desc.split('\n');
+                  var rawMap = {};
+                  var parsedPairs = [];
+                  lines.forEach(line => {
+                    line = line.trim();
+                    if (!line) return;
+                    var sepIndex = line.indexOf(':');
+                    if (sepIndex === -1) sepIndex = line.indexOf('=');
+                    if (sepIndex > -1) {
+                      var k = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+                      var v = line.substring(sepIndex + 1).replace(/[*_~`#]/g, '').trim();
+                      if (k) {
+                        parsedPairs.push({ key: k, val: v });
+                        var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+                        rawMap[normK] = v;
+                      }
+                    }
+                  });
+                  parsedPairs.forEach(pair => {
+                    var calculatedV = evaluateValueWithContext(pair.val, rawMap);
+                    clientImportesFields[pair.key] = calculatedV;
+                    clientImportesFields[pair.key.toLowerCase()] = calculatedV;
+                    var normK = pair.key.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                    clientImportesFields[normK] = calculatedV;
+                    clientImportesFields[normK.toLowerCase()] = calculatedV;
+                  });
                 }
-                return { fields: fields, token: token, idList: match.listId, idListClientes: match.listId };
+
+                var combinedFields = {};
+                for (var key in fields) combinedFields[key] = fields[key];
+                for (var key in clientImportesFields) {
+                  if (!isBillingFieldKey(key)) {
+                    combinedFields[key] = clientImportesFields[key];
+                  }
+                }
+                combinedFields.nombre = clientFields.nombre;
+                combinedFields.dni = clientFields.dni;
+                combinedFields.domicilio = clientFields.domicilio;
+                combinedFields.fecha_apertura = clientFields.fecha_apertura;
+
+                setStatus("Datos cruzados obtenidos con éxito.");
+                return {
+                  fields: combinedFields,
+                  token: token,
+                  idList: match.listId,
+                  idListClientes: match.listId
+                };
               });
           });
       });
@@ -650,20 +932,37 @@
               } else {
                 fNum = parts[1] || "___________";
               }
+              
               var fAmount = "___________";
-              var amtPart = parts.find(p => /^(?:Base:|Importe:|Total:|Importe Proforma:)/i.test(p));
+              var amtPart = parts.find(p => /^(?:Importe:)/i.test(p));
               if (amtPart) {
-                fAmount = amtPart.replace(/^(?:Base:|Importe:|Total:|Importe Proforma:)\s*/i, '').trim();
+                fAmount = amtPart.replace(/^(?:Importe:)\s*/i, '').trim();
               } else {
-                // Si viene del formato anterior o es la última parte
                 var basePart = parts.find(p => p.toLowerCase().includes("importe:"));
                 if (basePart) {
                   fAmount = basePart.replace(/^(?:Importe:)\s*/i, '').trim();
-                } else {
-                  fAmount = parts[4] || parts[parts.length - 1] || "___________";
                 }
               }
-              itemsParsed.push({ fecha: fDate, numero: fNum, importe: fAmount });
+              
+              var fIgic = "___________";
+              var igicPart = parts.find(p => /^(?:IGIC:)/i.test(p));
+              if (igicPart) {
+                fIgic = igicPart.replace(/^(?:IGIC:)\s*/i, '').trim();
+              }
+              
+              var fTotal = "___________";
+              var totalPart = parts.find(p => /^(?:Total:)/i.test(p));
+              if (totalPart) {
+                fTotal = totalPart.replace(/^(?:Total:)\s*/i, '').trim();
+              }
+              
+              var fCobra = "___________";
+              var cobraPart = parts.find(p => /^(?:Cliente Cobra:)/i.test(p));
+              if (cobraPart) {
+                fCobra = cobraPart.replace(/^(?:Cliente Cobra:)\s*/i, '').trim();
+              }
+              
+              itemsParsed.push({ fecha: fDate, numero: fNum, importe: fAmount, igic: fIgic, total: fTotal, cobra: fCobra });
             }
           });
           return itemsParsed;
@@ -742,9 +1041,26 @@
           fields.importe_proforma = formatSpanishCurrency(valProforma);
           fields.cliente_cobra_proforma = formatSpanishCurrency(valCobra);
           
+          var taxPct = getTaxPercentage(fields);
+          var valIgic = valProforma * (taxPct / 100);
+          var valTotal = valProforma + valIgic;
+          
+          fields.igic_proforma = formatSpanishCurrency(valIgic);
+          fields.total_proforma = formatSpanishCurrency(valTotal);
+          
           // Compatibilidad exacta con placeholders en Excel
           fields["Importe Proforma"] = formatSpanishCurrency(valProforma);
+          fields["Importe de proforma"] = formatSpanishCurrency(valProforma);
+          fields["Importe_proforma"] = formatSpanishCurrency(valProforma);
+          
           fields["Cliente Cobra"] = formatSpanishCurrency(valCobra);
+          fields["Cliente_cobra"] = formatSpanishCurrency(valCobra);
+          
+          fields["Igic Proforma"] = formatSpanishCurrency(valIgic);
+          fields["Igic_proforma"] = formatSpanishCurrency(valIgic);
+          fields["Total Proforma"] = formatSpanishCurrency(valTotal);
+          fields["Total_proforma"] = formatSpanishCurrency(valTotal);
+          
           fields["Número de proforma"] = numProforma;
           fields["Número proforma"] = numProforma;
           fields["número de proforma"] = numProforma;
@@ -828,8 +1144,10 @@
                 .then(function(targetCardId) {
                   setStatus('Actualizando checklist "Relación de proformas"...');
                   var formattedProforma = formatSpanishCurrency(valProforma);
+                  var formattedIgic = formatSpanishCurrency(valIgic);
+                  var formattedTotal = formatSpanishCurrency(valTotal);
                   var formattedCobra = formatSpanishCurrency(valCobra);
-                  return updateProformasChecklistOnCard(t, targetCardId, token, today, numProforma, fields.nombre, fields.dni, formattedProforma, formattedCobra)
+                  return updateProformasChecklistOnCard(t, targetCardId, token, today, numProforma, fields.nombre, fields.dni, formattedProforma, formattedIgic, formattedTotal, formattedCobra)
                     .then(() => targetCardId);
                 })
                 .then(function(targetCardId) {
