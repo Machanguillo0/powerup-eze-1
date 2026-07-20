@@ -4659,7 +4659,7 @@
               if (token) {
                 window.isApiAuthorized = true;
                 t.modal({
-                  url: './proforma_modal.html?v=1',
+                  url: './proforma_modal.html?v=' + Date.now(),
                   height: 300,
                   title: 'Generar Proforma',
                   accentColor: '#1f845a'
@@ -4672,7 +4672,7 @@
           return;
         }
         t.modal({
-          url: './proforma_modal.html?v=1',
+          url: './proforma_modal.html?v=' + Date.now(),
           height: 300,
           title: 'Generar Proforma',
           accentColor: '#1f845a'
@@ -4692,7 +4692,7 @@
               if (token) {
                 window.isApiAuthorized = true;
                 t.modal({
-                  url: './factura_modal.html?v=102',
+                  url: './factura_modal.html?v=' + Date.now(),
                   height: 500,
                   title: 'Generar Factura',
                   accentColor: '#1f845a'
