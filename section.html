@@ -621,10 +621,7 @@
           <button id="boton-desc-facturacion" class="secondary" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px;">Visualizar datos de facturación</button>
         </div>
         <div style="display: flex; flex-direction: column; gap: 5px;">
-          <label class="btn-upload" style="background-color: #1f845a; margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; text-align: center;">
-            Generar Proforma
-            <input type="file" id="proforma-upload" accept=".xlsx" />
-          </label>
+          <button id="boton-generar-proforma-modal" style="background-color: #1f845a; color: white; margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; font-weight: bold; border: none; border-radius: 3px; cursor: pointer; text-align: center;">Generar Proforma</button>
           <button id="boton-generar-factura-modal" style="background-color: #1f845a; color: white; margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; font-weight: bold; border: none; border-radius: 3px; cursor: pointer; text-align: center;">Generar Factura</button>
           <button id="boton-desglosar" style="background-color: #1f845a; color: white; margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; font-weight: bold; border: none; border-radius: 3px; cursor: pointer; transition: background-color 0.2s; text-align: center;">Desglosar factura</button>
         </div>
@@ -1411,6 +1408,84 @@
           delete unified["fecha_facturacion" + s];
           delete unified["importe_facturacion" + s];
           delete unified["total_factura" + s];
+        }
+      }
+
+      // PARSEAR PROFORMAS
+      var chProformas = checklists.find(function(c) {
+        var n = c.name.trim().toLowerCase();
+        return n === "relación de proformas" || n === "relacion de proformas";
+      });
+      if (chProformas && chProformas.checkItems && chProformas.checkItems.length > 0) {
+        unified._hasChecklistProformas = true;
+        unified.proforma = "___________";
+        unified.fecha_proforma = "___________";
+        unified.importe_proforma = "___________";
+        unified.cliente_cobra_proforma = "___________";
+        for (var s = 2; s <= 10; s++) {
+          delete unified["proforma" + s];
+          delete unified["fecha_proforma" + s];
+          delete unified["importe_proforma" + s];
+          delete unified["cliente_cobra_proforma" + s];
+        }
+        var checkItemsProformas = chProformas.checkItems.concat().sort(function(a, b) {
+          return a.pos - b.pos;
+        });
+        checkItemsProformas.forEach(function(item, index) {
+          var idx = index + 1;
+          var suffix = (idx === 1) ? '' : idx;
+          var parts = item.name.split('|').map(function(s) { return s.trim(); });
+          if (parts.length >= 2) {
+            var fDate = parts[0] || "___________";
+            var fNum = "___________";
+            var numPart = parts.find(function(p) { return /^(?:N[º°o]:|N[º°o]\s*:|Proforma:|Num:)/i.test(p); });
+            if (numPart) {
+              fNum = numPart.replace(/^(?:N[º°o]:|N[º°o]\s*:|Proforma:|Num:)\s*/i, '').trim();
+            } else {
+              fNum = parts[1] || "___________";
+            }
+            var fAmount = "___________";
+            var basePart = parts.find(function(p) { return /^(?:Importe:)/i.test(p); });
+            if (basePart) {
+              fAmount = basePart.replace(/^(?:Importe:)\s*/i, '').trim();
+            } else {
+              var basePart2 = parts.find(p => p.toLowerCase().includes("importe:"));
+              if (basePart2) {
+                fAmount = basePart2.replace(/^(?:Importe:)\s*/i, '').trim();
+              } else {
+                fAmount = parts[parts.length - 2] || parts[parts.length - 1] || "___________";
+              }
+            }
+            var fCobra = "___________";
+            var cobraPart = parts.find(function(p) { return /^(?:Cliente Cobra:)/i.test(p); });
+            if (cobraPart) {
+              fCobra = cobraPart.replace(/^(?:Cliente Cobra:)\s*/i, '').trim();
+            }
+
+            unified["proforma" + suffix] = fNum;
+            unified["fecha_proforma" + suffix] = fDate;
+            unified["importe_proforma" + suffix] = fAmount;
+            unified["cliente_cobra_proforma" + suffix] = fCobra;
+
+            if (idx === 1) {
+              unified.proforma = fNum;
+              unified.fecha_proforma = fDate;
+              unified.importe_proforma = fAmount;
+              unified.cliente_cobra_proforma = fCobra;
+            }
+          }
+        });
+      } else {
+        unified._hasChecklistProformas = false;
+        unified.proforma = "___________";
+        unified.fecha_proforma = "___________";
+        unified.importe_proforma = "___________";
+        unified.cliente_cobra_proforma = "___________";
+        for (var s = 2; s <= 10; s++) {
+          delete unified["proforma" + s];
+          delete unified["fecha_proforma" + s];
+          delete unified["importe_proforma" + s];
+          delete unified["cliente_cobra_proforma" + s];
         }
       }
     }
@@ -2817,6 +2892,17 @@
                                     N = ch.checkItems.length;
                                   }
                                   unified._checklistInvoicesCount = N;
+
+                                  var N_prof = 0;
+                                  var ch_prof = checklists.find(function(c) {
+                                    var n = c.name.trim().toLowerCase();
+                                    return n === "relación de proformas" || n === "relacion de proformas";
+                                  });
+                                  if (ch_prof && ch_prof.checkItems) {
+                                    N_prof = ch_prof.checkItems.length;
+                                  }
+                                  unified._checklistProformasCount = N_prof;
+
                                   return { 
                                     fields: unified, 
                                     count: cardsInList.length,
@@ -2861,6 +2947,17 @@
                     N = ch.checkItems.length;
                   }
                   unified._checklistInvoicesCount = N;
+
+                  var N_prof = 0;
+                  var ch_prof = checklists.find(function(c) {
+                    var n = c.name.trim().toLowerCase();
+                    return n === "relación de proformas" || n === "relacion de proformas";
+                  });
+                  if (ch_prof && ch_prof.checkItems) {
+                    N_prof = ch_prof.checkItems.length;
+                  }
+                  unified._checklistProformasCount = N_prof;
+
                   return { 
                     fields: unified, 
                     count: cardsInList.length,
@@ -4351,7 +4448,9 @@
           "cliente cobra sumarizado", "cliente_cobra", "cliente_cobra_sumarizado",
           "facturado", "a facturar", "a_facturar",
           "igic", "igic_num", "igic num",
-          "_haschecklistinvoices"
+          "_haschecklistinvoices",
+          "proforma", "fecha_proforma", "importe_proforma", "cliente_cobra_proforma",
+          "_haschecklistproformas"
         ];
         // Añadir también las claves secuenciales a las standard para que no aparezcan en adicionales
         for (var s = 2; s <= 10; s++) {
@@ -4370,6 +4469,10 @@
           standardKeys.push("igic" + s);
           standardKeys.push("igic_num" + s);
           standardKeys.push("igic num" + s);
+          standardKeys.push("proforma" + s);
+          standardKeys.push("fecha_proforma" + s);
+          standardKeys.push("importe_proforma" + s);
+          standardKeys.push("cliente_cobra_proforma" + s);
         }
         
         var dynamicHtml = "";
@@ -4433,6 +4536,35 @@
           }
         }
 
+        // Renderizar el bloque de proformas secuenciales (1 a 10) al final
+        if (fields._hasChecklistProformas !== false && fields.proforma && fields.proforma !== "___________") {
+          html += "<br><strong>Proforma nº 1:</strong><br>" +
+                  "• Número de proforma: <strong>" + fields.proforma + "</strong><br>" +
+                  "• Fecha de proforma: " + fields.fecha_proforma + "<br>" +
+                  "• Importe proforma: <strong>" + (fields.importe_proforma || "___________") + "</strong><br>" +
+                  "• Cliente Cobra proforma: <strong>" + (fields.cliente_cobra_proforma || "___________") + "</strong><br>";
+          
+          var hasAdditionalProforma = false;
+          var additionalProformaHtml = "";
+          for (var idx = 2; idx <= 10; idx++) {
+            var prKey = "proforma" + idx;
+            var prdKey = "fecha_proforma" + idx;
+            var prImpKey = "importe_proforma" + idx;
+            var prCobKey = "cliente_cobra_proforma" + idx;
+            if (fields[prKey] && fields[prKey] !== "___________") {
+              hasAdditionalProforma = true;
+              additionalProformaHtml += "<br><strong>Proforma adicional nº " + idx + ":</strong><br>" +
+                                 "• Número de proforma " + idx + ": <strong>" + fields[prKey] + "</strong><br>" +
+                                 "• Fecha de proforma " + idx + ": " + (fields[prdKey] || "___________") + "<br>" +
+                                 "• Importe proforma " + idx + ": <strong>" + (fields[prImpKey] || "___________") + "</strong><br>" +
+                                 "• Cliente Cobra proforma " + idx + ": <strong>" + (fields[prCobKey] || "___________") + "</strong><br>";
+            }
+          }
+          if (hasAdditionalProforma) {
+            html += additionalProformaHtml;
+          }
+        }
+
         container.innerHTML = html;
         t.sizeTo(document.body).done();
       }).catch(function (err) {
@@ -4489,119 +4621,38 @@
       });
     });
 
-    // Interceptar clic para verificar autorización en un hilo síncrono del usuario
-    document.getElementById('proforma-upload').addEventListener('click', function (event) {
-      if (!window.isApiAuthorized) {
-        event.preventDefault();
-        t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href })
-          .then(function(token) {
-            if (token) {
-              window.isApiAuthorized = true;
-              t.alert({
-                message: 'Autorización completada con éxito. Vuelve a hacer clic para subir la proforma. 🔑',
-                duration: 5,
-                display: 'success'
-              });
-            }
-          })
-          .catch(function(err) {
-            console.error("Error al autorizar:", err);
-          });
-      }
-    });
-
-    // Nuevo event listener para Generar Proforma en Facturación (datos cruzados + plantilla Excel)
-    document.getElementById('proforma-upload').addEventListener('change', function (event) {
-      if (!event.target.files || event.target.files.length === 0) return;
-      var file = event.target.files[0];
-      var statusDiv = document.getElementById('upload-status');
-      statusDiv.textContent = 'Cargando datos cruzados desde el tablero de Clientes...';
-      t.sizeTo(document.body).done();
-
-      getCrossBoardBillingData(t).then(function (data) {
-        var fields = data.fields;
-        var token = data.token;
-        statusDiv.textContent = 'Procesando proforma ' + file.name + '...';
-        t.sizeTo(document.body).done();
-
-        var reader = new FileReader();
-        reader.onload = async function (e) {
-          try {
-            var workbook = new ExcelJS.Workbook();
-            await workbook.xlsx.load(e.target.result);
-            workbook.eachSheet(function (worksheet) {
-              worksheet.eachRow(function (row) {
-                row.eachCell(function (cell) {
-                  if (cell.value) {
-                    if (cell.value.richText) {
-                      cell.value.richText.forEach(function (rt) {
-                        if (rt.text) {
-                          rt.text = replaceExcelPlaceholders(rt.text, fields, true);
-                        }
-                      });
-                    } else if (typeof cell.value === 'string') {
-                      cell.value = replaceExcelPlaceholders(cell.value, fields, true);
-                      if (fields.parrafada && fields.parrafada.includes('\n')) cell.alignment = { wrapText: true };
-                    }
-                  }
+    // Nuevo event listener para abrir la modal de Generar Proforma
+    var btnGenerarProformaModal = document.getElementById('boton-generar-proforma-modal');
+    if (btnGenerarProformaModal) {
+      btnGenerarProformaModal.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!window.isApiAuthorized) {
+          t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href })
+            .then(function(token) {
+              if (token) {
+                window.isApiAuthorized = true;
+                t.modal({
+                  url: './proforma_modal.html?v=1',
+                  height: 300,
+                  title: 'Generar Proforma',
+                  accentColor: '#1f845a'
                 });
-              });
+              }
+            })
+            .catch(function(err) {
+              console.error("Error al autorizar:", err);
             });
-
-            var buffer = await workbook.xlsx.writeBuffer();
-            var outContent = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-            var baseTemplateName = file.name.substring(0, file.name.lastIndexOf('.'));
-            var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + ".xlsx";
-
-            statusDiv.textContent = 'Obteniendo tarjeta de Facturas...';
-            t.sizeTo(document.body).done();
-
-            getOrCreateFacturasCard(t, data.idList, token)
-              .then(function(targetCardId) {
-                statusDiv.textContent = 'Subiendo Proforma a la tarjeta Facturas...';
-                t.sizeTo(document.body).done();
-
-                var formData = new FormData();
-                formData.append("key", t.getRestApi().appKey);
-                formData.append("token", token);
-                formData.append("file", outContent, nombreFinal);
-                formData.append("name", nombreFinal);
-
-                var urlParams = new URLSearchParams();
-                urlParams.append('key', t.getRestApi().appKey);
-                urlParams.append('token', token);
-
-                return fetch(`https://api.trello.com/1/cards/${targetCardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData });
-              })
-              .then(function (response) {
-                if (!response.ok) throw new Error('Error HTTP ' + response.status);
-                statusDiv.textContent = '¡Proforma modificada y adjuntada a Facturas con éxito!';
-                event.target.value = '';
-                t.sizeTo(document.body).done();
-              }).catch(function (err) {
-                console.error(err);
-                statusDiv.textContent = 'Fallo en la subida.';
-                t.sizeTo(document.body).done();
-              });
-
-          } catch (error) {
-            console.error(error);
-            statusDiv.textContent = 'Error: ' + error.message;
-            t.sizeTo(document.body).done();
-          }
-        };
-        reader.readAsArrayBuffer(file);
-      }).catch(function (err) {
-        console.error(err);
-        if (err.message === 'REQUIRED_AUTHORIZATION') {
-          statusDiv.textContent = 'Autenticando con Trello API...';
-          t.sizeTo(document.body).done();
-          return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
+          return;
         }
-        statusDiv.textContent = 'Error al obtener datos cruzados: ' + err.message;
-        t.sizeTo(document.body).done();
+        t.modal({
+          url: './proforma_modal.html?v=1',
+          height: 300,
+          title: 'Generar Proforma',
+          accentColor: '#1f845a'
+        });
       });
-    });
+    }
 
     // Nuevo event listener para abrir la modal de Generar Factura
     var btnGenerarFacturaModal = document.getElementById('boton-generar-factura-modal');

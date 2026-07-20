@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Generar Proforma</title>
+  <!-- Cargamos el estilo estándar de Trello para iframe modal -->
+  <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
+  <!-- Librerías necesarias para el procesamiento de Excel y descargas -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Noto Sans", "Ubuntu", "Droid Sans", "Helvetica Neue", sans-serif;
+      color: #172b4d;
+      background-color: #f4f5f7;
+      padding: 20px;
+      margin: 0;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    label {
+      display: block;
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 6px;
+      color: #5e6c84;
+    }
+    
+    input[type="text"] {
+      width: 100%;
+      padding: 8px 10px;
+      box-sizing: border-box;
+      border: 1px solid #ced4da;
+      border-radius: 3px;
+      background-color: #fff;
+      color: #172b4d;
+      font-size: 14px;
+      transition: border-color 0.2s;
+    }
+    
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #1f845a;
+      box-shadow: 0 0 0 2px rgba(31, 132, 90, 0.2);
+    }
+    
+    .actions {
+      margin-top: 24px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    
+    button {
+      height: 36px;
+      padding: 0 16px;
+      border-radius: 3px;
+      font-weight: bold;
+      font-size: 13px;
+      cursor: pointer;
+      border: none;
+      box-sizing: border-box;
+    }
+    
+    .btn-primary {
+      background-color: #1f845a;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background-color: #137333;
+    }
+    
+    .btn-secondary {
+      background-color: #091e420f;
+      color: #172b4d;
+    }
+    
+    .btn-secondary:hover {
+      background-color: #091e4224;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .status-msg {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #5e6c84;
+      font-style: italic;
+    }
+
+    .editable-input {
+      background-color: #eaf6ec !important;
+      border: 1px solid #b2dbaa !important;
+    }
+    
+    .editable-input:focus {
+      border-color: #1f845a !important;
+      box-shadow: 0 0 0 2px rgba(31, 132, 90, 0.25) !important;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="form-group">
+    <label for="cliente-cobra-input">Cliente Cobra (€)</label>
+    <input type="text" id="cliente-cobra-input" class="editable-input" placeholder="Ej. 1.000,00">
+  </div>
+
+  <div class="form-group">
+    <label for="importe-proforma">Importe Proforma (€)</label>
+    <input type="text" id="importe-proforma" class="editable-input" placeholder="Ej. 1.250,50">
+  </div>
+
+  <div class="actions">
+    <button id="btn-cancelar" class="btn-secondary">Cancelar</button>
+    <button id="btn-proforma" class="btn-primary">Generar Proforma</button>
+    <input type="file" id="proforma-upload" accept=".xlsx" />
+  </div>
+
+  <div id="status" class="status-msg">Cargando datos del expediente...</div>
+
+  <!-- Cargamos el script oficial de Trello Power-Up -->
+  <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <script>
+    var currentAppKey = (window.location.hostname.indexOf('github.io') > -1 || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? '30767998cbb7b57a692e8bb50cfa9a9c' // Power-Up Prepro
+      : '352ae509bc7ffb5b7f5826a024353794'; // Power-Up Pro
+
+    var t = window.TrelloPowerUp.iframe({
+      appKey: currentAppKey,
+      appName: 'Antigravity'
+    });
+
+    try {
+      var lastKey = localStorage.getItem('antigravity_last_app_key');
+      if (lastKey !== currentAppKey) {
+        t.getRestApi().clearToken();
+        localStorage.setItem('antigravity_last_app_key', currentAppKey);
+      }
+    } catch (e) {
+      console.warn("localStorage no accesible:", e);
+    }
+
+    var cachedData = false;
+
+    function setStatus(msg, isError) {
+      var el = document.getElementById('status');
+      if (el) {
+        el.innerHTML = msg;
+        el.style.color = isError ? '#de350b' : '#5e6c84';
+      }
+    }
+
+    function parseSpanishFloat(valStr) {
+      if (!valStr) return 0;
+      var clean = String(valStr).replace(/[^0-9.,-]/g, '').trim();
+      if (!clean) return 0;
+      if (clean.indexOf('.') > -1 && clean.indexOf(',') > -1) {
+        clean = clean.replace(/\./g, '').replace(',', '.');
+      } else if (clean.indexOf(',') > -1) {
+        clean = clean.replace(',', '.');
+      }
+      var num = parseFloat(clean);
+      return isNaN(num) ? 0 : num;
+    }
+
+    function formatSpanishCurrency(num) {
+      if (num === null || num === undefined || isNaN(num)) return "___________";
+      return num.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+    }
+
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function replaceExcelPlaceholders(text, fields, cleanEmpty) {
+      if (!text || typeof text !== 'string') return text;
+      var res = text;
+      
+      // Mapear número de proforma
+      if (fields.proforma) {
+        fields["número de proforma"] = fields.proforma;
+        fields["numero de proforma"] = fields.proforma;
+        fields["número proforma"] = fields.proforma;
+        fields["numero proforma"] = fields.proforma;
+        fields["proforma"] = fields.proforma;
+      }
+      
+      for (var key in fields) {
+        if (fields.hasOwnProperty(key) && key.trim() !== "") {
+          var regex = new RegExp("\\{\\{\\s*" + escapeRegExp(key) + "\\s*\\}\\}", "gi");
+          res = res.replace(regex, fields[key] || "");
+        }
+      }
+      return res;
+    }
+
+    // --- CORRELATIVO DE PROFORMA ---
+    function getAndUpdateProformaNumber(t, token) {
+      var appKey = t.getRestApi().appKey;
+      return t.lists('id', 'name').then(function(lists) {
+        var paramList = lists.find(l => l.name.toUpperCase() === 'PARÁMETROS' || l.name.toUpperCase() === 'PARAMETROS');
+        if (!paramList) throw new Error("No se encontró la lista 'PARÁMETROS'");
+
+        return t.cards('id', 'name', 'desc', 'idList').then(openCards => {
+          var configCard = openCards.find(c => c.idList === paramList.id && c.name && (c.name.toLowerCase().includes('gestión de facturas') || c.name.toLowerCase().includes('gestion de facturas')));
+          if (!configCard) throw new Error("No se encontró tarjeta 'Gestión de facturas'");
+            
+          var desc = configCard.desc || "";
+          var lines = desc.split(/\r?\n/);
+          var year = new Date().getFullYear();
+          var seq = 0;
+          var otherLines = [];
+          
+          lines.forEach(line => {
+            var trimmed = line.trim();
+            if (!trimmed) return;
+            if (/año.*proforma/i.test(trimmed)) {
+              var m = trimmed.match(/\d+/);
+              if (m) year = parseInt(m[0], 10);
+            } else if (/secuencial.*proforma/i.test(trimmed)) {
+              var m = trimmed.match(/\d+/);
+              if (m) seq = Math.max(seq, parseInt(m[0], 10));
+            } else {
+              otherLines.push(line);
+            }
+          });
+          
+          var nextSeq = seq + 1;
+          var numProforma = year + "/" + nextSeq;
+          var newDesc = ["Año de proforma: " + year, "Secuencial de proforma: " + nextSeq].concat(otherLines).join("\n");
+
+          return fetch(`https://api.trello.com/1/cards/${configCard.id}?key=${appKey}&token=${token}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ desc: newDesc })
+          }).then(res => {
+            if (!res.ok) throw new Error("Error al actualizar secuencial de proforma");
+            return numProforma;
+          });
+        });
+      });
+    }
+
+    // --- ACCIÓN DE SUBIDA E IMPORTES ---
+    function getOrCreateFacturasCard(t, idList, token) {
+      var appKey = t.getRestApi().appKey;
+      return fetch(`https://api.trello.com/1/lists/${idList}/cards?key=${appKey}&token=${token}`)
+        .then(res => res.json())
+        .then(cards => {
+          var facturasCard = cards.find(c => {
+            var n = c.name.trim().toLowerCase();
+            return n === "facturas" || n === "facturación" || n === "facturacion";
+          });
+          if (facturasCard) return facturasCard.id;
+          
+          var newPos = 'top';
+          if (cards.length > 1) newPos = (cards[0].pos + cards[1].pos) / 2;
+          else if (cards.length === 1) newPos = cards[0].pos + 16384;
+          
+          return fetch(`https://api.trello.com/1/cards?idList=${idList}&name=Facturas&pos=${newPos}&key=${appKey}&token=${token}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(newCard => newCard.id);
+        });
+    }
+
+    // Función para actualizar la checklist "Relación de proformas"
+    function updateProformasChecklistOnCard(t, targetCardId, token, today, numProforma, nombreCliente, dniCliente, proformaAmount, cobraAmount) {
+      var appKey = t.getRestApi().appKey;
+      var cleanNombre = (nombreCliente || "Cliente Desconocido").replace(/\|/g, " ");
+      var cleanDni = (dniCliente || "___________").replace(/\|/g, " ");
+      var cleanProforma = proformaAmount.replace(/\|/g, " ");
+      var cleanCobra = cobraAmount.replace(/\|/g, " ");
+
+      return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?key=${appKey}&token=${token}`)
+        .then(res => res.json())
+        .then(checklists => {
+          var targetChecklistName = "Relación de proformas";
+          var ch = checklists.find(c => c.name.trim().toLowerCase() === targetChecklistName.toLowerCase());
+          var newItemText = `${today} | Nº: ${numProforma} | ${cleanNombre} | DNI: ${cleanDni} | Importe: ${cleanProforma} | Cliente Cobra: ${cleanCobra} | MODO: T/T`;
+
+          if (ch) {
+            // Eliminar si ya existe un ítem con este número para evitar duplicados
+            var item = ch.checkItems.find(i => i.name.indexOf(`Nº: ${numProforma}`) > -1 || i.name.indexOf(`Nº:  ${numProforma}`) > -1);
+            if (item) {
+              return fetch(`https://api.trello.com/1/checklists/${ch.id}/checkItems/${item.id}?key=${appKey}&token=${token}`, { method: 'DELETE' })
+                .then(() => fetch(`https://api.trello.com/1/checklists/${ch.id}/checkItem?name=${encodeURIComponent(newItemText)}&pos=bottom&key=${appKey}&token=${token}`, { method: 'POST' }));
+            } else {
+              return fetch(`https://api.trello.com/1/checklists/${ch.id}/checkItem?name=${encodeURIComponent(newItemText)}&pos=bottom&key=${appKey}&token=${token}`, { method: 'POST' });
+            }
+          } else {
+            // Crear checklist completa
+            return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?name=${encodeURIComponent(targetChecklistName)}&pos=bottom&key=${appKey}&token=${token}`, { method: 'POST' })
+              .then(res => res.json())
+              .then(newCh => {
+                return fetch(`https://api.trello.com/1/checklists/${newCh.id}/checkItem?name=${encodeURIComponent(newItemText)}&pos=bottom&key=${appKey}&token=${token}`, { method: 'POST' });
+              });
+          }
+        });
+    }
+
+    // Función para actualizar la tarjeta "Importes" de la lista correspondiente
+    function updateProformasInImportesCard(t, token, checklistProformas) {
+      return t.card('idList').then(function(currentCard) {
+        return t.cards('id', 'name', 'desc', 'idList').then(function(cards) {
+          var cardsInList = cards.filter(c => c.idList === currentCard.idList);
+          var importesCard = cardsInList.find(c => c.name.toLowerCase().includes("importes"));
+          if (!importesCard) return;
+
+          var currentDesc = importesCard.desc || "";
+          var lines = currentDesc.split(/\r?\n/);
+          var prunedLines = [];
+
+          // Filtrar líneas previas de proformas para reescribirlas limpias
+          lines.forEach(function(line) {
+            var sepIndex = line.indexOf(':');
+            if (sepIndex === -1) sepIndex = line.indexOf('=');
+            if (sepIndex > -1) {
+              var key = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+              var keyClean = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+              
+              if (/^importe proforma\s*\d*$/i.test(keyClean)) {
+                return; // Excluir línea
+              }
+            }
+            prunedLines.push(line);
+          });
+
+          // Insertar los nuevos secuenciales de proformas activas
+          if (checklistProformas && checklistProformas.length > 0) {
+            prunedLines.push(""); // Separador
+            checklistProformas.forEach((item, index) => {
+              var idx = index + 1;
+              var suffix = (idx === 1) ? '' : ' ' + idx;
+              prunedLines.push("**Importe Proforma" + suffix + "**: " + item.importe);
+            });
+          }
+
+          // Limpiar saltos de línea repetidos al final
+          var finalLines = [];
+          prunedLines.forEach(function(line) {
+            if (line.trim() === "") {
+              if (finalLines.length > 0 && finalLines[finalLines.length - 1].trim() !== "") {
+                finalLines.push("");
+              }
+            } else {
+              finalLines.push(line);
+            }
+          });
+          while (finalLines.length > 0 && finalLines[finalLines.length - 1].trim() === "") {
+            finalLines.pop();
+          }
+
+          var finalDesc = finalLines.join('\n');
+          var appKey = t.getRestApi().appKey;
+
+          return fetch(`https://api.trello.com/1/cards/${importesCard.id}?key=${appKey}&token=${token}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ desc: finalDesc })
+          });
+        });
+      });
+    }
+
+    // Función para actualizar la tarjeta "Historial de procesos"
+    function updateHistoryCard(t, idList, isAction, checklistProformas) {
+      return getUnifiedFields(t).then(function(data) {
+        var unified = data.fields;
+        return t.getRestApi().getToken().then(function(token) {
+          if (!token) return;
+          var appKey = t.getRestApi().appKey;
+          var today = new Date().toLocaleDateString('es-ES');
+
+          return fetch(`https://api.trello.com/1/lists/${idList}/cards?key=${appKey}&token=${token}`)
+            .then(res => res.json())
+            .then(cards => {
+              var personalCard = cards.find(c => c.name.toLowerCase().includes("datos personales"));
+              var historyCard = cards.find(c => c.name.toLowerCase().includes("historial de procesos") || c.name.toLowerCase().includes("historial de avisos"));
+              
+              var historyKeys = [
+                { label: "**Fecha del sistema:**", prop: "fecha_sistema" },
+                { label: "**Fecha última actuación sobre el expediente:**", prop: "fecha_ultima" },
+                { label: "**Fecha cierre expediente:**", prop: "fecha_cierre" },
+                { label: "**Fecha de resolución:**", prop: "fecha_resolucion" },
+                { label: "**Fecha de comunicación designación:**", prop: "fecha_designa" },
+                { label: "**Fecha de reclamación previa:**", prop: "fecha_reclamacion" },
+                { label: "**Fecha creación de expediente:**", prop: "fecha_apertura" },
+                { label: "**Fecha del siniestro:**", prop: "fecha" }
+              ];
+
+              if (historyCard) {
+                var desc = historyCard.desc || "";
+                var lines = desc.split('\n');
+                var values = {};
+
+                historyKeys.forEach(item => {
+                  var regex = new RegExp(item.label.replace(/\*/g, '\\*') + "\\s*([^\\n]*)", "i");
+                  var match = desc.match(regex);
+                  values[item.prop] = match ? match[1].trim() : "___________";
+                  if (values[item.prop] === "___________" && unified[item.prop] && unified[item.prop] !== "___________") {
+                    values[item.prop] = unified[item.prop];
+                  }
+                });
+
+                if (values.fecha_sistema !== today) values.fecha_sistema = today;
+                if (isAction) values.fecha_ultima = today;
+                if (unified.fecha !== "___________" && values.fecha !== unified.fecha) values.fecha = unified.fecha;
+                if (personalCard && values.fecha_apertura === "___________") {
+                  values.fecha_apertura = new Date(1000 * parseInt(personalCard.id.substring(0, 8), 16)).toLocaleDateString('es-ES');
+                }
+                
+                var newDescLines = [];
+                historyKeys.forEach(item => {
+                  newDescLines.push(item.label + " " + values[item.prop]);
+                });
+
+                // Conservar líneas que no correspondan a proformas ni claves estándar
+                lines.forEach(line => {
+                  var lineLower = line.trim().toLowerCase();
+                  if (lineLower.includes("proforma")) {
+                    return; // Excluir antiguas para reescribir ordenado
+                  }
+                  var isKeyLine = historyKeys.some(item => {
+                    var baseLabel = item.label.replace(/\*/g, '').replace(/:$/, '').trim().toLowerCase();
+                    var variations = [baseLabel];
+                    if (baseLabel.includes("creación de expediente")) variations.push("fecha apertura expediente");
+                    if (baseLabel.includes("comunicación designación")) variations.push("fecha comunicación designa");
+                    if (baseLabel.includes("siniestro")) variations.push("fecha siniestro");
+                    return variations.some(v => lineLower.indexOf(v) === 0 || lineLower.includes(v));
+                  });
+                  if (!isKeyLine && line.trim() !== "") newDescLines.push(line);
+                });
+
+                // Añadir proformas de forma secuencial al Historial de procesos
+                if (checklistProformas && checklistProformas.length > 0) {
+                  newDescLines.push(""); // Separador
+                  checklistProformas.forEach((item, index) => {
+                    var idx = index + 1;
+                    var suffix = (idx === 1) ? '' : idx;
+                    newDescLines.push(`**Fecha de proforma${suffix}:** ${item.fecha}`);
+                    newDescLines.push(`**Proforma${suffix}:** ${item.numero}`);
+                    newDescLines.push(`**Importe proforma${suffix}:** ${item.importe}`);
+                  });
+                }
+
+                var finalDesc = newDescLines.join('\n');
+                return fetch(`https://api.trello.com/1/cards/${historyCard.id}?key=${appKey}&token=${token}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ desc: finalDesc })
+                });
+              }
+            });
+        });
+      });
+    }
+
+    // --- CARGAR DATOS CRUZADOS ---
+    function extractFields(desc) {
+      var fields = { nombre: "Cliente Desconocido", dni: "___________", domicilio: "___________", fecha_apertura: "___________" };
+      if (!desc) return fields;
+      var m;
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*NOMBRE Y APELLIDOS\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.nombre = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DNI\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DOMICILIO\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
+      return fields;
+    }
+
+    function normalizeListName(name) {
+      if (!name) return "";
+      return name.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ');
+    }
+
+    function getCrossBoardBillingData(t) {
+      return Promise.all([
+        getUnifiedFields(t),
+        t.getRestApi().getToken(),
+        t.list('name'),
+        t.board('id', 'name')
+      ]).then(results => {
+        var localData = results[0];
+        var token = results[1];
+        var currentListName = results[2].name;
+        var currentBoard = results[3];
+        var currentBoardName = currentBoard ? currentBoard.name : "";
+        var fields = localData.fields;
+        var appKey = t.getRestApi().appKey;
+
+        if (!token) throw new Error('REQUIRED_AUTHORIZATION');
+
+        var searchQuery = encodeURIComponent('name:"Tipo tablero"');
+        return fetch(`https://api.trello.com/1/search?query=${searchQuery}&modelTypes=cards&card_fields=name,idBoard&key=${appKey}&token=${token}&cards_limit=100`)
+          .then(res => res.json())
+          .then(searchData => {
+            var cards = searchData.cards || [];
+            var clientCards = cards.filter(c => {
+              var n = c.name.toUpperCase();
+              return n.includes('TIPO TABLERO') && n.includes('CLIENTES');
+            });
+            if (clientCards.length === 0) throw new Error('No se encontró tableros de CLIENTES');
+            var uniqueBoardIds = [];
+            clientCards.forEach(c => { if (uniqueBoardIds.indexOf(c.idBoard) === -1) uniqueBoardIds.push(c.idBoard); });
+            return uniqueBoardIds;
+          })
+          .then(idBoardsClientes => {
+            var promises = idBoardsClientes.map(boardId => {
+              return fetch(`https://api.trello.com/1/boards/${boardId}/lists?key=${appKey}&token=${token}`)
+                .then(res => res.ok ? res.json() : [])
+                .then(lists => {
+                  var foundList = lists.find(l => normalizeListName(l.name) === normalizeListName(currentListName));
+                  return foundList ? { listId: foundList.id, boardId: boardId } : null;
+                });
+            });
+            return Promise.all(promises).then(res => {
+              var matches = res.filter(r => r !== null);
+              if (matches.length === 0) return null;
+              
+              var rankingPromises = matches.map(match => {
+                return fetch(`https://api.trello.com/1/boards/${match.boardId}?fields=name&key=${appKey}&token=${token}`)
+                  .then(r => r.json())
+                  .then(b => { return { match: match, boardName: b.name }; })
+                  .catch(() => { return { match: match, boardName: "" }; });
+              });
+              
+              return Promise.all(rankingPromises).then(ranked => {
+                var bestMatch = null;
+                var bestScore = -1;
+                ranked.forEach(item => {
+                  var score = 0;
+                  var bNameUpper = item.boardName.toUpperCase();
+                  var curNameUpper = currentBoardName.toUpperCase();
+                  var wordsCur = curNameUpper.replace(/FACTURACION|FACTURACIÓN/g, '').split(/\s+/).filter(Boolean);
+                  var wordsCand = bNameUpper.replace(/CLIENTES/g, '').split(/\s+/).filter(Boolean);
+                  var commonWords = wordsCur.filter(w => wordsCand.indexOf(w) > -1);
+                  score = commonWords.length;
+                  if (bNameUpper.includes("CLIENTES")) score += 1;
+                  if (score > bestScore) {
+                    bestScore = score;
+                    bestMatch = item.match;
+                  }
+                });
+                return bestMatch || matches[0];
+              });
+            });
+          })
+          .then(match => {
+            if (!match) throw new Error('No se encontró lista coincidente en Clientes.');
+            return fetch(`https://api.trello.com/1/lists/${match.listId}/cards?fields=name,desc&key=${appKey}&token=${token}`)
+              .then(res => res.json())
+              .then(clientCards => {
+                var clientFields = { nombre: "___________", dni: "___________", domicilio: "___________", fecha_apertura: "___________" };
+                var found = { nombre: false, dni: false, domicilio: false, fecha_apertura: false };
+                var cards = clientCards || [];
+                cards.sort((a,b) => (b.name.toLowerCase().includes("datos personales") ? 100 : 0) - (a.name.toLowerCase().includes("datos personales") ? 100 : 0));
+                
+                cards.forEach(card => {
+                  var parsed = extractFields(card.desc);
+                  if (!found.nombre && parsed.nombre !== "Cliente Desconocido") { clientFields.nombre = parsed.nombre; found.nombre = true; }
+                  if (!found.dni && parsed.dni !== "___________") { clientFields.dni = parsed.dni; found.dni = true; }
+                  if (!found.domicilio && parsed.domicilio !== "___________") { clientFields.domicilio = parsed.domicilio; found.domicilio = true; }
+                });
+
+                // Adjuntar idList de clientes para posterior actualización de historial
+                clientFields.idListClientes = match.listId;
+
+                // Cruzar con campos unificados locales
+                for (var key in clientFields) {
+                  fields[key] = clientFields[key];
+                  fields[key.toLowerCase()] = clientFields[key];
+                }
+                return { fields: fields, token: token, idList: match.listId, idListClientes: match.listId };
+              });
+          });
+      });
+    }
+
+    // --- LEER CAMPOS UNIFICADOS DEL TABLERO LOCAL ---
+    function getUnifiedFields(t) {
+      return t.card('id', 'idList').then(function (currentCard) {
+        var idList = currentCard.idList;
+        return Promise.all([
+          t.cards('id', 'name', 'desc', 'idList'),
+          t.lists('all'),
+          t.board('id', 'name')
+        ]).then(function (results) {
+          var allCards = results[0];
+          var allLists = results[1];
+          var currentBoard = results[2];
+          var currentBoardName = currentBoard ? currentBoard.name : "";
+          var currentList = allLists.find(l => l.id === idList);
+          var listName = currentList ? currentList.name : "___________";
+
+          var fields = {
+            nombre: "Cliente Desconocido",
+            dni: "___________",
+            domicilio: "___________",
+            fecha_sistema: new Date().toLocaleDateString('es-ES'),
+            fecha_ultima: new Date().toLocaleDateString('es-ES'),
+            idList: idList,
+            targetCardId: currentCard.id
+          };
+
+          var cardsInList = allCards.filter(c => c.idList === idList);
+          var facturasCard = cardsInList.find(c => {
+            var n = c.name.trim().toLowerCase();
+            return n === "facturas" || n === "facturación" || n === "facturacion";
+          });
+
+          if (facturasCard) {
+            fields._facturasCardId = facturasCard.id;
+          }
+
+          return { fields: fields, idList: idList, targetCardId: currentCard.id };
+        });
+      });
+    }
+
+    // --- PARSEAR CHECKLIST DE PROFORMAS DESDE TRELLO ---
+    function getChecklistProformas(t, facturasCardId, token) {
+      var appKey = t.getRestApi().appKey;
+      if (!facturasCardId) return Promise.resolve([]);
+      return fetch(`https://api.trello.com/1/cards/${facturasCardId}/checklists?key=${appKey}&token=${token}`)
+        .then(res => res.json())
+        .then(checklists => {
+          var ch = checklists.find(c => c.name.trim().toLowerCase() === "relación de proformas");
+          if (!ch || !ch.checkItems || ch.checkItems.length === 0) return [];
+          
+          var listItems = ch.checkItems.concat().sort((a,b) => a.pos - b.pos);
+          var itemsParsed = [];
+          listItems.forEach(item => {
+            var parts = item.name.split('|').map(s => s.trim());
+            if (parts.length >= 2) {
+              var fDate = parts[0] || "___________";
+              var fNum = "___________";
+              var numPart = parts.find(p => /^(?:N[º°o]:|N[º°o]\s*:|Factura:|Proforma:|Num:)/i.test(p));
+              if (numPart) {
+                fNum = numPart.replace(/^(?:N[º°o]:|N[º°o]\s*:|Factura:|Proforma:|Num:)\s*/i, '').trim();
+              } else {
+                fNum = parts[1] || "___________";
+              }
+              var fAmount = "___________";
+              var amtPart = parts.find(p => /^(?:Base:|Importe:|Total:|Importe Proforma:)/i.test(p));
+              if (amtPart) {
+                fAmount = amtPart.replace(/^(?:Base:|Importe:|Total:|Importe Proforma:)\s*/i, '').trim();
+              } else {
+                // Si viene del formato anterior o es la última parte
+                var basePart = parts.find(p => p.toLowerCase().includes("importe:"));
+                if (basePart) {
+                  fAmount = basePart.replace(/^(?:Importe:)\s*/i, '').trim();
+                } else {
+                  fAmount = parts[4] || parts[parts.length - 1] || "___________";
+                }
+              }
+              itemsParsed.push({ fecha: fDate, numero: fNum, importe: fAmount });
+            }
+          });
+          return itemsParsed;
+        })
+        .catch(() => []);
+    }
+
+    // --- INICIALIZAR Y EVENT LISTENERS ---
+    t.render(function() {
+      if (cachedData) {
+        t.sizeTo(document.body).done();
+        return;
+      }
+      cachedData = true;
+
+      setStatus("Obteniendo datos del tablero...");
+
+      t.getRestApi().isAuthorized().then(function(auth) {
+        if (!auth) {
+          setStatus('Por favor, <a href="#" id="auth-link" style="color: #de350b; font-weight: bold; text-decoration: underline;">autoriza la API primero 🔑</a> para poder generar proformas.', true);
+          document.getElementById('auth-link').addEventListener('click', function(e) {
+            e.preventDefault();
+            t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href })
+              .then(function(token) { if (token) window.location.reload(); })
+              .catch(err => console.error("Error al autorizar:", err));
+          });
+          return;
+        }
+        
+        getUnifiedFields(t).then(function(data) {
+          setStatus("Listo para generar proforma.");
+          t.sizeTo(document.body).done();
+        });
+      });
+    });
+
+    document.getElementById('btn-cancelar').addEventListener('click', function() {
+      t.closeModal();
+    });
+
+    // Acción principal
+    document.getElementById('btn-proforma').addEventListener('click', function(e) {
+      e.preventDefault();
+      var inputCobra = document.getElementById('cliente-cobra-input').value.trim();
+      var inputProforma = document.getElementById('importe-proforma').value.trim();
+
+      if (!inputCobra || !inputProforma) {
+        return t.alert({ message: 'Por favor, introduce el importe del Cliente Cobra y de la Proforma.', duration: 5, display: 'warning' });
+      }
+
+      document.getElementById('proforma-upload').click();
+    });
+
+    document.getElementById('proforma-upload').addEventListener('change', function(event) {
+      if (!event.target.files || event.target.files.length === 0) return;
+      var file = event.target.files[0];
+      
+      setStatus('Obteniendo datos del expediente...');
+
+      var inputCobra = document.getElementById('cliente-cobra-input').value.trim();
+      var inputProforma = document.getElementById('importe-proforma').value.trim();
+      var valCobra = parseSpanishFloat(inputCobra);
+      var valProforma = parseSpanishFloat(inputProforma);
+
+      getCrossBoardBillingData(t).then(function(data) {
+        var fields = data.fields;
+        var token = data.token;
+
+        setStatus('Generando correlativo de proforma...');
+
+        return getAndUpdateProformaNumber(t, token).then(function(numProforma) {
+          var today = new Date().toLocaleDateString('es-ES');
+          
+          fields.proforma = numProforma;
+          fields.fecha_proforma = today;
+          fields.importe_proforma = formatSpanishCurrency(valProforma);
+          fields.cliente_cobra_proforma = formatSpanishCurrency(valCobra);
+          
+          // Compatibilidad exacta con placeholders en Excel
+          fields["Importe Proforma"] = formatSpanishCurrency(valProforma);
+          fields["Cliente Cobra"] = formatSpanishCurrency(valCobra);
+          fields["Número de proforma"] = numProforma;
+          fields["Número proforma"] = numProforma;
+          fields["número de proforma"] = numProforma;
+          fields["número proforma"] = numProforma;
+          fields["fecha proforma"] = today;
+
+          setStatus('Procesando plantilla Excel de proforma...');
+
+          var reader = new FileReader();
+          reader.onload = async function (e) {
+            try {
+              var workbook = new ExcelJS.Workbook();
+              await workbook.xlsx.load(e.target.result);
+              workbook.eachSheet(function (worksheet) {
+                worksheet.eachRow(function (row) {
+                  row.eachCell(function (cell) {
+                    if (cell.value) {
+                      if (cell.value.richText) {
+                        cell.value.richText.forEach(function (rt) {
+                          if (rt.text) rt.text = replaceExcelPlaceholders(rt.text, fields, false);
+                        });
+                      } else if (typeof cell.value === 'string') {
+                        var originalVal = cell.value.trim();
+                        var replaced = replaceExcelPlaceholders(cell.value, fields, false);
+                        
+                        var isSinglePlaceholder = originalVal.startsWith('{{') && originalVal.endsWith('}}');
+                        if (isSinglePlaceholder) {
+                          var cleanNum = replaced.replace(/[^\d.,-]/g, '').trim();
+                          if (cleanNum) {
+                            var checkVal = cleanNum;
+                            if (checkVal.indexOf(',') > -1) {
+                              checkVal = checkVal.replace(/\./g, '').replace(',', '.');
+                            }
+                            var num = parseFloat(checkVal);
+                            var expectedReplaced = replaced.replace(/[\s€]/g, '').trim();
+                            if (!isNaN(num) && cleanNum === expectedReplaced) {
+                              cell.value = num;
+                            } else {
+                              cell.value = replaced;
+                            }
+                          } else {
+                            cell.value = replaced;
+                          }
+                        } else {
+                          cell.value = replaced;
+                        }
+                      }
+                    }
+                  });
+                });
+              });
+
+              var buffer = await workbook.xlsx.writeBuffer();
+              var outContent = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+              var baseTemplateName = file.name.substring(0, file.name.lastIndexOf('.'));
+              var cleanProformaNum = numProforma.replace(/\//g, "-");
+              var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + "_" + cleanProformaNum + ".xlsx";
+
+              setStatus('Obteniendo tarjeta de Facturas...');
+
+              getOrCreateFacturasCard(t, fields.idList, token)
+                .then(function(targetCardId) {
+                  setStatus('Subiendo Proforma a Trello...');
+
+                  var formData = new FormData();
+                  formData.append("key", t.getRestApi().appKey);
+                  formData.append("token", token);
+                  formData.append("file", outContent, nombreFinal);
+                  formData.append("name", nombreFinal);
+
+                  var urlParams = new URLSearchParams();
+                  urlParams.append('key', t.getRestApi().appKey);
+                  urlParams.append('token', token);
+
+                  return fetch(`https://api.trello.com/1/cards/${targetCardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData })
+                    .then(res => {
+                      if (!res.ok) throw new Error('Error al adjuntar el archivo.');
+                      return targetCardId;
+                    });
+                })
+                .then(function(targetCardId) {
+                  setStatus('Actualizando checklist "Relación de proformas"...');
+                  var formattedProforma = formatSpanishCurrency(valProforma);
+                  var formattedCobra = formatSpanishCurrency(valCobra);
+                  return updateProformasChecklistOnCard(t, targetCardId, token, today, numProforma, fields.nombre, fields.dni, formattedProforma, formattedCobra)
+                    .then(() => targetCardId);
+                })
+                .then(function(targetCardId) {
+                  setStatus('Actualizando tarjeta "Importes"...');
+                  return getChecklistProformas(t, targetCardId, token)
+                    .then(checklistProformas => {
+                      return updateProformasInImportesCard(t, token, checklistProformas)
+                        .then(() => checklistProformas);
+                    });
+                })
+                .then(function(checklistProformas) {
+                  setStatus('Actualizando Historial de procesos...');
+                  var targetHistoryListId = fields.idListClientes || fields.idList;
+                  return updateHistoryCard(t, targetHistoryListId, true, checklistProformas);
+                })
+                .then(function() {
+                  // Guardar el archivo generado localmente en el navegador también
+                  window.saveAs(outContent, nombreFinal);
+                  
+                  setStatus('¡Proforma completada con éxito!');
+                  t.alert({ message: 'Proforma generada y adjuntada correctamente.', duration: 4, display: 'success' });
+                  setTimeout(() => t.closeModal(), 1500);
+                });
+
+            } catch (err) {
+              console.error(err);
+              setStatus('Error al procesar el Excel: ' + err.message, true);
+            }
+          };
+          reader.readAsArrayBuffer(file);
+        });
+      }).catch(err => {
+        console.error(err);
+        setStatus('Error: ' + err.message, true);
+      });
+    });
+  </script>
+</body>
+</html>

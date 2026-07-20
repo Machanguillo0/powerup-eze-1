@@ -726,6 +726,84 @@
           delete unified["total_factura" + s];
         }
       }
+
+      // PARSEAR PROFORMAS
+      var chProformas = checklists.find(function(c) {
+        var n = c.name.trim().toLowerCase();
+        return n === "relación de proformas" || n === "relacion de proformas";
+      });
+      if (chProformas && chProformas.checkItems && chProformas.checkItems.length > 0) {
+        unified._hasChecklistProformas = true;
+        unified.proforma = "___________";
+        unified.fecha_proforma = "___________";
+        unified.importe_proforma = "___________";
+        unified.cliente_cobra_proforma = "___________";
+        for (var s = 2; s <= 10; s++) {
+          delete unified["proforma" + s];
+          delete unified["fecha_proforma" + s];
+          delete unified["importe_proforma" + s];
+          delete unified["cliente_cobra_proforma" + s];
+        }
+        var checkItemsProformas = chProformas.checkItems.concat().sort(function(a, b) {
+          return a.pos - b.pos;
+        });
+        checkItemsProformas.forEach(function(item, index) {
+          var idx = index + 1;
+          var suffix = (idx === 1) ? '' : idx;
+          var parts = item.name.split('|').map(function(s) { return s.trim(); });
+          if (parts.length >= 2) {
+            var fDate = parts[0] || "___________";
+            var fNum = "___________";
+            var numPart = parts.find(function(p) { return /^(?:N[º°o]:|N[º°o]\s*:|Proforma:|Num:)/i.test(p); });
+            if (numPart) {
+              fNum = numPart.replace(/^(?:N[º°o]:|N[º°o]\s*:|Proforma:|Num:)\s*/i, '').trim();
+            } else {
+              fNum = parts[1] || "___________";
+            }
+            var fAmount = "___________";
+            var basePart = parts.find(function(p) { return /^(?:Importe:)/i.test(p); });
+            if (basePart) {
+              fAmount = basePart.replace(/^(?:Importe:)\s*/i, '').trim();
+            } else {
+              var basePart2 = parts.find(p => p.toLowerCase().includes("importe:"));
+              if (basePart2) {
+                fAmount = basePart2.replace(/^(?:Importe:)\s*/i, '').trim();
+              } else {
+                fAmount = parts[parts.length - 2] || parts[parts.length - 1] || "___________";
+              }
+            }
+            var fCobra = "___________";
+            var cobraPart = parts.find(function(p) { return /^(?:Cliente Cobra:)/i.test(p); });
+            if (cobraPart) {
+              fCobra = cobraPart.replace(/^(?:Cliente Cobra:)\s*/i, '').trim();
+            }
+
+            unified["proforma" + suffix] = fNum;
+            unified["fecha_proforma" + suffix] = fDate;
+            unified["importe_proforma" + suffix] = fAmount;
+            unified["cliente_cobra_proforma" + suffix] = fCobra;
+
+            if (idx === 1) {
+              unified.proforma = fNum;
+              unified.fecha_proforma = fDate;
+              unified.importe_proforma = fAmount;
+              unified.cliente_cobra_proforma = fCobra;
+            }
+          }
+        });
+      } else {
+        unified._hasChecklistProformas = false;
+        unified.proforma = "___________";
+        unified.fecha_proforma = "___________";
+        unified.importe_proforma = "___________";
+        unified.cliente_cobra_proforma = "___________";
+        for (var s = 2; s <= 10; s++) {
+          delete unified["proforma" + s];
+          delete unified["fecha_proforma" + s];
+          delete unified["importe_proforma" + s];
+          delete unified["cliente_cobra_proforma" + s];
+        }
+      }
     }
 
     function cleanupUnifiedBillingFields(unified, N) {
