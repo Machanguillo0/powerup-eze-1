@@ -117,6 +117,16 @@
     <input type="text" id="importe-proforma" class="editable-input" placeholder="Ej. 1.250,50">
   </div>
 
+  <div class="form-group">
+    <label for="modo-input">Modo</label>
+    <input type="text" id="modo-input" class="editable-input" value="T/T">
+  </div>
+
+  <div class="form-group">
+    <label for="concepto-contabilidad">Concepto interno para contabilidad</label>
+    <input type="text" id="concepto-contabilidad" class="editable-input" value="Negociación IS">
+  </div>
+
   <div class="actions">
     <button id="btn-cancelar" class="btn-secondary">Cancelar</button>
     <button id="btn-proforma" class="btn-primary">Generar Proforma</button>
@@ -430,37 +440,40 @@
     }
 
     // Función para actualizar la checklist "Relación de proformas"
-    function updateProformasChecklistOnCard(t, targetCardId, token, today, numProforma, nombreCliente, dniCliente, proformaAmount, igicAmount, totalAmount, cobraAmount) {
+    function updateProformasChecklistOnCard(t, targetCardId, token, today, numProforma, nombreCliente, dniCliente, proformaAmount, igicAmount, totalAmount, cobraAmount, modo, concepto) {
       var appKey = t.getRestApi().appKey;
       var cleanNombre = (nombreCliente || "Cliente Desconocido").replace(/\|/g, " ");
       var cleanDni = (dniCliente || "___________").replace(/\|/g, " ");
-      var cleanProforma = proformaAmount.replace(/\|/g, " ");
-      var cleanIgic = igicAmount.replace(/\|/g, " ");
-      var cleanTotal = totalAmount.replace(/\|/g, " ");
-      var cleanCobra = cobraAmount.replace(/\|/g, " ");
+      var cleanProforma = (proformaAmount || "___________").replace(/\|/g, " ");
+      var cleanIgic = (igicAmount || "___________").replace(/\|/g, " ");
+      var cleanTotal = (totalAmount || "___________").replace(/\|/g, " ");
+      var cleanCobra = (cobraAmount || "___________").replace(/\|/g, " ");
+      var cleanModo = (modo || "T/T").replace(/\|/g, " ");
+      var cleanConcepto = (concepto || "Negociación IS").replace(/\|/g, " ");
 
       return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?key=${appKey}&token=${token}`)
         .then(res => res.json())
         .then(checklists => {
           var targetChecklistName = "Relación de proformas";
           var ch = checklists.find(c => c.name.trim().toLowerCase() === targetChecklistName.toLowerCase());
-          var newItemText = `${today} | Nº: ${numProforma} | ${cleanNombre} | DNI: ${cleanDni} | Importe: ${cleanProforma} | IGIC: ${cleanIgic} | Total: ${cleanTotal} | Cliente Cobra: ${cleanCobra} | MODO: T/T`;
+          var newItemText = `${today} | Nº: ${numProforma} | ${cleanNombre} | DNI: ${cleanDni} | Importe: ${cleanProforma} | IGIC: ${cleanIgic} | Total: ${cleanTotal} | MODO: ${cleanModo} | ${cleanConcepto}`;
 
           if (ch) {
-            // Eliminar si ya existe un ítem con este número para evitar duplicados
-            var item = ch.checkItems.find(i => i.name.indexOf(`Nº: ${numProforma}`) > -1 || i.name.indexOf(`Nº:  ${numProforma}`) > -1);
+            var item = ch.checkItems ? ch.checkItems.find(i => i.name.indexOf(`Nº: ${numProforma}`) > -1 || i.name.indexOf(`Nº:  ${numProforma}`) > -1) : null;
             if (item) {
-              return fetch(`https://api.trello.com/1/checklists/${ch.id}/checkItems/${item.id}?key=${appKey}&token=${token}`, { method: 'DELETE' })
-                .then(() => fetch(`https://api.trello.com/1/checklists/${ch.id}/checkItem?name=${encodeURIComponent(newItemText)}&pos=bottom&key=${appKey}&token=${token}`, { method: 'POST' }));
+              var urlParams = new URLSearchParams({ name: newItemText });
+              return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklist/${ch.id}/checkItem/${item.id}?key=${appKey}&token=${token}&${urlParams.toString()}`, { method: 'PUT' });
             } else {
-              return fetch(`https://api.trello.com/1/checklists/${ch.id}/checkItem?name=${encodeURIComponent(newItemText)}&pos=bottom&key=${appKey}&token=${token}`, { method: 'POST' });
+              var urlParams = new URLSearchParams({ name: newItemText });
+              return fetch(`https://api.trello.com/1/checklists/${ch.id}/checkItems?key=${appKey}&token=${token}&${urlParams.toString()}`, { method: 'POST' });
             }
           } else {
-            // Crear checklist completa
-            return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?name=${encodeURIComponent(targetChecklistName)}&pos=bottom&key=${appKey}&token=${token}`, { method: 'POST' })
+            var urlParams = new URLSearchParams({ name: targetChecklistName });
+            return fetch(`https://api.trello.com/1/cards/${targetCardId}/checklists?key=${appKey}&token=${token}&${urlParams.toString()}`, { method: 'POST' })
               .then(res => res.json())
               .then(newCh => {
-                return fetch(`https://api.trello.com/1/checklists/${newCh.id}/checkItem?name=${encodeURIComponent(newItemText)}&pos=bottom&key=${appKey}&token=${token}`, { method: 'POST' });
+                var urlParamsItem = new URLSearchParams({ name: newItemText });
+                return fetch(`https://api.trello.com/1/checklists/${newCh.id}/checkItems?key=${appKey}&token=${token}&${urlParamsItem.toString()}`, { method: 'POST' });
               });
           }
         });
@@ -1584,6 +1597,9 @@
 
       var inputCobra = document.getElementById('cliente-cobra-input').value.trim();
       var inputProforma = document.getElementById('importe-proforma').value.trim();
+      var inputModo = document.getElementById('modo-input').value.trim() || "T/T";
+      var inputConcepto = document.getElementById('concepto-contabilidad').value.trim() || "Negociación IS";
+      
       var valCobra = parseSpanishFloat(inputCobra);
       var valProforma = parseSpanishFloat(inputProforma);
 
@@ -1620,6 +1636,12 @@
           fields["Igic_proforma"] = formatSpanishCurrency(valIgic);
           fields["Total Proforma"] = formatSpanishCurrency(valTotal);
           fields["Total_proforma"] = formatSpanishCurrency(valTotal);
+          
+          fields["Modo"] = inputModo;
+          fields["modo"] = inputModo;
+          fields["Concepto"] = inputConcepto;
+          fields["concepto"] = inputConcepto;
+          fields["Concepto interno para contabilidad"] = inputConcepto;
           
           fields["Número de proforma"] = numProforma;
           fields["Número proforma"] = numProforma;
@@ -1707,7 +1729,7 @@
                   var formattedIgic = formatSpanishCurrency(valIgic);
                   var formattedTotal = formatSpanishCurrency(valTotal);
                   var formattedCobra = formatSpanishCurrency(valCobra);
-                  return updateProformasChecklistOnCard(t, targetCardId, token, today, numProforma, fields.nombre, fields.dni, formattedProforma, formattedIgic, formattedTotal, formattedCobra)
+                  return updateProformasChecklistOnCard(t, targetCardId, token, today, numProforma, fields.nombre, fields.dni, formattedProforma, formattedIgic, formattedTotal, formattedCobra, inputModo, inputConcepto)
                     .then(() => targetCardId);
                 })
                 .then(function(targetCardId) {
