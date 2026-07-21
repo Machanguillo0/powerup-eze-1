@@ -1566,6 +1566,45 @@
         }
         
         getUnifiedFields(t).then(function(data) {
+          var fields = data.fields;
+          
+          var valClienteCobra = getNumericFieldValue(fields, ['cliente cobra', 'cliente cobra acumulado', 'cuantía', 'cuantia', 'base', 'principal', 'importe reclamado']) || 0;
+          
+          var pctVal = getNumericFieldValue(fields, ['porcentaje facturacion', 'porcentaje facturación', 'porcentaje facturcion', 'porcentaje facturción', 'porcentaje', 'porcentaje honorarios', 'porcentage facturacion', 'porcentage facturación', 'porcentage facturcion', 'porcentage facturción', 'porcentage', 'porcentage honorarios']);
+          var globalPorcentaje = (pctVal !== null && pctVal !== undefined) ? pctVal : 100;
+          
+          var inputCobra = document.getElementById('cliente-cobra-input');
+          var inputProforma = document.getElementById('importe-proforma');
+          
+          if (valClienteCobra > 0) {
+            inputCobra.value = valClienteCobra.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          }
+          
+          function recalculateProforma() {
+            var parsedCobra = parseSpanishFloat(inputCobra.value);
+            var factor = globalPorcentaje;
+            if (factor > 1) {
+              factor = factor / 100;
+            }
+            var calculatedProforma = parsedCobra * factor;
+            inputProforma.value = calculatedProforma.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          }
+          
+          inputCobra.addEventListener('input', recalculateProforma);
+          inputCobra.addEventListener('change', recalculateProforma);
+          inputCobra.addEventListener('blur', function() {
+            var val = parseSpanishFloat(inputCobra.value);
+            inputCobra.value = val.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            recalculateProforma();
+          });
+          
+          inputProforma.addEventListener('blur', function() {
+            var val = parseSpanishFloat(inputProforma.value);
+            inputProforma.value = val.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          });
+          
+          recalculateProforma();
+
           setStatus("Listo para generar proforma.");
           t.sizeTo(document.body).done();
         });
