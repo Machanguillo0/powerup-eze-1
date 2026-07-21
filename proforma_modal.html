@@ -505,7 +505,8 @@
               var key = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
               var keyClean = key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
               
-              if (/^importe proforma\s*\d*$/i.test(keyClean)) {
+              var norm = keyClean.replace(/[^a-z0-9]/g, "");
+              if (/^(proforma|fechadeproforma|fechaproforma|importedeproforma|importeproforma|totaldeproforma|totalproforma|totalproformado|totaldeproformado|importeproformado|importedeproformado|clientecobraproforma)\d*$/i.test(norm)) {
                 return; // Excluir línea
               }
             }

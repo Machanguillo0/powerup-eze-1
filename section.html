@@ -1558,7 +1558,7 @@
 
       function isAnyProformaKey(keyClean) {
         var norm = keyClean.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
-        return /^(importeproforma|fechadeproforma|proforma|totalproforma|clientecobraproforma)\d*$/i.test(norm);
+        return /^(proforma|fechadeproforma|fechaproforma|importedeproforma|importeproforma|totaldeproforma|totalproforma|totalproformado|totaldeproformado|importeproformado|importedeproformado|clientecobraproforma)\d*$/i.test(norm);
       }
 
       var parsedSeqCobra = {};
