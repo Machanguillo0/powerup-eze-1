@@ -1743,6 +1743,7 @@
             var lines = desc.split(/\r?\n/);
             var year = new Date().getFullYear();
             var seq = 0;
+            var seqStr = "000";
             var otherLines = [];
             
             lines.forEach(line => {
@@ -1753,15 +1754,20 @@
                 if (m) year = parseInt(m[0], 10);
               } else if (/secuencial.*factura/i.test(trimmed)) {
                 var m = trimmed.match(/\d+/);
-                if (m) seq = Math.max(seq, parseInt(m[0], 10));
+                if (m) {
+                  seqStr = m[0];
+                  seq = Math.max(seq, parseInt(m[0], 10));
+                }
               } else {
                 otherLines.push(line);
               }
             });
             
             var nextSeq = seq + 1;
-            var numFactura = year + "/" + nextSeq;
-            var newDesc = ["Año de factura: " + year, "Secuencial de factura: " + nextSeq].concat(otherLines).join("\n");
+            var padLength = Math.max(3, seqStr.length);
+            var nextSeqStr = String(nextSeq).padStart(padLength, '0');
+            var numFactura = year + "/" + nextSeqStr;
+            var newDesc = ["Año de factura: " + year, "Secuencial de factura: " + nextSeqStr].concat(otherLines).join("\n");
 
             return fetch(`https://api.trello.com/1/cards/${configCard.id}?key=${appKey}&token=${token}`, {
               method: 'PUT',
