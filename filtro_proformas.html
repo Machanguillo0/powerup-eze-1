@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Filtrar Descarga de Proformas</title>
+  <!-- Estilo estándar de Trello para Power-Up -->
+  <link rel="stylesheet" href="https://p.trellocdn.com/power-up.min.css">
+  <!-- Librería para manipular Excel en el navegador -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+  <!-- Librería para forzar la descarga de archivos locales -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <!-- Flatpickr CSS y JS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/es.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Noto Sans", "Ubuntu", "Droid Sans", "Helvetica Neue", sans-serif;
+      color: #172b4d;
+      background-color: transparent;
+      padding: 10px;
+      margin: 0;
+      overflow: visible;
+    }
+    
+    .filter-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-sizing: border-box;
+    }
+    
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    
+    label {
+      font-weight: 600;
+      font-size: 12px;
+      color: #5e6c84;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    
+    .date-input {
+      width: 100%;
+      height: 36px;
+      padding: 8px 10px 8px 36px !important;
+      border: 2px solid #ced4da;
+      border-radius: 4px;
+      background-color: #fff !important;
+      color: #172b4d;
+      font-size: 13px;
+      font-weight: 500;
+      box-sizing: border-box;
+      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+      cursor: pointer;
+    }
+    
+    .date-input:focus {
+      outline: none;
+      border-color: #1f845a;
+      box-shadow: 0 0 0 2px rgba(31, 132, 90, 0.2);
+    }
+    
+    .calendar-icon {
+      z-index: 10;
+    }
+    
+    /* Estilos Premium para Flatpickr integrados con Trello */
+    .flatpickr-calendar {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+      border: 1px solid #ced4da !important;
+      border-radius: 4px !important;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Noto Sans", "Ubuntu", "Droid Sans", "Helvetica Neue", sans-serif;
+    }
+    .flatpickr-day.selected, .flatpickr-day.selected:hover {
+      background: #1f845a !important;
+      border-color: #1f845a !important;
+    }
+    .flatpickr-day.today {
+      border-color: #1f845a !important;
+    }
+    .flatpickr-months .flatpickr-month {
+      background: #f4f5f7 !important;
+      color: #172b4d !important;
+    }
+    .flatpickr-current-month .flatpickr-monthDropdown-months {
+      font-weight: 600 !important;
+    }
+    
+    .calendar-icon {
+      position: absolute;
+      left: 10px;
+      color: #6b778c;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      right: auto;
+    }
+
+    .error-msg {
+      font-size: 11px;
+      color: #bf2600;
+      font-weight: 600;
+      margin-top: 2px;
+      display: none;
+    }
+    
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    
+    button {
+      height: 36px;
+      padding: 0 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 13px;
+      border: none;
+      box-sizing: border-box;
+      transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+    }
+    
+    button:active {
+      transform: scale(0.97);
+    }
+    
+    button.primary {
+      background-color: #1f845a;
+      color: white;
+      flex-grow: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    
+    button.primary:hover {
+      background-color: #166b44;
+      box-shadow: 0 4px 6px rgba(31, 132, 90, 0.15);
+    }
+    
+    button.primary:disabled {
+      background-color: #ebecf0;
+      color: #a5adba;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    
+    .status-msg {
+      font-size: 11px;
+      color: #5e6c84;
+      font-style: italic;
+      text-align: center;
+      margin-top: 4px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="filter-container">
+    <div class="input-group">
+      <label for="fecha-filtro">Descargar desde fecha:</label>
+      <div class="input-wrapper">
+        <span class="calendar-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+        </span>
+        <input type="text" id="fecha-filtro" class="date-input" placeholder="dd/mm/aaaa" readonly>
+      </div>
+      <div id="error-fecha" class="error-msg">Por favor, introduce una fecha válida (dd/mm/aaaa).</div>
+    </div>
+    
+    <div class="actions">
+      <button id="btn-descargar" class="primary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Descargar Excel
+      </button>
+    </div>
+    
+    <div id="status" class="status-msg">Procesando...</div>
+  </div>
+
+  <!-- Librería oficial de Trello Power-Up -->
+  <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  
+  <script>
+    var currentAppKey = (window.location.hostname.indexOf('github.io') > -1 || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? '30767998cbb7b57a692e8bb50cfa9a9c' // Power-Up Prepro (GitHub Pages / Local)
+      : '352ae509bc7ffb5b7f5826a024353794'; // Power-Up Pro (Netlify / Custom Domain)
+
+    var t = window.TrelloPowerUp.iframe({
+      appKey: currentAppKey,
+      appName: 'Antigravity'
+    });
+
+    try {
+      var lastKey = localStorage.getItem('antigravity_last_app_key');
+      if (lastKey !== currentAppKey) {
+        t.getRestApi().clearToken();
+        localStorage.setItem('antigravity_last_app_key', currentAppKey);
+      }
+    } catch (e) {
+      console.warn("localStorage no accesible:", e);
+    }
+
+    var inputFecha = document.getElementById('fecha-filtro');
+    var errorFecha = document.getElementById('error-fecha');
+    var btnDescargar = document.getElementById('btn-descargar');
+    var statusMsg = document.getElementById('status');
+
+    // --- ANALIZAR Y VALIDAR FECHA (dd/mm/aaaa) ---
+    function parseDateString(str) {
+      if (!str) return null;
+      var match = str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (!match) return null;
+      var day = parseInt(match[1], 10);
+      var month = parseInt(match[2], 10) - 1; // 0-indexed en JS
+      var year = parseInt(match[3], 10);
+      
+      var date = new Date(year, month, day);
+      if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) {
+        return null;
+      }
+      return date;
+    }
+
+    // --- INICIALIZAR CALENDARIO FLATPICKR ---
+    var fp = flatpickr(inputFecha, {
+      locale: "es",
+      dateFormat: "d/m/Y",
+      defaultDate: "today",
+      disableMobile: true,
+      onChange: function(selectedDates, dateStr, instance) {
+        errorFecha.style.display = 'none';
+        btnDescargar.disabled = false;
+      }
+    });
+
+    // --- ACCIÓN DE DESCARGA ---
+    btnDescargar.addEventListener('click', function() {
+      var dateStr = inputFecha.value;
+      var filterDate = parseDateString(dateStr);
+      
+      if (!filterDate) {
+        errorFecha.style.display = 'block';
+        btnDescargar.disabled = true;
+        return;
+      }
+
+      // Ocultar campos y mostrar cargando
+      statusMsg.textContent = "Iniciando descarga de proformas...";
+      statusMsg.style.display = 'block';
+      btnDescargar.disabled = true;
+      inputFecha.disabled = true;
+
+      t.alert({
+        message: 'Iniciando descarga de proformas...',
+        duration: 2,
+        display: 'info'
+      });
+
+      Promise.all([
+        t.cards('id', 'name', 'desc', 'idList', 'pos'),
+        t.lists('id', 'name')
+      ]).then(function (results) {
+        var cards = results[0];
+        var lists = results[1];
+        var mapListas = {};
+        lists.forEach(function (l) { mapListas[l.id] = l.name; });
+
+        var cardsByList = {};
+        cards.forEach(function(c) {
+          if (!cardsByList[c.idList]) {
+            cardsByList[c.idList] = [];
+          }
+          cardsByList[c.idList].push(c);
+        });
+
+        // Nombre y DNI de cliente por primera tarjeta de la lista
+        var clientePorLista = {};
+        var dniPorLista = {};
+        lists.forEach(function(l) {
+          var listCards = cardsByList[l.id] || [];
+          listCards.sort(function(a, b) { return a.pos - b.pos; });
+
+          var firstCard = listCards.find(function(c) {
+            var nameLower = c.name.toLowerCase().trim();
+            return nameLower !== "facturas" && 
+                   nameLower !== "facturación" && 
+                   nameLower !== "facturacion" && 
+                   nameLower !== "importes" && 
+                   !nameLower.includes("historial de procesos") && 
+                   !nameLower.includes("historial de avisos");
+          });
+
+          clientePorLista[l.id] = firstCard ? firstCard.name : "Sin Cliente";
+
+          var dniVal = "";
+          if (firstCard && firstCard.desc) {
+            var m = firstCard.desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DNI[^:]*[:\s-]+\s*([^\n\r]*)/i);
+            if (m) {
+              dniVal = m[1].replace(/[*_~`]/g, '').trim();
+            }
+          }
+          dniPorLista[l.id] = dniVal;
+        });
+
+        var facturasCards = cards.filter(function(c) {
+          var nameLower = c.name.trim().toLowerCase();
+          return nameLower === "facturas" || nameLower === "facturación" || nameLower === "facturacion";
+        });
+
+        if (facturasCards.length === 0) {
+          statusMsg.style.display = 'none';
+          btnDescargar.disabled = false;
+          inputFecha.disabled = false;
+          t.closePopup();
+          return t.alert({
+            message: 'No se encontraron tarjetas de Facturas en este tablero.',
+            duration: 5,
+            display: 'warning'
+          });
+        }
+
+        return t.getRestApi().isAuthorized().then(function(auth) {
+          if (!auth) {
+            statusMsg.style.display = 'none';
+            btnDescargar.disabled = false;
+            inputFecha.disabled = false;
+            t.closePopup();
+            return t.alert({
+              message: 'Por favor, autoriza primero el Power-Up en el menú de acciones de cualquier tarjeta para poder descargar las proformas.',
+              duration: 8,
+              display: 'error'
+            });
+          }
+
+          return t.getRestApi().getToken().then(function(token) {
+            var appKey = t.getRestApi().appKey;
+            statusMsg.textContent = "Leyendo checklists de proformas...";
+
+            var fetchPromises = facturasCards.map(function(card) {
+              return fetch('https://api.trello.com/1/cards/' + card.id + '/checklists?key=' + appKey + '&token=' + token)
+                .then(function(res) {
+                  if (!res.ok) throw new Error("Error fetching checklists");
+                  return res.json();
+                })
+                .then(function(checklists) {
+                  return { card: card, checklists: checklists };
+                })
+                .catch(function(err) {
+                  console.error("Error al consultar checklists de tarjeta " + card.id + ":", err);
+                  return { card: card, checklists: [] };
+                });
+            });
+
+            return Promise.all(fetchPromises).then(function(results) {
+              var proformaRows = [];
+
+              results.forEach(function(res) {
+                var card = res.card;
+                var checklists = res.checklists;
+                var listName = mapListas[card.idList] || "Desconocida";
+                var clientName = clientePorLista[card.idList] || "Sin Cliente";
+
+                var ch = checklists.find(function(c) {
+                  var n = c.name.trim().toLowerCase();
+                  return n === "relación de proformas" || 
+                         n === "relacion de proformas";
+                });
+
+                if (ch && ch.checkItems && ch.checkItems.length > 0) {
+                  var checkItems = ch.checkItems.concat().sort(function(a, b) {
+                    return a.pos - b.pos;
+                  });
+
+                  checkItems.forEach(function(item) {
+                    var parts = item.name.split('|').map(function(s) { return s.trim(); });
+                    var fDate = "";
+                    var fNum = "";
+                    var fClient = clientName;
+                    var fDni = dniPorLista[card.idList] || "";
+                    var fBase = "";
+                    var fIgic = "";
+                    var fTotal = "";
+                    var fModo = "";
+                    var fConcepto = "";
+
+                    if (parts.length >= 8) {
+                      fDate = parts[0] || "";
+                      fNum = (parts[1] || "").replace(/^(?:N[º°o]:|N[º°o]\s*:|Factura:|Proforma:|Num:)\s*/i, '').trim();
+                      fClient = parts[2] || clientName;
+                      fDni = (parts[3] || "").replace(/^(?:DNI:)\s*/i, '').trim() || fDni;
+                      fBase = (parts[4] || "").replace(/^(?:Base:|Importe:)\s*/i, '').trim();
+                      fIgic = (parts[5] || "").replace(/^(?:Igic:)\s*/i, '').trim();
+                      fTotal = (parts[6] || "").replace(/^(?:Total:)\s*/i, '').trim();
+                      fModo = (parts[7] || "").replace(/^(?:MODO:)\s*/i, '').trim();
+                      fConcepto = parts[8] || "";
+                    } else if (parts.length >= 2) {
+                      fDate = parts[0] || "";
+                      
+                      parts.forEach(function(part) {
+                        var pTrimmed = part.trim();
+                        if (/^(?:N[º°o]:|N[º°o]\s*:|Factura:|Proforma:|Num:)/i.test(pTrimmed)) {
+                          fNum = pTrimmed.replace(/^(?:N[º°o]:|N[º°o]\s*:|Factura:|Proforma:|Num:)\s*/i, '').trim();
+                        } else if (/^(?:DNI:)/i.test(pTrimmed)) {
+                          fDni = pTrimmed.replace(/^(?:DNI:)\s*/i, '').trim();
+                        } else if (/^(?:Base:|Importe:)/i.test(pTrimmed)) {
+                          fBase = pTrimmed.replace(/^(?:Base:|Importe:)\s*/i, '').trim();
+                        } else if (/^(?:Igic:)/i.test(pTrimmed)) {
+                          fIgic = pTrimmed.replace(/^(?:Igic:)\s*/i, '').trim();
+                        } else if (/^(?:Total:)/i.test(pTrimmed)) {
+                          fTotal = pTrimmed.replace(/^(?:Total:)\s*/i, '').trim();
+                        } else if (/^(?:MODO:)/i.test(pTrimmed)) {
+                          fModo = pTrimmed.replace(/^(?:MODO:)\s*/i, '').trim();
+                        }
+                      });
+
+                      if (!fNum) fNum = parts[1] || "";
+                      if (!fBase) {
+                        var basePart = parts.find(function(p) { return /^(?:Base:|Importe:)/i.test(p); });
+                        fBase = basePart ? basePart.replace(/^(?:Base:|Importe:)\s*/i, '').trim() : parts[parts.length - 1] || "";
+                      }
+                      if (!fTotal) {
+                        var totalPart = parts.find(function(p) { return /^(?:Total:)/i.test(p); });
+                        fTotal = totalPart ? totalPart.replace(/^(?:Total:)\s*/i, '').trim() : fBase;
+                      }
+                    } else {
+                      fDate = "";
+                      fNum = item.name;
+                      fBase = "";
+                      fTotal = "";
+                    }
+
+                    // --- FILTRADO POR FECHA DE LA PROFORMA ---
+                    var itemDate = parseDateString(fDate);
+                    if (itemDate && itemDate >= filterDate) {
+                      proformaRows.push({
+                        proforma: fNum,
+                        fecha: fDate,
+                        dateObj: itemDate, // Guardamos el objeto Date para ordenar
+                        cliente: fClient,
+                        dni: fDni,
+                        expediente: listName,
+                        base: fBase,
+                        igic: fIgic,
+                        total: fTotal,
+                        modo: fModo,
+                        concepto: fConcepto
+                      });
+                    }
+                  });
+                }
+              });
+
+              // Ordenar proformas cronológicamente
+              proformaRows.sort(function(a, b) {
+                return a.dateObj - b.dateObj;
+              });
+
+              if (proformaRows.length === 0) {
+                statusMsg.style.display = 'none';
+                btnDescargar.disabled = false;
+                inputFecha.disabled = false;
+                t.closePopup();
+                return t.alert({
+                  message: 'No se encontraron proformas con fecha igual o posterior al ' + dateStr,
+                  duration: 5,
+                  display: 'warning'
+                });
+              }
+
+              statusMsg.textContent = "Generando archivo Excel...";
+
+              return new Promise(function(resolve, reject) {
+                if (window.ExcelJS) return resolve();
+                var script = document.createElement('script');
+                script.src = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js";
+                script.onload = function() { resolve(); };
+                script.onerror = reject;
+                document.head.appendChild(script);
+              })
+              .then(function() {
+                var workbook = new ExcelJS.Workbook();
+                var sheet = workbook.addWorksheet('Relación de Proformas');
+
+                sheet.columns = [
+                  { header: 'Nº DE PROFORMA', key: 'proforma', width: 18 },
+                  { header: 'FECHA', key: 'fecha', width: 15 },
+                  { header: 'CLIENTE', key: 'cliente', width: 35 },
+                  { header: 'DNI', key: 'dni', width: 15 },
+                  { header: 'EXPED.', key: 'expediente', width: 18 },
+                  { header: 'IMPORTE SIN\nIGIC', key: 'base', width: 18 },
+                  { header: 'IGIC', key: 'igic', width: 15 },
+                  { header: 'IMPORTE TOTAL', key: 'total', width: 18 },
+                  { header: 'MODO', key: 'modo', width: 15 },
+                  { header: 'CONCEPTO', key: 'concepto', width: 40 }
+                ];
+
+                var headerRow = sheet.getRow(1);
+                headerRow.height = 30;
+                headerRow.eachCell(function(cell) {
+                  cell.font = {
+                    name: 'Segoe UI',
+                    size: 10,
+                    bold: true,
+                    color: { argb: 'FFFFFFFF' }
+                  };
+                  cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF1054A2' }
+                  };
+                  cell.alignment = {
+                    vertical: 'middle',
+                    horizontal: 'center',
+                    wrapText: true
+                  };
+                  cell.border = {
+                    top: { style: 'thin', color: { argb: 'FF0D3C75' } },
+                    left: { style: 'thin', color: { argb: 'FF0D3C75' } },
+                    bottom: { style: 'thin', color: { argb: 'FF0D3C75' } },
+                    right: { style: 'thin', color: { argb: 'FF0D3C75' } }
+                  };
+                });
+
+                var SPANISH_MONTHS = [
+                  "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO",
+                  "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"
+                ];
+
+                function extractExpedienteNumber(listName) {
+                  if (!listName) return "";
+                  var cleaned = listName.replace(/^(?:expediente|exped|expdt|expte|exp)\.?\s*/i, '').trim();
+                  var match = cleaned.match(/^([\d\/\-\.]+)/);
+                  if (match) {
+                    return match[1].trim();
+                  }
+                  return cleaned;
+                }
+
+                function getPeriodRichText(quarter, year) {
+                  var rangeText = "";
+                  var qLabel = "(" + quarter + "T)";
+                  if (quarter === 1) rangeText = "01 DE ENERO A 31 DE MARZO DE " + year + " ";
+                  else if (quarter === 2) rangeText = "01 DE ABRIL A 30 DE JUNIO DE " + year + " ";
+                  else if (quarter === 3) rangeText = "01 DE JULIO A 30 DE SEPTIEMBRE DE " + year + " ";
+                  else if (quarter === 4) rangeText = "01 DE OCTUBRE A 31 DE DICIEMBRE DE " + year + " ";
+                  
+                  return {
+                    richText: [
+                      { text: 'PERÍODO: ', font: { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF172B4D' } } },
+                      { text: rangeText, font: { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF172B4D' } } },
+                      { text: qLabel, font: { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFF0000' } } }
+                    ]
+                  };
+                }
+
+                function parseToNumber(val) {
+                  if (typeof val === 'number') return val;
+                  if (!val) return null;
+                  var clean = String(val).replace(/[^0-9.,-]/g, '').trim();
+                  if (!clean) return null;
+                  if (clean.indexOf('.') > -1 && clean.indexOf(',') > -1) {
+                    clean = clean.replace(/\./g, '').replace(',', '.');
+                  } else if (clean.indexOf(',') > -1) {
+                    clean = clean.replace(',', '.');
+                  }
+                  var num = parseFloat(clean);
+                  return isNaN(num) ? null : num;
+                }
+
+                var currentQuarter = null;
+                var currentYear = null;
+                var currentMonth = null;
+
+                proformaRows.forEach(function(rowData) {
+                  var invoiceYear = rowData.dateObj.getFullYear();
+                  var invoiceMonth = rowData.dateObj.getMonth();
+                  var invoiceQuarter = Math.floor(invoiceMonth / 3) + 1;
+
+                  if (invoiceQuarter !== currentQuarter || invoiceYear !== currentYear) {
+                    currentQuarter = invoiceQuarter;
+                    currentYear = invoiceYear;
+                    currentMonth = null; 
+
+                    var periodRow = sheet.addRow([]);
+                    periodRow.height = 24;
+                    
+                    var cellA = periodRow.getCell(1);
+                    cellA.value = getPeriodRichText(invoiceQuarter, invoiceYear);
+                    cellA.alignment = { vertical: 'middle', horizontal: 'left' };
+
+                    for (var col = 1; col <= 10; col++) {
+                      var cell = periodRow.getCell(col);
+                      cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFEAEAEA' }
+                      };
+                      cell.border = {
+                        top: { style: 'thin', color: { argb: 'FFD5D5D5' } },
+                        bottom: { style: 'thin', color: { argb: 'FFD5D5D5' } }
+                      };
+                    }
+                  }
+
+                  if (invoiceMonth !== currentMonth) {
+                    currentMonth = invoiceMonth;
+
+                    var monthRow = sheet.addRow([]);
+                    monthRow.height = 22;
+                    
+                    var mCell = monthRow.getCell(1);
+                    mCell.value = SPANISH_MONTHS[invoiceMonth];
+                    mCell.font = {
+                      name: 'Segoe UI',
+                      size: 10,
+                      bold: true,
+                      color: { argb: 'FFFFFFFF' }
+                    };
+                    mCell.fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FF1054A2' }
+                    };
+                    mCell.alignment = { vertical: 'middle', horizontal: 'center' };
+
+                    for (var col = 2; col <= 10; col++) {
+                      var cell = monthRow.getCell(col);
+                      cell.border = {
+                        top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+                        bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+                      };
+                    }
+                  }
+
+                  var row = sheet.addRow({
+                    proforma: rowData.proforma,
+                    fecha: rowData.fecha,
+                    cliente: rowData.cliente,
+                    dni: rowData.dni,
+                    expediente: extractExpedienteNumber(rowData.expediente),
+                    base: parseToNumber(rowData.base),
+                    igic: parseToNumber(rowData.igic),
+                    total: parseToNumber(rowData.total),
+                    modo: rowData.modo,
+                    concepto: rowData.concepto
+                  });
+
+                  row.height = 20;
+
+                  var cellFactura = row.getCell(1);
+                  cellFactura.alignment = { horizontal: 'left', vertical: 'middle' };
+
+                  var cellFecha = row.getCell(2);
+                  cellFecha.alignment = { horizontal: 'right', vertical: 'middle' };
+
+                  var cellCliente = row.getCell(3);
+                  cellCliente.alignment = { horizontal: 'left', vertical: 'middle' };
+
+                  var cellDni = row.getCell(4);
+                  cellDni.alignment = { horizontal: 'left', vertical: 'middle' };
+
+                  var cellExp = row.getCell(5);
+                  cellExp.alignment = { horizontal: 'left', vertical: 'middle' };
+
+                  var cellBase = row.getCell(6);
+                  cellBase.alignment = { horizontal: 'right', vertical: 'middle' };
+                  cellBase.numFmt = '#,##0.00" €"';
+
+                  var cellIgic = row.getCell(7);
+                  cellIgic.alignment = { horizontal: 'right', vertical: 'middle' };
+                  cellIgic.numFmt = '#,##0.00" €"';
+
+                  var cellTotal = row.getCell(8);
+                  cellTotal.alignment = { horizontal: 'right', vertical: 'middle' };
+                  cellTotal.numFmt = '#,##0.00" €"';
+
+                  var cellModo = row.getCell(9);
+                  cellModo.alignment = { horizontal: 'left', vertical: 'middle' };
+                  
+                  var mVal = String(rowData.modo || '').trim().toUpperCase();
+                  if (mVal === 'T/T') {
+                    cellModo.fill = {
+                      type: 'pattern',
+                      pattern: 'solid',
+                      fgColor: { argb: 'FFEAD1DC' }
+                    };
+                  }
+
+                  var cellConcepto = row.getCell(10);
+                  cellConcepto.alignment = { horizontal: 'left', vertical: 'middle' };
+
+                  row.eachCell(function(cell) {
+                    cell.font = { name: 'Segoe UI', size: 10 };
+                    cell.border = {
+                      top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+                      left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+                      bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+                      right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+                    };
+                  });
+                });
+
+                return workbook.xlsx.writeBuffer();
+              })
+              .then(function(buffer) {
+                return new Promise(function(resolve, reject) {
+                  if (window.saveAs) return resolve(buffer);
+                  var scriptFS = document.createElement('script');
+                  scriptFS.src = "https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js";
+                  scriptFS.onload = function() { resolve(buffer); };
+                  scriptFS.onerror = reject;
+                  document.head.appendChild(scriptFS);
+                });
+              })
+              .then(function(buffer) {
+                var blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+                var cleanDate = dateStr.replace(/\//g, '-');
+                window.saveAs(blob, "Relacion_Proformas_desde_" + cleanDate + ".xlsx");
+                
+                statusMsg.style.display = 'none';
+                btnDescargar.disabled = false;
+                inputFecha.disabled = false;
+                
+                t.alert({ message: 'Descarga de proformas completada.', duration: 3, display: 'success' });
+                t.closePopup();
+              });
+            });
+          });
+        });
+      })
+      .catch(function (err) {
+        console.error("Error al descargar proformas:", err);
+        statusMsg.style.display = 'none';
+        btnDescargar.disabled = false;
+        inputFecha.disabled = false;
+        t.closePopup();
+        return t.alert({ message: 'Error al exportar proformas.', duration: 6, display: 'error' });
+      });
+    });
+  </script>
+</body>
+</html>

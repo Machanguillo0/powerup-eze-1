@@ -76,7 +76,7 @@ window.TrelloPowerUp.initialize({
   // Capability para añadir una sección grande dentro del cuerpo de la tarjeta
   'card-back-section': function (t, options) {
     return {
-      title: 'Powerup opciones 123',
+      title: 'Powerup opciones 124',
       icon: './icon.svg', // Recomendado un icono gris, pero el SVG actual servirá
       content: {
         type: 'iframe',
@@ -354,6 +354,22 @@ window.TrelloPowerUp.initialize({
             return t.popup({
               title: 'Descargar Facturas',
               url: t.signUrl('./filtro_fecha.html'),
+              height: 380
+            });
+          }
+        });
+
+        buttons.push({
+          icon: {
+            dark: BASE_URL + 'facturas_icon.png',
+            light: BASE_URL + 'facturas_icon.png'
+          },
+          text: 'Descarga proformas',
+          condition: 'always',
+          callback: function (t) {
+            return t.popup({
+              title: 'Descarga proformas',
+              url: t.signUrl('./filtro_proformas.html'),
               height: 380
             });
           }
