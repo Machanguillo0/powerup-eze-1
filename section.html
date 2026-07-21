@@ -4533,6 +4533,32 @@
           html += "<br><strong>Datos adicionales (Tarjeta de Importes):</strong><br>" + dynamicHtml;
         }
 
+        // Renderizar el bloque de proformas secuenciales (1 a 10) al final
+        if (fields._hasChecklistProformas !== false && fields.proforma && fields.proforma !== "___________") {
+          html += "<br><strong>Proforma nº 1:</strong><br>" +
+                  "• Número de proforma: <strong>" + fields.proforma + "</strong><br>" +
+                  "• Fecha de proforma: " + fields.fecha_proforma + "<br>" +
+                  "• Importe proforma: <strong>" + (fields.importe_proforma || "___________") + "</strong><br>";
+          
+          var hasAdditionalProforma = false;
+          var additionalProformaHtml = "";
+          for (var idx = 2; idx <= 10; idx++) {
+            var prKey = "proforma" + idx;
+            var prdKey = "fecha_proforma" + idx;
+            var prImpKey = "importe_proforma" + idx;
+            if (fields[prKey] && fields[prKey] !== "___________") {
+              hasAdditionalProforma = true;
+              additionalProformaHtml += "<br><strong>Proforma adicional nº " + idx + ":</strong><br>" +
+                                 "• Número de proforma " + idx + ": <strong>" + fields[prKey] + "</strong><br>" +
+                                 "• Fecha de proforma " + idx + ": " + (fields[prdKey] || "___________") + "<br>" +
+                                 "• Importe proforma " + idx + ": <strong>" + (fields[prImpKey] || "___________") + "</strong><br>";
+            }
+          }
+          if (hasAdditionalProforma) {
+            html += additionalProformaHtml;
+          }
+        }
+
         // Renderizar el bloque de facturas secuenciales (1 a 10) al final
         if (fields._hasChecklistInvoices !== false && fields.factura && fields.factura !== "___________") {
           html += "<br><strong>Factura nº 1:</strong><br>" +
@@ -4562,35 +4588,6 @@
           }
         }
 
-        // Renderizar el bloque de proformas secuenciales (1 a 10) al final
-        if (fields._hasChecklistProformas !== false && fields.proforma && fields.proforma !== "___________") {
-          html += "<br><strong>Proforma nº 1:</strong><br>" +
-                  "• Número de proforma: <strong>" + fields.proforma + "</strong><br>" +
-                  "• Fecha de proforma: " + fields.fecha_proforma + "<br>" +
-                  "• Importe proforma: <strong>" + (fields.importe_proforma || "___________") + "</strong><br>" +
-                  "• Cliente Cobra proforma: <strong>" + (fields.cliente_cobra_proforma || "___________") + "</strong><br>";
-          
-          var hasAdditionalProforma = false;
-          var additionalProformaHtml = "";
-          for (var idx = 2; idx <= 10; idx++) {
-            var prKey = "proforma" + idx;
-            var prdKey = "fecha_proforma" + idx;
-            var prImpKey = "importe_proforma" + idx;
-            var prCobKey = "cliente_cobra_proforma" + idx;
-            if (fields[prKey] && fields[prKey] !== "___________") {
-              hasAdditionalProforma = true;
-              additionalProformaHtml += "<br><strong>Proforma adicional nº " + idx + ":</strong><br>" +
-                                 "• Número de proforma " + idx + ": <strong>" + fields[prKey] + "</strong><br>" +
-                                 "• Fecha de proforma " + idx + ": " + (fields[prdKey] || "___________") + "<br>" +
-                                 "• Importe proforma " + idx + ": <strong>" + (fields[prImpKey] || "___________") + "</strong><br>" +
-                                 "• Cliente Cobra proforma " + idx + ": <strong>" + (fields[prCobKey] || "___________") + "</strong><br>";
-            }
-          }
-          if (hasAdditionalProforma) {
-            html += additionalProformaHtml;
-          }
-        }
-
         container.innerHTML = html;
         t.sizeTo(document.body).done();
       }).catch(function (err) {
@@ -4612,6 +4609,32 @@
                   "• DNI: " + fields.dni + "<br>" +
                   "• Domicilio del cliente: " + fields.domicilio + "<br><br>";
           
+          // Renderizar el bloque de proformas secuenciales (1 a 10) al final
+          if (fields._hasChecklistProformas !== false && fields.proforma && fields.proforma !== "___________") {
+            html += "<br><strong>Proforma nº 1:</strong><br>" +
+                    "• Número de proforma: <strong>" + fields.proforma + "</strong><br>" +
+                    "• Fecha de proforma: " + fields.fecha_proforma + "<br>" +
+                    "• Importe proforma: <strong>" + (fields.importe_proforma || "___________") + "</strong><br>";
+            
+            var hasAdditionalProforma = false;
+            var additionalProformaHtml = "";
+            for (var idx = 2; idx <= 10; idx++) {
+              var prKey = "proforma" + idx;
+              var prdKey = "fecha_proforma" + idx;
+              var prImpKey = "importe_proforma" + idx;
+              if (fields[prKey] && fields[prKey] !== "___________") {
+                hasAdditionalProforma = true;
+                additionalProformaHtml += "<br><strong>Proforma adicional nº " + idx + ":</strong><br>" +
+                                   "• Número de proforma " + idx + ": <strong>" + fields[prKey] + "</strong><br>" +
+                                   "• Fecha de proforma " + idx + ": " + (fields[prdKey] || "___________") + "<br>" +
+                                   "• Importe proforma " + idx + ": <strong>" + (fields[prImpKey] || "___________") + "</strong><br>";
+              }
+            }
+            if (hasAdditionalProforma) {
+              html += additionalProformaHtml;
+            }
+          }
+
           // Renderizar el bloque de facturas secuenciales (1 a 10) al final
           if (fields._hasChecklistInvoices !== false && fields.factura && fields.factura !== "___________") {
             html += "<br><strong>Factura nº 1:</strong><br>" +
