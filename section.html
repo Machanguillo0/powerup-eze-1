@@ -1547,13 +1547,18 @@
       });
     }
 
-    function cleanImportesDescForSync(currentDesc, N) {
+    function cleanImportesDescForSync(currentDesc, N, N_prof, unified) {
       var lines = currentDesc.split(/\r?\n/);
       var prunedLines = [];
       
       function isAnyBillingKey(keyClean) {
         var norm = keyClean.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
         return /^(clientecobra|clientecobrasumarizado|totalfacturado|importefacturado|importefacturacion|totalfactura|facturado)\d*$/i.test(norm);
+      }
+
+      function isAnyProformaKey(keyClean) {
+        var norm = keyClean.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+        return /^(importeproforma|fechadeproforma|proforma|totalproforma|clientecobraproforma)\d*$/i.test(norm);
       }
 
       var parsedSeqCobra = {};
@@ -1578,6 +1583,9 @@
               var idx = parseInt(matchFacturado[2], 10) || 1;
               parsedSeqFacturado[idx] = val;
             }
+            return;
+          }
+          if (isAnyProformaKey(keyClean)) {
             return;
           }
         }
@@ -1659,6 +1667,18 @@
 
           prunedLines.push("**Cliente cobra" + suffix + "**: " + cobraVal);
           prunedLines.push("**Importe facturado" + suffix + "**: " + factVal);
+        }
+      }
+
+      if (N_prof > 0 && unified) {
+        prunedLines.push("");
+        for (var i = 1; i <= N_prof; i++) {
+          var keySuffix = (i === 1) ? '' : i;
+          var amount = unified["importe_proforma" + keySuffix] || "___________";
+          if (amount && amount !== "___________" && amount.indexOf('€') === -1) {
+            amount = amount + " €";
+          }
+          prunedLines.push("**Importe Proforma" + (i === 1 ? "" : " " + i) + "**: " + amount);
         }
       }
 
@@ -3006,11 +3026,12 @@
       }).then(function(result) {
         if (result && result.fields) {
           var N = result.fields._checklistInvoicesCount || 0;
+          var N_prof = result.fields._checklistProformasCount || 0;
           cleanupUnifiedBillingFields(result.fields, N);
           
           if (result.token && importesCard) {
             var currentDesc = importesCard.desc || "";
-            var newDesc = cleanImportesDescForSync(currentDesc, N);
+            var newDesc = cleanImportesDescForSync(currentDesc, N, N_prof, result.fields);
             if (currentDesc.trim() !== newDesc.trim()) {
               importesCard.desc = newDesc; // Sync cached description
               var appKey = t.getRestApi().appKey;
@@ -5083,8 +5104,8 @@
 
                 lines.forEach(function (line) {
                   var lineLower = line.trim().toLowerCase();
-                  // Excluir cualquier línea que contenga "factura" o "facturacion"
-                  if (lineLower.includes("factura") || lineLower.includes("facturacion") || lineLower.includes("facturación")) {
+                  // Excluir cualquier línea que contenga "factura", "facturacion" o "proforma"
+                  if (lineLower.includes("factura") || lineLower.includes("facturacion") || lineLower.includes("facturación") || lineLower.includes("proforma")) {
                     return;
                   }
                   var isKeyLine = historyKeys.some(function (item) {
@@ -5097,6 +5118,22 @@
                   });
                   if (!isKeyLine && line.trim() !== "") newDescLines.push(line);
                 });
+
+                var N_prof = unified._checklistProformasCount || 0;
+                if (N_prof > 0) {
+                  newDescLines.push(""); // Separador
+                  for (var i = 1; i <= N_prof; i++) {
+                    var keySuffix = (i === 1) ? '' : i;
+                    var suffix = (i === 1) ? '' : i;
+                    var fDate = unified["fecha_proforma" + keySuffix] || "___________";
+                    var fNum = unified["proforma" + keySuffix] || "___________";
+                    var fAmount = unified["importe_proforma" + keySuffix] || "___________";
+                    
+                    newDescLines.push("**Fecha de proforma" + suffix + ":** " + fDate);
+                    newDescLines.push("**Proforma" + suffix + ":** " + fNum);
+                    newDescLines.push("**Importe proforma" + suffix + ":** " + fAmount);
+                  }
+                }
 
                 var finalDesc = newDescLines.join('\n');
 
@@ -5129,6 +5166,21 @@
                     newDescLines.push(item.label + " " + val);
                   }
                 });
+                var N_prof = unified._checklistProformasCount || 0;
+                if (N_prof > 0) {
+                  newDescLines.push(""); // Separador
+                  for (var i = 1; i <= N_prof; i++) {
+                    var keySuffix = (i === 1) ? '' : i;
+                    var suffix = (i === 1) ? '' : i;
+                    var fDate = unified["fecha_proforma" + keySuffix] || "___________";
+                    var fNum = unified["proforma" + keySuffix] || "___________";
+                    var fAmount = unified["importe_proforma" + keySuffix] || "___________";
+                    
+                    newDescLines.push("**Fecha de proforma" + suffix + ":** " + fDate);
+                    newDescLines.push("**Proforma" + suffix + ":** " + fNum);
+                    newDescLines.push("**Importe proforma" + suffix + ":** " + fAmount);
+                  }
+                }
                 var newDesc = newDescLines.join('\n');
 
                 return fetch(`https://api.trello.com/1/cards?idList=${idList}&name=${encodeURIComponent("Historial de procesos.")}&desc=${encodeURIComponent(newDesc)}&pos=${targetPos}&key=${appKey}&token=${token}`, {
