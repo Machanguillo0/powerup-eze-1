@@ -4502,33 +4502,32 @@
         }
         
         var dynamicHtml = "";
-        var printedKeys = {};
-        for (var k in fields) {
-          if (fields.hasOwnProperty(k)) {
-            // Ignorar variables técnicas que comiencen con "_"
-            if (k.indexOf('_') === 0) continue;
-            
-            var kLower = k.toLowerCase();
-            // Normalizar la clave para comprobar si está excluida
-            var cleanK = kLower.replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
-            if (standardKeys.indexOf(cleanK) === -1 && kLower.indexOf(':') === -1) {
-              if (!printedKeys[cleanK]) {
-                printedKeys[cleanK] = true;
-                
-                var val = fields[k];
-                // Si el campo es de impuestos o porcentaje y tiene formato decimal (ej: 0.07), lo mostramos como porcentaje (7%)
-                if (cleanK.indexOf("impuesto") > -1 || cleanK.indexOf("porcentaje") > -1 || cleanK.indexOf("porcentage") > -1) {
-                  var numVal = parseFloat(String(val).replace(',', '.'));
-                  if (!isNaN(numVal) && numVal > 0 && numVal < 1) {
-                    val = Math.round(numVal * 100) + "%";
-                  }
-                }
-                
-                dynamicHtml += "• " + k + ": <strong>" + val + "</strong><br>";
+        var importesKeysToPrint = [
+          { key: "Porcentaje facturación", matchKeys: ["porcentaje facturacion", "porcentaje facturación", "porcentaje_facturacion"] },
+          { key: "Porcentaje impuestos", matchKeys: ["porcentaje impuestos", "porcentaje_impuestos", "impuestos"] },
+          { key: "Cliente cobra sumarizado", matchKeys: ["cliente cobra sumarizado", "cliente_cobra_sumarizado"] },
+          { key: "TOTAL FACTURADO", matchKeys: ["total facturado", "total_facturado"] }
+        ];
+
+        importesKeysToPrint.forEach(function (item) {
+          var foundKey = Object.keys(fields).find(function (k) {
+            var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+            var normK2 = k.toLowerCase().replace(/\s+/g, '_').trim();
+            return item.matchKeys.indexOf(normK) > -1 || item.matchKeys.indexOf(normK2) > -1;
+          });
+          if (foundKey) {
+            var val = fields[foundKey];
+            var cleanK = foundKey.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+            if (cleanK.indexOf("impuesto") > -1 || cleanK.indexOf("porcentaje") > -1 || cleanK.indexOf("porcentage") > -1) {
+              var numVal = parseFloat(String(val).replace(',', '.'));
+              if (!isNaN(numVal) && numVal > 0 && numVal < 1) {
+                val = Math.round(numVal * 100) + "%";
               }
             }
+            dynamicHtml += "• " + item.key + ": <strong>" + val + "</strong><br>";
           }
-        }
+        });
+
         if (dynamicHtml) {
           html += "<br><strong>Datos adicionales (Tarjeta de Importes):</strong><br>" + dynamicHtml;
         }
