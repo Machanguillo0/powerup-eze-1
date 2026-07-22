@@ -76,7 +76,7 @@ window.TrelloPowerUp.initialize({
   // Capability para añadir una sección grande dentro del cuerpo de la tarjeta
   'card-back-section': function (t, options) {
     return {
-      title: 'Powerup opciones 130',
+      title: 'Powerup opciones 132',
       icon: './icon.svg', // Recomendado un icono gris, pero el SVG actual servirá
       content: {
         type: 'iframe',
@@ -95,8 +95,8 @@ window.TrelloPowerUp.initialize({
       // Botón "Excel Tablero" común
       buttons.push({
         icon: {
-          dark: BASE_URL + 'btn_excel_tablero_dark.svg',
-          light: BASE_URL + 'btn_excel_tablero_light.svg'
+          dark: BASE_URL + 'btn_excel_tablero.svg',
+          light: BASE_URL + 'btn_excel_tablero.svg'
         },
         text: 'Excel Tablero',
         condition: 'always',
@@ -243,8 +243,8 @@ window.TrelloPowerUp.initialize({
       if (type === 'CLIENTES') {
         buttons.push({
           icon: {
-            dark: BASE_URL + 'btn_descargar_clientes_dark.svg',
-            light: BASE_URL + 'btn_descargar_clientes_light.svg'
+            dark: BASE_URL + 'btn_descargar_clientes.svg',
+            light: BASE_URL + 'btn_descargar_clientes.svg'
           },
           text: 'Descargar clientes',
           condition: 'always',
@@ -345,8 +345,8 @@ window.TrelloPowerUp.initialize({
       if (type === 'FACTURACIÓN') {
         buttons.push({
           icon: {
-            dark: BASE_URL + 'btn_descargar_facturas_dark.svg',
-            light: BASE_URL + 'btn_descargar_facturas_light.svg'
+            dark: BASE_URL + 'btn_descargar_facturas.svg',
+            light: BASE_URL + 'btn_descargar_facturas.svg'
           },
           text: 'Descargar Facturas',
           condition: 'always',
@@ -361,8 +361,8 @@ window.TrelloPowerUp.initialize({
 
         buttons.push({
           icon: {
-            dark: BASE_URL + 'btn_descarga_proformas_dark.svg',
-            light: BASE_URL + 'btn_descarga_proformas_light.svg'
+            dark: BASE_URL + 'btn_descarga_proformas.svg',
+            light: BASE_URL + 'btn_descarga_proformas.svg'
           },
           text: 'Descarga proformas',
           condition: 'always',
