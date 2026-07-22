@@ -94,6 +94,10 @@ window.TrelloPowerUp.initialize({
 
       // Botón "Excel Tablero" común
       buttons.push({
+        icon: {
+          dark: BASE_URL + 'btn_excel_tablero_dark.svg',
+          light: BASE_URL + 'btn_excel_tablero_light.svg'
+        },
         text: 'Excel Tablero',
         condition: 'always',
         callback: function (t) {
@@ -238,6 +242,10 @@ window.TrelloPowerUp.initialize({
       // Botón "Descargar clientes" sólo para tableros de CLIENTES
       if (type === 'CLIENTES') {
         buttons.push({
+          icon: {
+            dark: BASE_URL + 'btn_descargar_clientes_dark.svg',
+            light: BASE_URL + 'btn_descargar_clientes_light.svg'
+          },
           text: 'Descargar clientes',
           condition: 'always',
           callback: function (t) {
@@ -336,6 +344,10 @@ window.TrelloPowerUp.initialize({
 
       if (type === 'FACTURACIÓN') {
         buttons.push({
+          icon: {
+            dark: BASE_URL + 'btn_descargar_facturas_dark.svg',
+            light: BASE_URL + 'btn_descargar_facturas_light.svg'
+          },
           text: 'Descargar Facturas',
           condition: 'always',
           callback: function (t) {
@@ -348,6 +360,10 @@ window.TrelloPowerUp.initialize({
         });
 
         buttons.push({
+          icon: {
+            dark: BASE_URL + 'btn_descarga_proformas_dark.svg',
+            light: BASE_URL + 'btn_descarga_proformas_light.svg'
+          },
           text: 'Descarga proformas',
           condition: 'always',
           callback: function (t) {
