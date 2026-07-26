@@ -2344,6 +2344,19 @@
         .replace(/'/g, "&#039;");
     }
 
+    function makeRedTagReplacement(mXml, mPlain, rPr, redRPr) {
+      var escapedText = escapeHtml(mPlain);
+      var trimmed = mXml.trim().toLowerCase();
+      
+      if (trimmed.startsWith('<w:r')) {
+        return '<w:r>' + redRPr + '<w:t xml:space="preserve">' + escapedText + '</w:t></w:r>';
+      } else if (trimmed.startsWith('<w:t')) {
+        return '</w:r><w:r>' + redRPr + '<w:t xml:space="preserve">' + escapedText + '</w:t></w:r><w:r>' + rPr + '<w:t xml:space="preserve">';
+      } else {
+        return '</w:t></w:r><w:r>' + redRPr + '<w:t xml:space="preserve">' + escapedText + '</w:t></w:r><w:r>' + rPr + '<w:t xml:space="preserve">';
+      }
+    }
+
     // Función para realizar todos los reemplazos estándar en el XML de Word de manera segura (evita dañar el formato)
     function reemplazarEtiquetasEstandar(contentXml, fields) {
       var splitTagRegex = /(\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|[\s\S])*?\}(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\}(?:(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\})?)/g;
@@ -2370,6 +2383,11 @@
           if (!isMeta) {
             var tagName = m.plain.substring(2, m.plain.length - 2).trim();
             var nameLower = tagName.toLowerCase();
+
+            // Ignorar etiquetas de cálculo, condicionales o lista de documentos que se procesan por separado
+            if (nameLower.startsWith('calc:') || nameLower.startsWith('if:') || nameLower.startsWith('lista de documentos numerados')) {
+              return;
+            }
             
             var value;
             if ((nameLower === '[num]' || nameLower === 'num') && numCounter !== null) {
@@ -2379,9 +2397,41 @@
               value = getFieldValueForTagName(tagName, fields);
             }
             
-            if (value !== null) {
+            if (value !== null && value !== undefined) {
               // Reemplazar de forma literal y secuencial la primera ocurrencia del tag XML
               contentXml = contentXml.replace(m.xml, function() { return value; });
+            } else {
+              // Si el campo no existe en los datos del cliente, mantener la etiqueta resaltada en color rojo
+              var rPr = '';
+              var idx = contentXml.indexOf(m.xml);
+              if (idx !== -1) {
+                var prefix = contentXml.substring(0, idx);
+                var rPrEndIdx = prefix.lastIndexOf('</w:rPr>');
+                if (rPrEndIdx !== -1) {
+                  var rPrStartIdx = prefix.lastIndexOf('<w:rPr>', rPrEndIdx);
+                  if (rPrStartIdx !== -1) {
+                    var pIdx = prefix.lastIndexOf('<w:p ', rPrStartIdx);
+                    if (pIdx === -1) pIdx = prefix.lastIndexOf('<w:p>', rPrStartIdx);
+                    if (rPrStartIdx > pIdx) {
+                      rPr = prefix.substring(rPrStartIdx, rPrEndIdx + 8);
+                    }
+                  }
+                }
+              }
+
+              var redRPr = rPr;
+              if (redRPr) {
+                if (redRPr.indexOf('<w:color ') !== -1) {
+                  redRPr = redRPr.replace(/<w:color\s+[^/>]*\/>/gi, '<w:color w:val="FF0000"/>');
+                } else {
+                  redRPr = redRPr.replace('</w:rPr>', '<w:color w:val="FF0000"/></w:rPr>');
+                }
+              } else {
+                redRPr = '<w:rPr><w:color w:val="FF0000"/></w:rPr>';
+              }
+
+              var redReplacement = makeRedTagReplacement(m.xml, m.plain, rPr, redRPr);
+              contentXml = contentXml.replace(m.xml, function() { return redReplacement; });
             }
           }
         }
