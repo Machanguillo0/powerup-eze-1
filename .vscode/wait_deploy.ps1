@@ -1,8 +1,8 @@
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-
 param(
     [string]$Repo = "Machanguillo0/powerup-eze-1"
 )
+
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 $gitExe = "C:\Program Files\Git\cmd\git.exe"
 if (-not (Test-Path $gitExe)) { $gitExe = "git" }
