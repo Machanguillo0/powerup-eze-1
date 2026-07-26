@@ -9,6 +9,6 @@
   ],
   "connectorUrl": "./index.html",
   "icon": {
-    "url": "./icon.svg"
+    "url": "./images/icon.svg"
   }
 }

@@ -43,7 +43,7 @@ window.TrelloPowerUp.initialize({
 
       return [{
         // Icono que se mostrará junto al texto del botón
-        icon: './icon.svg',
+        icon: './images/icon.svg',
         // Texto que se mostrará en el botón
         text: 'Visualizar datos de interés',
         // Función que se ejecuta cuando el usuario hace clic en el botón
@@ -76,8 +76,8 @@ window.TrelloPowerUp.initialize({
   // Capability para añadir una sección grande dentro del cuerpo de la tarjeta
   'card-back-section': function (t, options) {
     return {
-      title: 'Powerup opciones 135',
-      icon: './icon.svg', // Recomendado un icono gris, pero el SVG actual servirá
+      title: 'Powerup opciones 136',
+      icon: './images/icon.svg', // Recomendado un icono gris, pero el SVG actual servirá
       content: {
         type: 'iframe',
         url: t.signUrl('./section.html?v=' + Date.now()), // Evita el caché de la sección trasera de la tarjeta
@@ -95,8 +95,8 @@ window.TrelloPowerUp.initialize({
       // Botón "Excel Tablero" común
       buttons.push({
         icon: {
-          dark: BASE_URL + 'btn_excel_tablero.svg',
-          light: BASE_URL + 'btn_excel_tablero.svg'
+          dark: BASE_URL + 'images/btn_excel_tablero.svg',
+          light: BASE_URL + 'images/btn_excel_tablero.svg'
         },
         text: 'Excel Tablero',
         condition: 'always',
@@ -243,8 +243,8 @@ window.TrelloPowerUp.initialize({
       if (type === 'CLIENTES') {
         buttons.push({
           icon: {
-            dark: BASE_URL + 'btn_descargar_clientes.svg',
-            light: BASE_URL + 'btn_descargar_clientes.svg'
+            dark: BASE_URL + 'images/btn_descargar_clientes.svg',
+            light: BASE_URL + 'images/btn_descargar_clientes.svg'
           },
           text: 'Descargar clientes',
           condition: 'always',
@@ -345,8 +345,8 @@ window.TrelloPowerUp.initialize({
       if (type === 'FACTURACIÓN') {
         buttons.push({
           icon: {
-            dark: BASE_URL + 'btn_descargar_facturas.svg',
-            light: BASE_URL + 'btn_descargar_facturas.svg'
+            dark: BASE_URL + 'images/btn_descargar_facturas.svg',
+            light: BASE_URL + 'images/btn_descargar_facturas.svg'
           },
           text: 'Descargar Facturas',
           condition: 'always',
@@ -361,8 +361,8 @@ window.TrelloPowerUp.initialize({
 
         buttons.push({
           icon: {
-            dark: BASE_URL + 'btn_descarga_proformas.svg',
-            light: BASE_URL + 'btn_descarga_proformas.svg'
+            dark: BASE_URL + 'images/btn_descarga_proformas.svg',
+            light: BASE_URL + 'images/btn_descarga_proformas.svg'
           },
           text: 'Descarga proformas',
           condition: 'always',
