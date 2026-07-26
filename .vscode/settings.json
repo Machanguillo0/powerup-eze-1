@@ -3,6 +3,5 @@
   "git.postCommitCommand": "push",
   "git.enableSmartCommit": true,
   "git.confirmSync": false,
-  "git.autofetch": true,
-  "github-actions.refresh.interval": 5
+  "git.autofetch": true
 }
