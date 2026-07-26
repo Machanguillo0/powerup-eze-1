@@ -2421,13 +2421,25 @@
 
               var redRPr = rPr;
               if (redRPr) {
+                // Texto en blanco (w:color)
                 if (redRPr.indexOf('<w:color ') !== -1) {
-                  redRPr = redRPr.replace(/<w:color\s+[^/>]*\/>/gi, '<w:color w:val="FF0000"/>');
+                  redRPr = redRPr.replace(/<w:color\s+[^/>]*\/>/gi, '<w:color w:val="FFFFFF"/>');
                 } else {
-                  redRPr = redRPr.replace('</w:rPr>', '<w:color w:val="FF0000"/></w:rPr>');
+                  redRPr = redRPr.replace('</w:rPr>', '<w:color w:val="FFFFFF"/></w:rPr>');
+                }
+                // Resaltado de fondo en rojo (w:highlight y w:shd)
+                if (redRPr.indexOf('<w:highlight ') !== -1) {
+                  redRPr = redRPr.replace(/<w:highlight\s+[^/>]*\/>/gi, '<w:highlight w:val="red"/>');
+                } else {
+                  redRPr = redRPr.replace('</w:rPr>', '<w:highlight w:val="red"/></w:rPr>');
+                }
+                if (redRPr.indexOf('<w:shd ') !== -1) {
+                  redRPr = redRPr.replace(/<w:shd\s+[^/>]*\/>/gi, '<w:shd w:val="clear" w:color="auto" w:fill="FF0000"/>');
+                } else {
+                  redRPr = redRPr.replace('</w:rPr>', '<w:shd w:val="clear" w:color="auto" w:fill="FF0000"/></w:rPr>');
                 }
               } else {
-                redRPr = '<w:rPr><w:color w:val="FF0000"/></w:rPr>';
+                redRPr = '<w:rPr><w:color w:val="FFFFFF"/><w:highlight w:val="red"/><w:shd w:val="clear" w:color="auto" w:fill="FF0000"/></w:rPr>';
               }
 
               var redReplacement = makeRedTagReplacement(m.xml, m.plain, rPr, redRPr);
