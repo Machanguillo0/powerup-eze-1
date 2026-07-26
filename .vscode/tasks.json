@@ -4,7 +4,7 @@
     {
       "label": "🚀 Subir y Desplegar a GitHub",
       "type": "shell",
-      "command": "git add . && git commit -m \"Actualización automatica\" && git push origin main",
+      "command": "powershell -ExecutionPolicy Bypass -File .vscode/wait_deploy.ps1",
       "group": {
         "kind": "build",
         "isDefault": true
@@ -12,7 +12,8 @@
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
-        "panel": "shared"
+        "panel": "shared",
+        "focus": true
       }
     }
   ]
