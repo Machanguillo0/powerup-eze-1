@@ -1,3 +1,5 @@
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 param(
     [string]$Repo = "Machanguillo0/powerup-eze-1"
 )
