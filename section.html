@@ -615,9 +615,10 @@
             Generar word desde plantilla
             <input type="file" id="word-upload" accept=".docx" />
           </label>
-          <button id="boton-borrador-gmail" class="btn-upload btn-orange" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; text-align: center; border: none; font-family: inherit;">
+          <label class="btn-upload btn-orange" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; text-align: center; border: none; font-family: inherit; cursor: pointer;">
             Crear borrador Gmail ✉️
-          </button>
+            <input type="file" id="gmail-template-upload" accept=".docx" />
+          </label>
         </div>
       </div>
     </div>
@@ -3351,8 +3352,37 @@
       });
     });
 
-    // Lógica para el botón "Crear borrador Gmail"
-    document.getElementById('boton-borrador-gmail').addEventListener('click', function () {
+    // Función auxiliar para extraer texto plano limpio desde el XML de un documento Word
+    function extractPlainTextFromWordXml(contentXml) {
+      if (!contentXml) return '';
+      var xml = contentXml
+        .replace(/<w:br\b[^>]*\/?>/gi, '\n')
+        .replace(/<\/w:p>/gi, '\n')
+        .replace(/<\/w:tr>/gi, '\n')
+        .replace(/<\/w:tc>/gi, ' ');
+
+      var text = xml.replace(/<[^>]+>/g, '');
+
+      text = text
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&#39;/g, "'");
+
+      text = text.replace(/\n\s*\n\s*\n+/g, '\n\n').trim();
+      return text;
+    }
+
+    // Lógica para procesar la Plantilla Word y abrir el Borrador en Gmail
+    document.getElementById('gmail-template-upload').addEventListener('change', function (event) {
+      if (!event.target.files || event.target.files.length === 0) return;
+      var file = event.target.files[0];
+      var statusDiv = document.getElementById('upload-status');
+      statusDiv.textContent = 'Procesando plantilla para Gmail: ' + file.name + '...';
+      t.sizeTo(document.body).done();
+
       Promise.all([
         getUnifiedFields(t),
         t.card('name')
@@ -3361,23 +3391,47 @@
         var cardObj = results[1];
         var fields = (data && data.fields) ? data.fields : {};
 
-        var email = (fields.email && fields.email !== '___________') ? fields.email.trim() : '';
-        var nombreCliente = (fields.nombre && fields.nombre !== 'Cliente Desconocido') ? fields.nombre.trim() : '';
-        var nombreTarjeta = (cardObj && cardObj.name) ? cardObj.name.trim() : '';
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            var zip = new PizZip(e.target.result);
+            var contentXml = zip.file("word/document.xml").asText();
+            if (!contentXml) throw new Error("No se encontró word/document.xml en la plantilla.");
 
-        var asunto = nombreTarjeta ? ("Expediente: " + nombreTarjeta) : "Consulta expediente";
+            // Reemplazar marcadores y etiquetas estándar
+            contentXml = reemplazarEtiquetasEstandar(contentXml, fields);
 
-        var saludo = nombreCliente ? ("Estimado/a " + nombreCliente + ",\n\n") : "Estimado/a cliente,\n\n";
-        var cuerpo = saludo + "Nos ponemos en contacto con usted en relación con su expediente.\n\nUn saludo cordial,";
+            // Convertir a texto plano apto para el cuerpo del correo
+            var cuerpoText = extractPlainTextFromWordXml(contentXml);
 
-        var gmailUrl = "https://mail.google.com/mail/?view=cm&fs=1&tf=1" +
-          "&to=" + encodeURIComponent(email) +
-          "&su=" + encodeURIComponent(asunto) +
-          "&body=" + encodeURIComponent(cuerpo);
+            var email = (fields.email && fields.email !== '___________') ? fields.email.trim() : '';
+            var nombreTarjeta = (cardObj && cardObj.name) ? cardObj.name.trim() : '';
 
-        window.open(gmailUrl, '_blank');
+            var asunto = nombreTarjeta ? ("Expediente: " + nombreTarjeta) : "Consulta expediente";
+
+            var gmailUrl = "https://mail.google.com/mail/?view=cm&fs=1&tf=1" +
+              "&to=" + encodeURIComponent(email) +
+              "&su=" + encodeURIComponent(asunto) +
+              "&body=" + encodeURIComponent(cuerpoText);
+
+            statusDiv.textContent = '¡Borrador generado en Gmail a partir de ' + file.name + '! ✔️';
+            t.sizeTo(document.body).done();
+
+            window.open(gmailUrl, '_blank');
+          } catch (err) {
+            console.error("Error al procesar plantilla para Gmail:", err);
+            statusDiv.textContent = 'Error al procesar plantilla: ' + err.message;
+            t.sizeTo(document.body).done();
+          } finally {
+            event.target.value = '';
+          }
+        };
+        reader.readAsArrayBuffer(file);
       }).catch(function (err) {
-        console.error("Error al preparar el borrador de Gmail:", err);
+        console.error("Error obteniendo datos de la tarjeta:", err);
+        statusDiv.textContent = 'Error al obtener datos de la tarjeta.';
+        event.target.value = '';
+        t.sizeTo(document.body).done();
       });
     });
 
