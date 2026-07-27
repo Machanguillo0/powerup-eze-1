@@ -606,6 +606,9 @@
             Generar word desde plantilla
             <input type="file" id="word-upload" accept=".docx" />
           </label>
+          <button id="boton-borrador-gmail" class="btn-upload" style="margin: 0; padding: 8px 16px; height: 36px; box-sizing: border-box; line-height: 20px; text-align: center; border: none; font-family: inherit;">
+            Crear borrador Gmail ✉️
+          </button>
         </div>
       </div>
     </div>
@@ -1209,6 +1212,7 @@
         dni: "___________",
         domicilio: "___________",
         telefono: "___________",
+        email: "___________",
         profesion: "___________",
         observaciones: "___________",
         fecha: "___________",
@@ -1244,6 +1248,11 @@
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DNI\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DOMICILIO\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:EMAIL|E-MAIL|CORREO|CORREO ELECTRÓNICO)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.email = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (fields.email === "___________") {
+        var emailMatch = desc.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+        if (emailMatch) { fields.email = emailMatch[0]; }
+      }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*PROFESI[OÓ]N\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*OBSERVACIONES\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:FECHA DEL SINIESTRO|Fecha)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha = m[1].replace(/[*_~`]/g, '').replace(/\s*\(.*\)\s*$/, '').trim(); }
@@ -2616,7 +2625,7 @@
             }
           }
 
-          var found = { nombre: false, dni: false, domicilio: false, telefono: false, profesion: false, observaciones: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false, fecha_sistema: false, fecha_ultima: false, fecha_cierre: false, fecha_facturacion: false, fecha_resolucion: false, fecha_designa: false, fecha_reclamacion: false, fecha_apertura: false, fecha_siniestro: false, factura: false };
+          var found = { nombre: false, dni: false, domicilio: false, telefono: false, email: false, profesion: false, observaciones: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false, fecha_sistema: false, fecha_ultima: false, fecha_cierre: false, fecha_facturacion: false, fecha_resolucion: false, fecha_designa: false, fecha_reclamacion: false, fecha_apertura: false, fecha_siniestro: false, factura: false };
           var targetCardId = null;
           var maxScore = -1;
 
@@ -2643,6 +2652,7 @@
             if (!found.dni && fields.dni !== "___________") { unified.dni = fields.dni; found.dni = true; }
             if (!found.domicilio && fields.domicilio !== "___________") { unified.domicilio = fields.domicilio; found.domicilio = true; }
             if (!found.telefono && fields.telefono !== "___________") { unified.telefono = fields.telefono; found.telefono = true; }
+            if (!found.email && fields.email && fields.email !== "___________") { unified.email = fields.email; found.email = true; }
             if (!found.profesion && fields.profesion !== "___________") { unified.profesion = fields.profesion; found.profesion = true; }
             if (!found.observaciones && fields.observaciones !== "___________") { unified.observaciones = fields.observaciones; found.observaciones = true; }
             if (!found.fecha && fields.fecha !== "___________") { unified.fecha = fields.fecha; found.fecha = true; }
@@ -3329,6 +3339,36 @@
           }
         };
         reader.readAsArrayBuffer(file);
+      });
+    });
+
+    // Lógica para el botón "Crear borrador Gmail"
+    document.getElementById('boton-borrador-gmail').addEventListener('click', function () {
+      Promise.all([
+        getUnifiedFields(t),
+        t.card('name')
+      ]).then(function (results) {
+        var data = results[0];
+        var cardObj = results[1];
+        var fields = (data && data.fields) ? data.fields : {};
+
+        var email = (fields.email && fields.email !== '___________') ? fields.email.trim() : '';
+        var nombreCliente = (fields.nombre && fields.nombre !== 'Cliente Desconocido') ? fields.nombre.trim() : '';
+        var nombreTarjeta = (cardObj && cardObj.name) ? cardObj.name.trim() : '';
+
+        var asunto = nombreTarjeta ? ("Expediente: " + nombreTarjeta) : "Consulta expediente";
+
+        var saludo = nombreCliente ? ("Estimado/a " + nombreCliente + ",\n\n") : "Estimado/a cliente,\n\n";
+        var cuerpo = saludo + "Nos ponemos en contacto con usted en relación con su expediente.\n\nUn saludo cordial,";
+
+        var gmailUrl = "https://mail.google.com/mail/?view=cm&fs=1&tf=1" +
+          "&to=" + encodeURIComponent(email) +
+          "&su=" + encodeURIComponent(asunto) +
+          "&body=" + encodeURIComponent(cuerpo);
+
+        window.open(gmailUrl, '_blank');
+      }).catch(function (err) {
+        console.error("Error al preparar el borrador de Gmail:", err);
       });
     });
 
