@@ -1225,6 +1225,7 @@
         email: "___________",
         profesion: "___________",
         observaciones: "___________",
+        diagnostico_principal: "___________",
         fecha: "___________",
         hora: "___________",
         lugar: "___________",
@@ -1265,6 +1266,7 @@
       }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*PROFESI[OÓ]N\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.profesion = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*OBSERVACIONES\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.observaciones = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:DIAGNÓSTICO PRINCIPAL|DIAGNOSTICO PRINCIPAL|DIAGNÓSTICO|DIAGNOSTICO)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.diagnostico_principal = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:FECHA DEL SINIESTRO|Fecha)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha = m[1].replace(/[*_~`]/g, '').replace(/\s*\(.*\)\s*$/, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:HORA)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.hora = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:LUGAR)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.lugar = m[1].replace(/[*_~`]/g, '').trim(); }
@@ -1279,7 +1281,7 @@
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha siniestro\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_siniestro = m[1].replace(/[*_~`]/g, '').trim(); }
 
       // --- EXTRACCIÓN CONTEXTUAL DE VEHÍCULOS ---
-      var vehicleLookahead = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
+      var vehicleLookahead = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES|DIAGN[ÓO]STICO)|$)";
       
       var propioMatch = desc.match(new RegExp("(?:^|\\n)[ \\t]*[^a-zA-Z0-9\\n\\r]*\\s*VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vehicleLookahead, "i"));
       if (propioMatch) {
@@ -1306,7 +1308,7 @@
         var nextHeaderIndex = remainingDesc.length;
 
         // A. Buscar por palabras clave conocidas (al inicio de una línea)
-        var keywords = ["NOMBRE", "DNI", "DOMICILIO", "TELÉFONO", "TELEFONO", "TLF", "PROFESI[ÓO]N", "OBSERVACIONES", "FECHA", "HORA", "LUGAR", "CIUDAD"];
+        var keywords = ["NOMBRE", "DNI", "DOMICILIO", "TELÉFONO", "TELEFONO", "TLF", "PROFESI[ÓO]N", "OBSERVACIONES", "DIAGNÓSTICO", "DIAGNOSTICO", "FECHA", "HORA", "LUGAR", "CIUDAD"];
         keywords.forEach(function (key) {
           var regex = new RegExp("\\n\\s*[*_~`#]*\\s*" + key, "i");
           var match = remainingDesc.match(regex);
@@ -2313,6 +2315,10 @@
         case 'profesión':
         case 'profesion': return fields.profesion;
         case 'observaciones': return fields.observaciones;
+        case 'diagnóstico principal':
+        case 'diagnostico principal':
+        case 'diagnóstico':
+        case 'diagnostico': return fields.diagnostico_principal || fields["diagnóstico principal"] || fields["diagnostico principal"] || fields["diagnóstico"] || fields["diagnostico"];
         case 'fecha del siniestro':
         case 'fecha siniestro': return fields.fecha || fields.fecha_siniestro;
         case 'hora': return fields.hora;
@@ -2529,6 +2535,7 @@
             telefono: "___________",
             profesion: "___________",
             observaciones: "___________",
+            diagnostico_principal: "___________",
             fecha: "___________",
             hora: "___________",
             lugar: "___________",
@@ -2639,12 +2646,36 @@
             }
           }
 
-          var found = { nombre: false, dni: false, domicilio: false, telefono: false, email: false, profesion: false, observaciones: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false, fecha_sistema: false, fecha_ultima: false, fecha_cierre: false, fecha_facturacion: false, fecha_resolucion: false, fecha_designa: false, fecha_reclamacion: false, fecha_apertura: false, fecha_siniestro: false, factura: false };
+          var found = { nombre: false, dni: false, domicilio: false, telefono: false, email: false, profesion: false, observaciones: false, diagnostico_principal: false, fecha: false, hora: false, lugar: false, ciudad: false, matricula1: false, aseguradora1: false, matricula2: false, aseguradora2: false, fecha_sistema: false, fecha_ultima: false, fecha_cierre: false, fecha_facturacion: false, fecha_resolucion: false, fecha_designa: false, fecha_reclamacion: false, fecha_apertura: false, fecha_siniestro: false, factura: false };
           var targetCardId = null;
           var maxScore = -1;
 
           cardsInList.forEach(function (card) {
             var fields = extractFields(card.desc);
+
+            // Extracción dinámica adicional de cualquier par Clave: Valor en las descripciones de las tarjetas
+            if (card.desc) {
+              var cardLines = card.desc.split('\n');
+              cardLines.forEach(function (line) {
+                line = line.trim();
+                if (!line) return;
+                var sepIndex = line.indexOf(':');
+                if (sepIndex === -1) sepIndex = line.indexOf('=');
+                if (sepIndex > -1) {
+                  var k = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+                  var v = line.substring(sepIndex + 1).replace(/[*_~`]/g, '').trim();
+                  if (k && v) {
+                    var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+                    var currentVal = unified[k] || unified[k.toLowerCase()] || unified[normK];
+                    if (!currentVal || currentVal === "___________" || currentVal === "Cliente Desconocido") {
+                      unified[k] = v;
+                      unified[k.toLowerCase()] = v;
+                      unified[normK] = v;
+                    }
+                  }
+                }
+              });
+            }
             
             // Sistema de puntuación para identificar la tarjeta principal de datos personales
             var score = 0;
@@ -2669,6 +2700,7 @@
             if (!found.email && fields.email && fields.email !== "___________") { unified.email = fields.email; found.email = true; }
             if (!found.profesion && fields.profesion !== "___________") { unified.profesion = fields.profesion; found.profesion = true; }
             if (!found.observaciones && fields.observaciones !== "___________") { unified.observaciones = fields.observaciones; found.observaciones = true; }
+            if (!found.diagnostico_principal && fields.diagnostico_principal && fields.diagnostico_principal !== "___________") { unified.diagnostico_principal = fields.diagnostico_principal; found.diagnostico_principal = true; }
             if (!found.fecha && fields.fecha !== "___________") { unified.fecha = fields.fecha; found.fecha = true; }
             if (!found.hora && fields.hora !== "___________") { unified.hora = fields.hora; found.hora = true; }
             if (!found.lugar && fields.lugar !== "___________") { unified.lugar = fields.lugar; found.lugar = true; }
