@@ -3568,7 +3568,7 @@
       emailLines.push('MIME-Version: 1.0');
       emailLines.push('Content-Type: text/html; charset=utf-8');
       emailLines.push('');
-      emailLines.push('<!DOCTYPE html><html><body>' + htmlBody + '</body></html>');
+      emailLines.push('<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #222222; line-height: 1.5;"><div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #222222; line-height: 1.5;">' + htmlBody + '</div></body></html>');
 
       var emailString = emailLines.join('\r\n');
       var base64 = btoa(unescape(encodeURIComponent(emailString)));
@@ -3767,7 +3767,7 @@
       for (var i = 0; i < paragraphs.length; i++) {
         var pResult = processContainerNode(paragraphs[i]);
         if (pResult.text.trim() || pResult.html.trim()) {
-          htmlParagraphs.push('<p>' + (pResult.html || '&nbsp;') + '</p>');
+          htmlParagraphs.push('<div style="margin-bottom: 12px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #222222; line-height: 1.5;">' + (pResult.html || '&nbsp;') + '</div>');
           plainParagraphs.push(pResult.text);
         }
       }
