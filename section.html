@@ -3644,7 +3644,7 @@
         statusDiv.innerHTML = '¡Borrador nativo HTML creado en tu Gmail a partir de ' + escapeHtml(fileName) + '! ✔️';
         t.sizeTo(document.body).done();
 
-        var openUrl = draftId ? ('https://mail.google.com/mail/u/0/#drafts/' + draftId) : 'https://mail.google.com/mail/u/0/#drafts';
+        var openUrl = draftId ? ('https://mail.google.com/mail/u/0/#drafts?compose=' + draftId) : 'https://mail.google.com/mail/u/0/#drafts';
         window.open(openUrl, '_blank');
       }).catch(function(err) {
         console.error("Error al crear borrador en Gmail API:", err);
@@ -3717,7 +3717,7 @@
           if (name === 't') {
             var t = child.textContent || '';
             textHtml += escapeHtml(t);
-            textPlain += toUnicodeStyle(t, isBold, isItalic);
+            textPlain += t;
           } else if (name === 'br') {
             textHtml += '<br>';
             textPlain += '\n';
