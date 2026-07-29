@@ -3506,7 +3506,7 @@
         originElem.textContent = window.location.origin;
       }
 
-      t.get('board', 'shared', 'google_client_id').then(function(id) {
+      getGoogleClientId().then(function(id) {
         inputGoogleClientId.value = id || '';
         return t.get('member', 'private', 'gmail_token_data');
       }).then(function(tokenData) {
@@ -3533,9 +3533,11 @@
       btnSaveGmailSettings.addEventListener('click', function() {
         var val = inputGoogleClientId.value ? inputGoogleClientId.value.trim() : '';
         if (!val) {
+          if (window.localStorage) window.localStorage.removeItem('google_client_id');
           t.remove('board', 'shared', 'google_client_id');
           t.remove('member', 'private', 'google_client_id');
         } else {
+          if (window.localStorage) window.localStorage.setItem('google_client_id', val);
           t.set('board', 'shared', 'google_client_id', val);
           t.set('member', 'private', 'google_client_id', val);
         }
@@ -3545,6 +3547,7 @@
     }
     if (btnDisconnectGmail) {
       btnDisconnectGmail.addEventListener('click', function() {
+        if (window.localStorage) window.localStorage.removeItem('gmail_token_data');
         t.remove('member', 'private', 'gmail_token_data');
         btnDisconnectGmail.style.display = 'none';
         t.alert({ message: 'Sesión de Gmail desconectada correctamente.', duration: 4, display: 'info' });
@@ -3552,9 +3555,12 @@
     }
 
     function getGoogleClientId() {
-      return t.get('board', 'shared', 'google_client_id').then(function(boardId) {
+      return t.get('board', 'shared', 'google_client_id').catch(function() { return null; }).then(function(boardId) {
         if (boardId) return boardId;
-        return t.get('member', 'private', 'google_client_id');
+        return t.get('member', 'private', 'google_client_id').catch(function() { return null; });
+      }).then(function(id) {
+        if (id) return id;
+        return (window.localStorage && window.localStorage.getItem('google_client_id')) ? window.localStorage.getItem('google_client_id') : null;
       });
     }
 
