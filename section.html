@@ -3715,7 +3715,7 @@
           if (tName === 't') {
             var t = allTs[i].textContent || '';
             textHtml += escapeHtml(t);
-            textPlain += t;
+            textPlain += toUnicodeStyle(t, isBold, isItalic);
           } else if (tName === 'br') {
             textHtml += '<br>';
             textPlain += '\n';
@@ -3733,7 +3733,7 @@
             if (cName === 't') {
               var t = child.textContent || '';
               textHtml += escapeHtml(t);
-              textPlain += t;
+              textPlain += toUnicodeStyle(t, isBold, isItalic);
             } else if (cName === 'br') {
               textHtml += '<br>';
               textPlain += '\n';
