@@ -3751,9 +3751,12 @@
         }
 
         if (textHtml) {
-          if (isUnderline) textHtml = '<u>' + textHtml + '</u>';
-          if (isItalic) textHtml = '<i>' + textHtml + '</i>';
-          if (isBold) textHtml = '<b>' + textHtml + '</b>';
+          var styleAttr = 'font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #222222;';
+          if (isBold) styleAttr += ' font-weight: bold;';
+          if (isItalic) styleAttr += ' font-style: italic;';
+          if (isUnderline) styleAttr += ' text-decoration: underline;';
+
+          textHtml = '<span style="' + styleAttr + '">' + textHtml + '</span>';
         }
 
         return { html: textHtml, text: textPlain };
@@ -3766,9 +3769,10 @@
           return processRunNode(node, pBold, pItalic);
         } else if (name === 't') {
           var t = node.textContent || '';
-          var textHtml = escapeHtml(t);
-          if (pBold) textHtml = '<b>' + textHtml + '</b>';
-          if (pItalic) textHtml = '<i>' + textHtml + '</i>';
+          var styleAttr = 'font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #222222;';
+          if (pBold) styleAttr += ' font-weight: bold;';
+          if (pItalic) styleAttr += ' font-style: italic;';
+          var textHtml = '<span style="' + styleAttr + '">' + escapeHtml(t) + '</span>';
           return { html: textHtml, text: t };
         } else if (name === 'br') {
           return { html: '<br>', text: '\n' };
@@ -3849,7 +3853,7 @@
       };
     }
 
-    // Lógica para procesar la Plantilla Word y abrir el Borrador en Gmail con copia de HTML al portapapeles
+    // Lógica para procesar la Plantilla Word y abrir el Borrador en Gmail
     document.getElementById('gmail-template-upload').addEventListener('change', function (event) {
       if (!event.target.files || event.target.files.length === 0) return;
       var file = event.target.files[0];
@@ -3857,105 +3861,81 @@
       statusDiv.textContent = 'Procesando plantilla para Gmail: ' + file.name + '...';
       t.sizeTo(document.body).done();
 
-      // Abrir pestaña superior inmediatamente dentro de la interacción del usuario
-      var targetWin = window.open('about:blank', '_blank');
+      // Esperar a que el navegador cierre completamente el cuadro de diálogo de archivos para evitar bloqueo de window.open
+      setTimeout(function() {
+        Promise.all([
+          getUnifiedFields(t),
+          t.card('name')
+        ]).then(function (results) {
+          var data = results[0];
+          var cardObj = results[1];
+          var fields = (data && data.fields) ? data.fields : {};
 
-      Promise.all([
-        getUnifiedFields(t),
-        t.card('name')
-      ]).then(function (results) {
-        var data = results[0];
-        var cardObj = results[1];
-        var fields = (data && data.fields) ? data.fields : {};
+          var reader = new FileReader();
+          reader.onload = function (e) {
+            try {
+              var zip = new PizZip(e.target.result);
+              var contentXml = zip.file("word/document.xml").asText();
+              if (!contentXml) throw new Error("No se encontró word/document.xml en la plantilla.");
 
-        var reader = new FileReader();
-        reader.onload = function (e) {
-          try {
-            var zip = new PizZip(e.target.result);
-            var contentXml = zip.file("word/document.xml").asText();
-            if (!contentXml) throw new Error("No se encontró word/document.xml en la plantilla.");
+              contentXml = reemplazarEtiquetasEstandar(contentXml, fields);
+              var formattedContent = extractFormattedContentFromWordXml(contentXml);
+              var cuerpoText = formattedContent.text;
+              var cuerpoHtml = formattedContent.html;
+              var plainParagraphs = formattedContent.plainParagraphs;
+              var htmlParagraphs = formattedContent.htmlParagraphs;
 
-            contentXml = reemplazarEtiquetasEstandar(contentXml, fields);
-            var formattedContent = extractFormattedContentFromWordXml(contentXml);
-            var cuerpoText = formattedContent.text;
-            var cuerpoHtml = formattedContent.html;
-            var plainParagraphs = formattedContent.plainParagraphs;
-            var htmlParagraphs = formattedContent.htmlParagraphs;
+              var email = (fields.email && fields.email !== '___________') ? fields.email.trim() : '';
+              var nombreTarjeta = (cardObj && cardObj.name) ? cardObj.name.trim() : '';
+              var asunto = nombreTarjeta ? ("Expediente: " + nombreTarjeta) : "Consulta expediente";
 
-            var email = (fields.email && fields.email !== '___________') ? fields.email.trim() : '';
-            var nombreTarjeta = (cardObj && cardObj.name) ? cardObj.name.trim() : '';
-            var asunto = nombreTarjeta ? ("Expediente: " + nombreTarjeta) : "Consulta expediente";
-
-            if (plainParagraphs.length > 0) {
-              var firstLine = plainParagraphs[0].trim();
-              var match = firstLine.match(/^asunto:\s*(.*)/i);
-              if (match) {
-                var customAsunto = match[1].trim();
-                if (customAsunto) {
-                  asunto = customAsunto;
+              if (plainParagraphs.length > 0) {
+                var firstLine = plainParagraphs[0].trim();
+                var match = firstLine.match(/^asunto:\s*(.*)/i);
+                if (match) {
+                  var customAsunto = match[1].trim();
+                  if (customAsunto) {
+                    asunto = customAsunto;
+                  }
+                  plainParagraphs.shift();
+                  htmlParagraphs.shift();
+                  cuerpoText = plainParagraphs.join('\n\n').trim();
+                  cuerpoHtml = htmlParagraphs.join('').trim();
                 }
-                plainParagraphs.shift();
-                htmlParagraphs.shift();
-                cuerpoText = plainParagraphs.join('\n\n').trim();
-                cuerpoHtml = htmlParagraphs.join('').trim();
               }
+
+              getGoogleClientId().then(function(clientId) {
+                if (!clientId) {
+                  openGmailSettingsModal();
+                  statusDiv.textContent = 'Configura tu ID de cliente de Google (Client ID) para activar la API de Gmail.';
+                  openGmailUrlFallback(email, asunto, cuerpoText, statusDiv, file.name);
+                  return;
+                }
+
+                t.get('member', 'private', 'gmail_token_data').then(function(tokenData) {
+                  if (tokenData && tokenData.token && tokenData.expiresAt && tokenData.expiresAt > Date.now()) {
+                    executeDraftCreation(tokenData.token, email, asunto, cuerpoHtml, cuerpoText, statusDiv, file.name);
+                  } else {
+                    requestGoogleTokenAndCreateDraft(clientId, email, asunto, cuerpoHtml, cuerpoText, statusDiv, file.name);
+                  }
+                });
+              });
+            } catch (err) {
+              console.error("Error al procesar plantilla para Gmail:", err);
+              statusDiv.textContent = 'Error al procesar plantilla: ' + err.message;
+              t.sizeTo(document.body).done();
+            } finally {
+              event.target.value = '';
             }
-
-            var gmailUrl = "https://mail.google.com/mail/?view=cm&fs=1&tf=1" +
-              "&to=" + encodeURIComponent(email) +
-              "&su=" + encodeURIComponent(asunto) +
-              "&body=" + encodeURIComponent(cuerpoText);
-
-            // Código HTML para la pestaña auxiliar que copia el HTML real al portapapeles y redirige a Gmail
-            var helperHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Copiando formato...</title></head><body style="font-family: Arial, sans-serif; text-align: center; padding: 40px; color: #172b4d;">' +
-              '<h3 style="color: #0079bf;">📋 Copiando negritas nativas al portapapeles...</h3>' +
-              '<p style="font-size: 14px; color: #5e6c84;">Redirigiendo a Gmail en un segundo...</p>' +
-              '<script>' +
-              'function copyAndRedirect() {' +
-              '  try {' +
-              '    var htmlBlob = new Blob([' + JSON.stringify(cuerpoHtml) + '], { type: "text/html" });' +
-              '    var textBlob = new Blob([' + JSON.stringify(cuerpoText) + '], { type: "text/plain" });' +
-              '    var item = new ClipboardItem({ "text/html": htmlBlob, "text/plain": textBlob });' +
-              '    navigator.clipboard.write([item]).then(function() {' +
-              '      window.location.href = ' + JSON.stringify(gmailUrl) + ';' +
-              '    }).catch(function() {' +
-              '      window.location.href = ' + JSON.stringify(gmailUrl) + ';' +
-              '    });' +
-              '  } catch(e) {' +
-              '    window.location.href = ' + JSON.stringify(gmailUrl) + ';' +
-              '  }' +
-              '}' +
-              'window.onload = copyAndRedirect;' +
-              'setTimeout(function() { window.location.href = ' + JSON.stringify(gmailUrl) + '; }, 1500);' +
-              '<\/script></body></html>';
-
-            if (targetWin) {
-              targetWin.document.open();
-              targetWin.document.write(helperHtml);
-              targetWin.document.close();
-            } else {
-              window.open(gmailUrl, '_blank');
-            }
-
-            statusDiv.innerHTML = '¡Borrador abierto en Gmail! 📋<br><span style="color: #0079bf; font-size: 12px;">Se han copiado las negritas nativas al portapapeles. Si deseas aplicar la negrita nativa en el tamaño 100% exacto, solo pulsa <strong>Ctrl + V</strong> en Gmail.</span>';
-            t.sizeTo(document.body).done();
-          } catch (err) {
-            console.error("Error al procesar plantilla para Gmail:", err);
-            statusDiv.textContent = 'Error al procesar plantilla: ' + err.message;
-            if (targetWin) targetWin.close();
-            t.sizeTo(document.body).done();
-          } finally {
-            event.target.value = '';
-          }
-        };
-        reader.readAsArrayBuffer(file);
-      }).catch(function (err) {
-        console.error("Error obteniendo datos de la tarjeta:", err);
-        statusDiv.textContent = 'Error al obtener datos de la tarjeta.';
-        if (targetWin) targetWin.close();
-        event.target.value = '';
-        t.sizeTo(document.body).done();
-      });
+          };
+          reader.readAsArrayBuffer(file);
+        }).catch(function (err) {
+          console.error("Error obteniendo datos de la tarjeta:", err);
+          statusDiv.textContent = 'Error al obtener datos de la tarjeta.';
+          event.target.value = '';
+          t.sizeTo(document.body).done();
+        });
+      }, 150);
     });
 
 
