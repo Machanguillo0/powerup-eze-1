@@ -6,6 +6,8 @@
   <title>Antigravity Section</title>
   <!-- La librería de Trello es obligatoria en CADA iframe del Power-Up -->
   <script src="https://p.trellocdn.com/power-up.min.js"></script>
+  <!-- Librería oficial de Google Identity Services (OAuth 2.0) -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- Librería para manipular archivos ZIP/DOCX en el navegador -->
   <script src="https://unpkg.com/pizzip@3.1.4/dist/pizzip.js"></script>
   <!-- Librería para manipular archivos Excel en el navegador -->
@@ -619,6 +621,37 @@
             Crear borrador Gmail ✉️
             <input type="file" id="gmail-template-upload" accept=".docx" />
           </label>
+          <button id="btn-config-gmail" class="secondary" style="margin: 0; padding: 4px 8px; font-size: 11px; height: 26px; box-sizing: border-box; line-height: 16px; width: 100%;">⚙️ Ajustes Gmail API</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de Ajustes de Gmail API -->
+    <div id="gmail-settings-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(9,30,66,0.54); z-index: 9999; align-items: center; justify-content: center;">
+      <div style="background: white; padding: 20px; border-radius: 4px; max-width: 480px; width: 90%; box-shadow: 0 8px 16px -4px rgba(9,30,66,0.25); text-align: left; box-sizing: border-box;">
+        <h3 style="margin-top: 0; color: #172b4d; font-size: 16px;">⚙️ Ajustes de Gmail API</h3>
+        <p style="font-size: 12px; color: #5e6c84; margin-bottom: 12px;">Introduce tu <strong>ID de cliente de Google OAuth (Client ID)</strong> para permitir que el Power-Up cree borradores con HTML nativo directamente en tu cuenta de Gmail.</p>
+
+        <label style="display: block; font-size: 11px; font-weight: bold; margin-bottom: 4px; color: #172b4d;">Client ID de OAuth de Google:</label>
+        <input type="text" id="input-google-client-id" placeholder="Ej: 123456789-abcdef.apps.googleusercontent.com" style="width: 100%; padding: 6px 8px; border: 1px solid #dfe1e6; border-radius: 3px; box-sizing: border-box; font-size: 12px; margin-bottom: 12px;" />
+
+        <div style="display: flex; gap: 6px; justify-content: flex-end; margin-bottom: 12px; flex-wrap: wrap;">
+          <button id="btn-disconnect-gmail" class="secondary" style="margin: 0; padding: 6px 10px; font-size: 11px; display: none;">🔌 Desconectar mi Gmail</button>
+          <button id="btn-cancel-gmail-settings" class="secondary" style="margin: 0; padding: 6px 10px; font-size: 11px;">Cancelar</button>
+          <button id="btn-save-gmail-settings" style="margin: 0; padding: 6px 12px; font-size: 11px; background: #0079bf; color: white; border: none; border-radius: 3px; font-weight: bold; cursor: pointer;">Guardar Client ID</button>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #dfe1e6; margin: 12px 0;">
+
+        <div style="font-size: 11px; color: #5e6c84; line-height: 1.4;">
+          <strong>¿Cómo obtener tu Client ID en 2 minutos? (Gratis)</strong>
+          <ol style="padding-left: 16px; margin: 4px 0 0 0;">
+            <li>Entra en <a href="https://console.cloud.google.com/" target="_blank" style="color: #0079bf;">console.cloud.google.com</a> y crea un proyecto nuevo.</li>
+            <li>En <strong>Pantalla de consentimiento de OAuth</strong>, selecciona "Externa" o "Interna" y guarda.</li>
+            <li>En <strong>Credenciales</strong> &rarr; <strong>Crear credenciales</strong> &rarr; <strong>ID de cliente de OAuth</strong>, selecciona <em>Aplicación Web</em>.</li>
+            <li>En <em>Orígenes de JavaScript autorizados</em> añade <code>https://trello.com</code> (o la URL de tu Power-Up).</li>
+            <li>Copia el <strong>ID de cliente</strong> generado y pégalo en el campo superior.</li>
+          </ol>
         </div>
       </div>
     </div>
@@ -3453,9 +3486,182 @@
       return result;
     }
 
-    // Función auxiliar para extraer contenido formateado desde el XML de un documento Word
+    // Modal y Ajustes de Gmail API
+    var btnConfigGmail = document.getElementById('btn-config-gmail');
+    var modalGmailSettings = document.getElementById('gmail-settings-modal');
+    var inputGoogleClientId = document.getElementById('input-google-client-id');
+    var btnSaveGmailSettings = document.getElementById('btn-save-gmail-settings');
+    var btnCancelGmailSettings = document.getElementById('btn-cancel-gmail-settings');
+    var btnDisconnectGmail = document.getElementById('btn-disconnect-gmail');
+
+    function openGmailSettingsModal() {
+      t.get('board', 'shared', 'google_client_id').then(function(id) {
+        inputGoogleClientId.value = id || '';
+        return t.get('member', 'private', 'gmail_token_data');
+      }).then(function(tokenData) {
+        if (tokenData && tokenData.token) {
+          btnDisconnectGmail.style.display = 'inline-block';
+        } else {
+          btnDisconnectGmail.style.display = 'none';
+        }
+        modalGmailSettings.style.display = 'flex';
+      });
+    }
+
+    function closeGmailSettingsModal() {
+      modalGmailSettings.style.display = 'none';
+    }
+
+    if (btnConfigGmail) {
+      btnConfigGmail.addEventListener('click', openGmailSettingsModal);
+    }
+    if (btnCancelGmailSettings) {
+      btnCancelGmailSettings.addEventListener('click', closeGmailSettingsModal);
+    }
+    if (btnSaveGmailSettings) {
+      btnSaveGmailSettings.addEventListener('click', function() {
+        var val = inputGoogleClientId.value ? inputGoogleClientId.value.trim() : '';
+        if (!val) {
+          t.remove('board', 'shared', 'google_client_id');
+          t.remove('member', 'private', 'google_client_id');
+        } else {
+          t.set('board', 'shared', 'google_client_id', val);
+          t.set('member', 'private', 'google_client_id', val);
+        }
+        closeGmailSettingsModal();
+        t.alert({ message: 'Ajustes de Gmail API guardados correctamente. ⚙️', duration: 4, display: 'success' });
+      });
+    }
+    if (btnDisconnectGmail) {
+      btnDisconnectGmail.addEventListener('click', function() {
+        t.remove('member', 'private', 'gmail_token_data');
+        btnDisconnectGmail.style.display = 'none';
+        t.alert({ message: 'Sesión de Gmail desconectada correctamente.', duration: 4, display: 'info' });
+      });
+    }
+
+    function getGoogleClientId() {
+      return t.get('board', 'shared', 'google_client_id').then(function(boardId) {
+        if (boardId) return boardId;
+        return t.get('member', 'private', 'google_client_id');
+      });
+    }
+
+    function createBase64UrlEmail(to, subject, htmlBody) {
+      var utf8Subject = '=?utf-8?B?' + btoa(unescape(encodeURIComponent(subject))) + '?=';
+      var emailLines = [];
+      if (to) {
+        emailLines.push('To: ' + to);
+      }
+      emailLines.push('Subject: ' + utf8Subject);
+      emailLines.push('MIME-Version: 1.0');
+      emailLines.push('Content-Type: text/html; charset=utf-8');
+      emailLines.push('');
+      emailLines.push('<!DOCTYPE html><html><body>' + htmlBody + '</body></html>');
+
+      var emailString = emailLines.join('\r\n');
+      var base64 = btoa(unescape(encodeURIComponent(emailString)));
+      return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    function createGmailDraftViaApi(accessToken, rawBase64Url) {
+      return fetch('https://gmail.googleapis.com/gmail/v1/users/me/drafts', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: {
+            raw: rawBase64Url
+          }
+        })
+      }).then(function(res) {
+        if (!res.ok) {
+          return res.json().then(function(err) {
+            throw new Error((err.error && err.error.message) ? err.error.message : ('HTTP ' + res.status));
+          });
+        }
+        return res.json();
+      });
+    }
+
+    function requestGoogleTokenAndCreateDraft(clientId, to, subject, htmlBody, plainBody, statusDiv, fileName) {
+      if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+        console.warn("SDK de Google Identity Services no cargado. Usando enlace directo.");
+        openGmailUrlFallback(to, subject, plainBody, statusDiv, fileName);
+        return;
+      }
+
+      statusDiv.textContent = 'Iniciando autorización de Google...';
+      t.sizeTo(document.body).done();
+
+      var tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: 'https://www.googleapis.com/auth/gmail.compose',
+        callback: function(tokenResponse) {
+          if (tokenResponse.error !== undefined) {
+            console.error("Error al autorizar con Google:", tokenResponse);
+            statusDiv.textContent = 'Error de autorización Google: ' + tokenResponse.error;
+            t.sizeTo(document.body).done();
+            return;
+          }
+
+          var accessToken = tokenResponse.access_token;
+          var expiresAt = Date.now() + ((tokenResponse.expires_in || 3600) - 300) * 1000;
+
+          t.set('member', 'private', 'gmail_token_data', {
+            token: accessToken,
+            expiresAt: expiresAt
+          });
+
+          executeDraftCreation(accessToken, to, subject, htmlBody, plainBody, statusDiv, fileName);
+        }
+      });
+
+      tokenClient.requestAccessToken({ prompt: '' });
+    }
+
+    function executeDraftCreation(accessToken, to, subject, htmlBody, plainBody, statusDiv, fileName) {
+      statusDiv.textContent = 'Creando borrador nativo HTML en tu Gmail...';
+      t.sizeTo(document.body).done();
+
+      var rawBase64Url = createBase64UrlEmail(to, subject, htmlBody);
+
+      createGmailDraftViaApi(accessToken, rawBase64Url).then(function(draftData) {
+        var draftId = (draftData.message && draftData.message.id) ? draftData.message.id : (draftData.id || '');
+        statusDiv.innerHTML = '¡Borrador nativo HTML creado en tu Gmail a partir de ' + escapeHtml(fileName) + '! ✔️';
+        t.sizeTo(document.body).done();
+
+        var openUrl = draftId ? ('https://mail.google.com/mail/u/0/#drafts/' + draftId) : 'https://mail.google.com/mail/u/0/#drafts';
+        window.open(openUrl, '_blank');
+      }).catch(function(err) {
+        console.error("Error al crear borrador en Gmail API:", err);
+        if (err.message && (err.message.includes('401') || err.message.includes('Unauthenticated') || err.message.includes('invalid_token'))) {
+          t.remove('member', 'private', 'gmail_token_data');
+          statusDiv.textContent = 'Sesión expirada. Vuelve a hacer clic para autorizar tu Gmail.';
+        } else {
+          statusDiv.textContent = 'Error API Gmail: ' + err.message + '. Abriendo por enlace...';
+          openGmailUrlFallback(to, subject, plainBody, statusDiv, fileName);
+        }
+        t.sizeTo(document.body).done();
+      });
+    }
+
+    function openGmailUrlFallback(to, subject, plainBody, statusDiv, fileName) {
+      var gmailUrl = "https://mail.google.com/mail/?view=cm&fs=1&tf=1" +
+        "&to=" + encodeURIComponent(to) +
+        "&su=" + encodeURIComponent(subject) +
+        "&body=" + encodeURIComponent(plainBody);
+
+      statusDiv.textContent = '¡Borrador generado en Gmail a partir de ' + fileName + '! ✔️';
+      t.sizeTo(document.body).done();
+      window.open(gmailUrl, '_blank');
+    }
+
+    // Función auxiliar para extraer contenido formateado (HTML + Texto plano) desde el XML de un documento Word
     function extractFormattedContentFromWordXml(contentXml) {
-      if (!contentXml) return { text: '', plainParagraphs: [] };
+      if (!contentXml) return { html: '', text: '', htmlParagraphs: [], plainParagraphs: [] };
 
       var parser = new DOMParser();
       var xmlDoc = parser.parseFromString(contentXml, "text/xml");
@@ -3471,6 +3677,7 @@
       function processRunNode(rNode) {
         var isBold = false;
         var isItalic = false;
+        var isUnderline = false;
 
         var children = rNode.childNodes;
         for (var i = 0; i < children.length; i++) {
@@ -3485,10 +3692,12 @@
               var isTrue = (val === null || val === "true" || val === "1" || val === "on");
               if ((prName === 'b' || prName === 'bCS') && isTrue) isBold = true;
               if ((prName === 'i' || prName === 'iCS') && isTrue) isItalic = true;
+              if (prName === 'u' && val !== 'none') isUnderline = true;
             }
           }
         }
 
+        var textHtml = '';
         var textPlain = '';
 
         for (var i = 0; i < children.length; i++) {
@@ -3496,18 +3705,28 @@
           var name = getLocalName(child);
           if (name === 't') {
             var t = child.textContent || '';
+            textHtml += escapeHtml(t);
             textPlain += toUnicodeStyle(t, isBold, isItalic);
           } else if (name === 'br') {
+            textHtml += '<br>';
             textPlain += '\n';
           } else if (name === 'tab') {
+            textHtml += '&nbsp;&nbsp;&nbsp;&nbsp;';
             textPlain += '\t';
           }
         }
 
-        return textPlain;
+        if (textHtml) {
+          if (isUnderline) textHtml = '<u>' + textHtml + '</u>';
+          if (isItalic) textHtml = '<i>' + textHtml + '</i>';
+          if (isBold) textHtml = '<b>' + textHtml + '</b>';
+        }
+
+        return { html: textHtml, text: textPlain };
       }
 
       function processContainerNode(node) {
+        var htmlParts = [];
         var textParts = [];
 
         var children = node.childNodes;
@@ -3515,28 +3734,40 @@
           var child = children[i];
           var name = getLocalName(child);
           if (name === 'r') {
-            textParts.push(processRunNode(child));
+            var res = processRunNode(child);
+            htmlParts.push(res.html);
+            textParts.push(res.text);
           } else if (name === 'hyperlink' || name === 'fldSimple' || name === 'smartTag') {
-            textParts.push(processContainerNode(child));
+            var res = processContainerNode(child);
+            htmlParts.push(res.html);
+            textParts.push(res.text);
           }
         }
 
-        return textParts.join('');
+        return {
+          html: htmlParts.join(''),
+          text: textParts.join('')
+        };
       }
 
+      var htmlParagraphs = [];
       var plainParagraphs = [];
 
       for (var i = 0; i < paragraphs.length; i++) {
-        var pText = processContainerNode(paragraphs[i]);
-        if (pText.trim()) {
-          plainParagraphs.push(pText);
+        var pResult = processContainerNode(paragraphs[i]);
+        if (pResult.text.trim() || pResult.html.trim()) {
+          htmlParagraphs.push('<p>' + (pResult.html || '&nbsp;') + '</p>');
+          plainParagraphs.push(pResult.text);
         }
       }
 
+      var fullHtml = htmlParagraphs.join('');
       var fullText = plainParagraphs.join('\n\n').trim();
 
       return {
+        html: fullHtml,
         text: fullText,
+        htmlParagraphs: htmlParagraphs,
         plainParagraphs: plainParagraphs
       };
     }
@@ -3567,9 +3798,11 @@
             // Reemplazar marcadores y etiquetas estándar
             contentXml = reemplazarEtiquetasEstandar(contentXml, fields);
 
-            // Convertir a texto formateado (negrita, cursiva, etc.)
+            // Convertir a HTML nativo e información formateada
             var formattedContent = extractFormattedContentFromWordXml(contentXml);
             var cuerpoText = formattedContent.text;
+            var cuerpoHtml = formattedContent.html;
+            var htmlParagraphs = formattedContent.htmlParagraphs;
             var plainParagraphs = formattedContent.plainParagraphs;
 
             var email = (fields.email && fields.email !== '___________') ? fields.email.trim() : '';
@@ -3587,19 +3820,31 @@
                   asunto = customAsunto;
                 }
                 plainParagraphs.shift();
+                htmlParagraphs.shift();
                 cuerpoText = plainParagraphs.join('\n\n').trim();
+                cuerpoHtml = htmlParagraphs.join('').trim();
               }
             }
 
-            var gmailUrl = "https://mail.google.com/mail/?view=cm&fs=1&tf=1" +
-              "&to=" + encodeURIComponent(email) +
-              "&su=" + encodeURIComponent(asunto) +
-              "&body=" + encodeURIComponent(cuerpoText);
+            getGoogleClientId().then(function(clientId) {
+              if (!clientId) {
+                // No hay Client ID configurado aún: abrir modal o usar fallback directo
+                openGmailSettingsModal();
+                statusDiv.textContent = 'Configura tu ID de cliente de Google (Client ID) para activar la API de Gmail.';
+                openGmailUrlFallback(email, asunto, cuerpoText, statusDiv, file.name);
+                return;
+              }
 
-            statusDiv.textContent = '¡Borrador generado en Gmail a partir de ' + file.name + '! ✔️';
-            t.sizeTo(document.body).done();
-
-            window.open(gmailUrl, '_blank');
+              t.get('member', 'private', 'gmail_token_data').then(function(tokenData) {
+                if (tokenData && tokenData.token && tokenData.expiresAt && tokenData.expiresAt > Date.now()) {
+                  // Usar token privado del miembro de Trello
+                  executeDraftCreation(tokenData.token, email, asunto, cuerpoHtml, cuerpoText, statusDiv, file.name);
+                } else {
+                  // Solicitar nuevo token vía popup oficial de Google OAuth
+                  requestGoogleTokenAndCreateDraft(clientId, email, asunto, cuerpoHtml, cuerpoText, statusDiv, file.name);
+                }
+              });
+            });
           } catch (err) {
             console.error("Error al procesar plantilla para Gmail:", err);
             statusDiv.textContent = 'Error al procesar plantilla: ' + err.message;
