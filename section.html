@@ -3593,6 +3593,7 @@
       emailLines.push('Subject: =?utf-8?B?' + subjectBase64 + '?=');
       emailLines.push('MIME-Version: 1.0');
       emailLines.push('Content-Type: text/html; charset=utf-8');
+      emailLines.push('Content-Transfer-Encoding: 8bit');
       emailLines.push('');
       emailLines.push('<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #222222; line-height: 1.5;"><div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #222222; line-height: 1.5;">' + htmlBody + '</div></body></html>');
 
@@ -3666,7 +3667,8 @@
       var rawBase64Url = createBase64UrlEmail(to, subject, htmlBody);
 
       createGmailDraftViaApi(accessToken, rawBase64Url).then(function(draftData) {
-        var draftId = (draftData.message && draftData.message.id) ? draftData.message.id : (draftData.id || '');
+        console.log("Draft creado correctamente:", draftData);
+        var draftId = draftData.id || (draftData.message ? draftData.message.id : '');
         statusDiv.innerHTML = '¡Borrador nativo HTML creado en tu Gmail a partir de ' + escapeHtml(fileName) + '! ✔️';
         t.sizeTo(document.body).done();
 
