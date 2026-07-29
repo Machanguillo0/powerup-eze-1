@@ -643,13 +643,19 @@
 
         <hr style="border: 0; border-top: 1px solid #dfe1e6; margin: 12px 0;">
 
+        <div style="background: #eae6ff; color: #403294; padding: 8px; border-radius: 3px; font-size: 11px; margin-bottom: 12px; line-height: 1.4;">
+          <strong>Origen exacto a registrar en Google Cloud:</strong><br>
+          En <em>Orígenes de JavaScript autorizados</em> debes añadir este origen:<br>
+          <code id="origin-url-text" style="background: white; padding: 2px 4px; border-radius: 2px; font-weight: bold; color: #172b4d; display: inline-block; margin-top: 4px; word-break: break-all;"></code>
+        </div>
+
         <div style="font-size: 11px; color: #5e6c84; line-height: 1.4;">
           <strong>¿Cómo obtener tu Client ID en 2 minutos? (Gratis)</strong>
           <ol style="padding-left: 16px; margin: 4px 0 0 0;">
             <li>Entra en <a href="https://console.cloud.google.com/" target="_blank" style="color: #0079bf;">console.cloud.google.com</a> y crea un proyecto nuevo.</li>
             <li>En <strong>Pantalla de consentimiento de OAuth</strong>, selecciona "Externa" o "Interna" y guarda.</li>
             <li>En <strong>Credenciales</strong> &rarr; <strong>Crear credenciales</strong> &rarr; <strong>ID de cliente de OAuth</strong>, selecciona <em>Aplicación Web</em>.</li>
-            <li>En <em>Orígenes de JavaScript autorizados</em> añade <code>https://trello.com</code> (o la URL de tu Power-Up).</li>
+            <li>En <em>Orígenes de JavaScript autorizados</em> añade <code>https://trello.com</code> y el origen mostrado arriba.</li>
             <li>Copia el <strong>ID de cliente</strong> generado y pégalo en el campo superior.</li>
           </ol>
         </div>
@@ -3495,6 +3501,11 @@
     var btnDisconnectGmail = document.getElementById('btn-disconnect-gmail');
 
     function openGmailSettingsModal() {
+      var originElem = document.getElementById('origin-url-text');
+      if (originElem) {
+        originElem.textContent = window.location.origin;
+      }
+
       t.get('board', 'shared', 'google_client_id').then(function(id) {
         inputGoogleClientId.value = id || '';
         return t.get('member', 'private', 'gmail_token_data');
