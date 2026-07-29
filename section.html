@@ -3392,25 +3392,68 @@
       return node.localName || (node.nodeName ? node.nodeName.replace(/^.*:/, '') : '');
     }
 
-    function applyMarkdownFormatting(text, isBold, isItalic) {
+    function toUnicodeStyle(text, isBold, isItalic) {
       if (!text || (!isBold && !isItalic)) return text;
 
-      var match = text.match(/^(\s*)([\s\S]*?)(\s*)$/);
-      if (!match || !match[2]) return text;
+      var result = '';
+      for (var i = 0; i < text.length; i++) {
+        var ch = text[i];
 
-      var leading = match[1];
-      var core = match[2];
-      var trailing = match[3];
+        var baseChar = null;
+        var combiningMark = null;
 
-      var marker = '';
-      if (isBold && isItalic) marker = '***';
-      else if (isBold) marker = '**';
-      else if (isItalic) marker = '*';
+        if (ch === 'á') { baseChar = 'a'; combiningMark = '\u0301'; }
+        else if (ch === 'é') { baseChar = 'e'; combiningMark = '\u0301'; }
+        else if (ch === 'í') { baseChar = 'i'; combiningMark = '\u0301'; }
+        else if (ch === 'ó') { baseChar = 'o'; combiningMark = '\u0301'; }
+        else if (ch === 'ú') { baseChar = 'u'; combiningMark = '\u0301'; }
+        else if (ch === 'ü') { baseChar = 'u'; combiningMark = '\u0308'; }
+        else if (ch === 'ñ') { baseChar = 'n'; combiningMark = '\u0303'; }
+        else if (ch === 'Á') { baseChar = 'A'; combiningMark = '\u0301'; }
+        else if (ch === 'É') { baseChar = 'E'; combiningMark = '\u0301'; }
+        else if (ch === 'Í') { baseChar = 'I'; combiningMark = '\u0301'; }
+        else if (ch === 'Ó') { baseChar = 'O'; combiningMark = '\u0301'; }
+        else if (ch === 'Ú') { baseChar = 'U'; combiningMark = '\u0301'; }
+        else if (ch === 'Ü') { baseChar = 'U'; combiningMark = '\u0308'; }
+        else if (ch === 'Ñ') { baseChar = 'N'; combiningMark = '\u0303'; }
 
-      return leading + marker + core + marker + trailing;
+        var targetChar = baseChar || ch;
+        var targetCode = targetChar.charCodeAt(0);
+        var converted = targetChar;
+
+        if (isBold && isItalic) {
+          if (targetCode >= 65 && targetCode <= 90) { // A-Z
+            converted = String.fromCodePoint(0x1D63C + (targetCode - 65));
+          } else if (targetCode >= 97 && targetCode <= 122) { // a-z
+            converted = String.fromCodePoint(0x1D656 + (targetCode - 97));
+          } else if (targetCode >= 48 && targetCode <= 57) { // 0-9
+            converted = String.fromCodePoint(0x1D7EC + (targetCode - 48));
+          }
+        } else if (isBold) {
+          if (targetCode >= 65 && targetCode <= 90) { // A-Z
+            converted = String.fromCodePoint(0x1D5D4 + (targetCode - 65));
+          } else if (targetCode >= 97 && targetCode <= 122) { // a-z
+            converted = String.fromCodePoint(0x1D5EE + (targetCode - 97));
+          } else if (targetCode >= 48 && targetCode <= 57) { // 0-9
+            converted = String.fromCodePoint(0x1D7EC + (targetCode - 48));
+          }
+        } else if (isItalic) {
+          if (targetCode >= 65 && targetCode <= 90) { // A-Z
+            converted = String.fromCodePoint(0x1D608 + (targetCode - 65));
+          } else if (targetCode >= 97 && targetCode <= 122) { // a-z
+            converted = String.fromCodePoint(0x1D622 + (targetCode - 97));
+          } else if (targetCode >= 48 && targetCode <= 57) { // 0-9
+            converted = String.fromCodePoint(0x1D7EC + (targetCode - 48));
+          }
+        }
+
+        result += converted + (combiningMark || '');
+      }
+
+      return result;
     }
 
-    // Función auxiliar para extraer contenido formateado en Markdown desde el XML de un documento Word
+    // Función auxiliar para extraer contenido formateado desde el XML de un documento Word
     function extractFormattedContentFromWordXml(contentXml) {
       if (!contentXml) return { text: '', plainParagraphs: [] };
 
@@ -3452,7 +3495,8 @@
           var child = children[i];
           var name = getLocalName(child);
           if (name === 't') {
-            textPlain += child.textContent || '';
+            var t = child.textContent || '';
+            textPlain += toUnicodeStyle(t, isBold, isItalic);
           } else if (name === 'br') {
             textPlain += '\n';
           } else if (name === 'tab') {
@@ -3460,7 +3504,7 @@
           }
         }
 
-        return applyMarkdownFormatting(textPlain, isBold, isItalic);
+        return textPlain;
       }
 
       function processContainerNode(node) {
