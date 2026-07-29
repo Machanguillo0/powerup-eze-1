@@ -3676,6 +3676,7 @@
 
       var parser = new DOMParser();
       var xmlDoc = parser.parseFromString(contentXml, "text/xml");
+      var serializer = new XMLSerializer();
 
       var allElems = xmlDoc.getElementsByTagName("*");
       var paragraphs = [];
@@ -3685,29 +3686,14 @@
         }
       }
 
-      function processRunNode(rNode) {
-        var isBold = false;
-        var isItalic = false;
-        var isUnderline = false;
+      function processRunNode(rNode, pBold, pItalic) {
+        var xmlStr = serializer.serializeToString(rNode);
+
+        var isBold = pBold || /<w:b[\s\/>]/i.test(xmlStr) || /<w:bCS[\s\/>]/i.test(xmlStr);
+        var isItalic = pItalic || /<w:i[\s\/>]/i.test(xmlStr) || /<w:iCS[\s\/>]/i.test(xmlStr);
+        var isUnderline = /<w:u[\s\/>]/i.test(xmlStr) && !/<w:u\s+[^>]*w:val="none"/i.test(xmlStr);
 
         var children = rNode.childNodes;
-        for (var i = 0; i < children.length; i++) {
-          var child = children[i];
-          var name = getLocalName(child);
-          if (name === 'rPr') {
-            var rPrChildren = child.childNodes;
-            for (var j = 0; j < rPrChildren.length; j++) {
-              var pr = rPrChildren[j];
-              var prName = getLocalName(pr);
-              var val = pr.getAttribute ? (pr.getAttribute("w:val") || pr.getAttribute("val")) : null;
-              var isTrue = (val === null || val === "true" || val === "1" || val === "on");
-              if ((prName === 'b' || prName === 'bCS') && isTrue) isBold = true;
-              if ((prName === 'i' || prName === 'iCS') && isTrue) isItalic = true;
-              if (prName === 'u' && val !== 'none') isUnderline = true;
-            }
-          }
-        }
-
         var textHtml = '';
         var textPlain = '';
 
@@ -3736,16 +3722,22 @@
         return { html: textHtml, text: textPlain };
       }
 
-      function processContainerNode(node) {
+      function processContainerNode(pNode) {
+        var pXmlStr = serializer.serializeToString(pNode);
+        var pPrMatch = pXmlStr.match(/<w:pPr>[\s\S]*?<\/w:pPr>/i);
+        var pPrStr = pPrMatch ? pPrMatch[0] : '';
+        var pBold = /<w:b[\s\/>]/i.test(pPrStr) || /<w:bCS[\s\/>]/i.test(pPrStr);
+        var pItalic = /<w:i[\s\/>]/i.test(pPrStr) || /<w:iCS[\s\/>]/i.test(pPrStr);
+
         var htmlParts = [];
         var textParts = [];
 
-        var children = node.childNodes;
+        var children = pNode.childNodes;
         for (var i = 0; i < children.length; i++) {
           var child = children[i];
           var name = getLocalName(child);
           if (name === 'r') {
-            var res = processRunNode(child);
+            var res = processRunNode(child, pBold, pItalic);
             htmlParts.push(res.html);
             textParts.push(res.text);
           } else if (name === 'hyperlink' || name === 'fldSimple' || name === 'smartTag') {
