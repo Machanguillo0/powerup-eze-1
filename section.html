@@ -3423,31 +3423,27 @@
 
         if (isBold && isItalic) {
           if (targetCode >= 65 && targetCode <= 90) { // A-Z
-            converted = String.fromCodePoint(0x1D468 + (targetCode - 65));
+            converted = String.fromCodePoint(0x1D63C + (targetCode - 65));
           } else if (targetCode >= 97 && targetCode <= 122) { // a-z
-            converted = String.fromCodePoint(0x1D482 + (targetCode - 97));
+            converted = String.fromCodePoint(0x1D656 + (targetCode - 97));
           } else if (targetCode >= 48 && targetCode <= 57) { // 0-9
-            converted = String.fromCodePoint(0x1D7CE + (targetCode - 48));
+            converted = String.fromCodePoint(0x1D7EC + (targetCode - 48));
           }
         } else if (isBold) {
           if (targetCode >= 65 && targetCode <= 90) { // A-Z
-            converted = String.fromCodePoint(0x1D400 + (targetCode - 65));
+            converted = String.fromCodePoint(0x1D5D4 + (targetCode - 65));
           } else if (targetCode >= 97 && targetCode <= 122) { // a-z
-            converted = String.fromCodePoint(0x1D41A + (targetCode - 97));
+            converted = String.fromCodePoint(0x1D5EE + (targetCode - 97));
           } else if (targetCode >= 48 && targetCode <= 57) { // 0-9
-            converted = String.fromCodePoint(0x1D7CE + (targetCode - 48));
+            converted = String.fromCodePoint(0x1D7EC + (targetCode - 48));
           }
         } else if (isItalic) {
           if (targetCode >= 65 && targetCode <= 90) { // A-Z
-            converted = String.fromCodePoint(0x1D434 + (targetCode - 65));
+            converted = String.fromCodePoint(0x1D608 + (targetCode - 65));
           } else if (targetCode >= 97 && targetCode <= 122) { // a-z
-            if (targetCode === 104) {
-              converted = 'ℎ';
-            } else {
-              converted = String.fromCodePoint(0x1D44E + (targetCode - 97));
-            }
+            converted = String.fromCodePoint(0x1D622 + (targetCode - 97));
           } else if (targetCode >= 48 && targetCode <= 57) { // 0-9
-            converted = String.fromCodePoint(0x1D7CE + (targetCode - 48));
+            converted = String.fromCodePoint(0x1D7EC + (targetCode - 48));
           }
         }
 
@@ -3457,47 +3453,9 @@
       return result;
     }
 
-    function copyRichTextToClipboard(htmlContent, textContent) {
-      try {
-        if (navigator.clipboard && window.ClipboardItem) {
-          var blobHtml = new Blob([htmlContent], { type: 'text/html' });
-          var blobText = new Blob([textContent], { type: 'text/plain' });
-          var item = new ClipboardItem({
-            'text/html': blobHtml,
-            'text/plain': blobText
-          });
-          return navigator.clipboard.write([item]).catch(function (err) {
-            console.warn("Clipboard API no permitido en iframe:", err);
-          });
-        } else {
-          return copyRichTextFallback(htmlContent, textContent);
-        }
-      } catch (e) {
-        console.warn("Error al intentar usar Clipboard:", e);
-      }
-    }
-
-    function copyRichTextFallback(htmlContent, textContent) {
-      return new Promise(function (resolve) {
-        function listener(e) {
-          e.clipboardData.setData('text/html', htmlContent);
-          e.clipboardData.setData('text/plain', textContent);
-          e.preventDefault();
-        }
-        document.addEventListener('copy', listener);
-        try {
-          document.execCommand('copy');
-        } catch (err) {
-          console.warn("Fallo execCommand copy:", err);
-        }
-        document.removeEventListener('copy', listener);
-        resolve();
-      });
-    }
-
-    // Función auxiliar para extraer contenido formateado (HTML + Texto plano) desde el XML de un documento Word
+    // Función auxiliar para extraer contenido formateado desde el XML de un documento Word
     function extractFormattedContentFromWordXml(contentXml) {
-      if (!contentXml) return { html: '', text: '', htmlParagraphs: [], plainParagraphs: [] };
+      if (!contentXml) return { text: '', plainParagraphs: [] };
 
       var parser = new DOMParser();
       var xmlDoc = parser.parseFromString(contentXml, "text/xml");
@@ -3513,7 +3471,6 @@
       function processRunNode(rNode) {
         var isBold = false;
         var isItalic = false;
-        var isUnderline = false;
 
         var children = rNode.childNodes;
         for (var i = 0; i < children.length; i++) {
@@ -3528,12 +3485,10 @@
               var isTrue = (val === null || val === "true" || val === "1" || val === "on");
               if ((prName === 'b' || prName === 'bCS') && isTrue) isBold = true;
               if ((prName === 'i' || prName === 'iCS') && isTrue) isItalic = true;
-              if (prName === 'u' && val !== 'none') isUnderline = true;
             }
           }
         }
 
-        var textHtml = '';
         var textPlain = '';
 
         for (var i = 0; i < children.length; i++) {
@@ -3541,28 +3496,18 @@
           var name = getLocalName(child);
           if (name === 't') {
             var t = child.textContent || '';
-            textHtml += escapeHtml(t);
             textPlain += toUnicodeStyle(t, isBold, isItalic);
           } else if (name === 'br') {
-            textHtml += '<br>';
             textPlain += '\n';
           } else if (name === 'tab') {
-            textHtml += '&nbsp;&nbsp;&nbsp;&nbsp;';
             textPlain += '\t';
           }
         }
 
-        if (textHtml) {
-          if (isUnderline) textHtml = '<u>' + textHtml + '</u>';
-          if (isItalic) textHtml = '<i>' + textHtml + '</i>';
-          if (isBold) textHtml = '<b>' + textHtml + '</b>';
-        }
-
-        return { html: textHtml, text: textPlain };
+        return textPlain;
       }
 
       function processContainerNode(node) {
-        var htmlParts = [];
         var textParts = [];
 
         var children = node.childNodes;
@@ -3570,40 +3515,28 @@
           var child = children[i];
           var name = getLocalName(child);
           if (name === 'r') {
-            var res = processRunNode(child);
-            htmlParts.push(res.html);
-            textParts.push(res.text);
+            textParts.push(processRunNode(child));
           } else if (name === 'hyperlink' || name === 'fldSimple' || name === 'smartTag') {
-            var res = processContainerNode(child);
-            htmlParts.push(res.html);
-            textParts.push(res.text);
+            textParts.push(processContainerNode(child));
           }
         }
 
-        return {
-          html: htmlParts.join(''),
-          text: textParts.join('')
-        };
+        return textParts.join('');
       }
 
-      var htmlParagraphs = [];
       var plainParagraphs = [];
 
       for (var i = 0; i < paragraphs.length; i++) {
-        var pResult = processContainerNode(paragraphs[i]);
-        if (pResult.text.trim() || pResult.html.trim()) {
-          htmlParagraphs.push('<p>' + pResult.html + '</p>');
-          plainParagraphs.push(pResult.text);
+        var pText = processContainerNode(paragraphs[i]);
+        if (pText.trim()) {
+          plainParagraphs.push(pText);
         }
       }
 
-      var fullHtml = htmlParagraphs.join('');
       var fullText = plainParagraphs.join('\n\n').trim();
 
       return {
-        html: fullHtml,
         text: fullText,
-        htmlParagraphs: htmlParagraphs,
         plainParagraphs: plainParagraphs
       };
     }
@@ -3634,11 +3567,9 @@
             // Reemplazar marcadores y etiquetas estándar
             contentXml = reemplazarEtiquetasEstandar(contentXml, fields);
 
-            // Convertir a HTML formateado (negrita, cursiva, etc.) y texto plano apto para el cuerpo del correo
+            // Convertir a texto formateado (negrita, cursiva, etc.)
             var formattedContent = extractFormattedContentFromWordXml(contentXml);
             var cuerpoText = formattedContent.text;
-            var cuerpoHtml = formattedContent.html;
-            var htmlParagraphs = formattedContent.htmlParagraphs;
             var plainParagraphs = formattedContent.plainParagraphs;
 
             var email = (fields.email && fields.email !== '___________') ? fields.email.trim() : '';
@@ -3656,21 +3587,16 @@
                   asunto = customAsunto;
                 }
                 plainParagraphs.shift();
-                htmlParagraphs.shift();
                 cuerpoText = plainParagraphs.join('\n\n').trim();
-                cuerpoHtml = htmlParagraphs.join('').trim();
               }
             }
-
-            // Intentar copiar Rich Text de forma segura sin bloquear la ejecución si el iframe de Trello restringe la Clipboard API
-            copyRichTextToClipboard(cuerpoHtml, cuerpoText);
 
             var gmailUrl = "https://mail.google.com/mail/?view=cm&fs=1&tf=1" +
               "&to=" + encodeURIComponent(email) +
               "&su=" + encodeURIComponent(asunto) +
               "&body=" + encodeURIComponent(cuerpoText);
 
-            statusDiv.innerHTML = '¡Borrador generado en Gmail a partir de ' + escapeHtml(file.name) + '! ✔️';
+            statusDiv.textContent = '¡Borrador generado en Gmail a partir de ' + file.name + '! ✔️';
             t.sizeTo(document.body).done();
 
             window.open(gmailUrl, '_blank');
