@@ -3574,12 +3574,19 @@
       return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     }
 
+    function isValidEmail(email) {
+      if (!email) return false;
+      var clean = email.trim();
+      if (clean === '' || clean === '___________' || clean.indexOf('@') === -1) return false;
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean);
+    }
+
     function createBase64UrlEmail(to, subject, htmlBody) {
       var encoder = new TextEncoder();
 
       var emailLines = [];
-      if (to) {
-        emailLines.push('To: ' + to);
+      if (to && isValidEmail(to)) {
+        emailLines.push('To: ' + to.trim());
       }
       var subjectBytes = encoder.encode(subject);
       var subjectBase64 = bufferToBase64Url(subjectBytes);
