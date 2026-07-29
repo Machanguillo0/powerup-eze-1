@@ -3693,23 +3693,41 @@
         var isItalic = pItalic || /<w:i[\s\/>]/i.test(xmlStr) || /<w:iCS[\s\/>]/i.test(xmlStr);
         var isUnderline = /<w:u[\s\/>]/i.test(xmlStr) && !/<w:u\s+[^>]*w:val="none"/i.test(xmlStr);
 
-        var children = rNode.childNodes;
         var textHtml = '';
         var textPlain = '';
 
-        for (var i = 0; i < children.length; i++) {
-          var child = children[i];
-          var name = getLocalName(child);
-          if (name === 't') {
-            var t = child.textContent || '';
+        var allTs = rNode.getElementsByTagName ? rNode.getElementsByTagName('*') : [];
+        for (var i = 0; i < allTs.length; i++) {
+          var tName = getLocalName(allTs[i]);
+          if (tName === 't') {
+            var t = allTs[i].textContent || '';
             textHtml += escapeHtml(t);
             textPlain += t;
-          } else if (name === 'br') {
+          } else if (tName === 'br') {
             textHtml += '<br>';
             textPlain += '\n';
-          } else if (name === 'tab') {
+          } else if (tName === 'tab') {
             textHtml += '&nbsp;&nbsp;&nbsp;&nbsp;';
             textPlain += '\t';
+          }
+        }
+
+        if (!textHtml && !textPlain) {
+          var children = rNode.childNodes || [];
+          for (var j = 0; j < children.length; j++) {
+            var child = children[j];
+            var cName = getLocalName(child);
+            if (cName === 't') {
+              var t = child.textContent || '';
+              textHtml += escapeHtml(t);
+              textPlain += t;
+            } else if (cName === 'br') {
+              textHtml += '<br>';
+              textPlain += '\n';
+            } else if (cName === 'tab') {
+              textHtml += '&nbsp;&nbsp;&nbsp;&nbsp;';
+              textPlain += '\t';
+            }
           }
         }
 
@@ -3722,7 +3740,47 @@
         return { html: textHtml, text: textPlain };
       }
 
-      function processContainerNode(pNode) {
+      function processNode(node, pBold, pItalic) {
+        var name = getLocalName(node);
+
+        if (name === 'r') {
+          return processRunNode(node, pBold, pItalic);
+        } else if (name === 't') {
+          var t = node.textContent || '';
+          var textHtml = escapeHtml(t);
+          if (pBold) textHtml = '<b>' + textHtml + '</b>';
+          if (pItalic) textHtml = '<i>' + textHtml + '</i>';
+          return { html: textHtml, text: t };
+        } else if (name === 'br') {
+          return { html: '<br>', text: '\n' };
+        } else if (name === 'tab') {
+          return { html: '&nbsp;&nbsp;&nbsp;&nbsp;', text: '\t' };
+        }
+
+        var htmlParts = [];
+        var textParts = [];
+
+        var children = node.childNodes;
+        if (children) {
+          for (var i = 0; i < children.length; i++) {
+            var child = children[i];
+            var childName = getLocalName(child);
+            if (childName === 'rPr' || childName === 'pPr' || childName === 'sdtPr' || childName === 'sectPr') {
+              continue;
+            }
+            var res = processNode(child, pBold, pItalic);
+            if (res.html) htmlParts.push(res.html);
+            if (res.text) textParts.push(res.text);
+          }
+        }
+
+        return {
+          html: htmlParts.join(''),
+          text: textParts.join('')
+        };
+      }
+
+      function processParagraphNode(pNode) {
         var pXmlStr = serializer.serializeToString(pNode);
         var pPrMatch = pXmlStr.match(/<w:pPr>[\s\S]*?<\/w:pPr>/i);
         var pPrStr = pPrMatch ? pPrMatch[0] : '';
@@ -3733,17 +3791,14 @@
         var textParts = [];
 
         var children = pNode.childNodes;
-        for (var i = 0; i < children.length; i++) {
-          var child = children[i];
-          var name = getLocalName(child);
-          if (name === 'r') {
-            var res = processRunNode(child, pBold, pItalic);
-            htmlParts.push(res.html);
-            textParts.push(res.text);
-          } else if (name === 'hyperlink' || name === 'fldSimple' || name === 'smartTag') {
-            var res = processContainerNode(child);
-            htmlParts.push(res.html);
-            textParts.push(res.text);
+        if (children) {
+          for (var i = 0; i < children.length; i++) {
+            var child = children[i];
+            var childName = getLocalName(child);
+            if (childName === 'pPr') continue;
+            var res = processNode(child, pBold, pItalic);
+            if (res.html) htmlParts.push(res.html);
+            if (res.text) textParts.push(res.text);
           }
         }
 
@@ -3757,7 +3812,7 @@
       var plainParagraphs = [];
 
       for (var i = 0; i < paragraphs.length; i++) {
-        var pResult = processContainerNode(paragraphs[i]);
+        var pResult = processParagraphNode(paragraphs[i]);
         if (pResult.text.trim() || pResult.html.trim()) {
           htmlParagraphs.push('<div style="margin-bottom: 12px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #222222; line-height: 1.5;">' + (pResult.html || '&nbsp;') + '</div>');
           plainParagraphs.push(pResult.text);
