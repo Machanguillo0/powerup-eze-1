@@ -3388,27 +3388,156 @@
       });
     });
 
-    // Función auxiliar para extraer texto plano limpio desde el XML de un documento Word
-    function extractPlainTextFromWordXml(contentXml) {
-      if (!contentXml) return '';
-      var xml = contentXml
-        .replace(/<w:br\b[^>]*\/?>/gi, '\n')
-        .replace(/<\/w:p>/gi, '\n')
-        .replace(/<\/w:tr>/gi, '\n')
-        .replace(/<\/w:tc>/gi, ' ');
+    function getLocalName(node) {
+      return node.localName || (node.nodeName ? node.nodeName.replace(/^.*:/, '') : '');
+    }
 
-      var text = xml.replace(/<[^>]+>/g, '');
+    function copyRichTextToClipboard(htmlContent, textContent) {
+      if (navigator.clipboard && window.ClipboardItem) {
+        var blobHtml = new Blob([htmlContent], { type: 'text/html' });
+        var blobText = new Blob([textContent], { type: 'text/plain' });
+        var item = new ClipboardItem({
+          'text/html': blobHtml,
+          'text/plain': blobText
+        });
+        return navigator.clipboard.write([item]).catch(function (err) {
+          console.warn("Error con navigator.clipboard.write, usando fallback:", err);
+          return copyRichTextFallback(htmlContent, textContent);
+        });
+      } else {
+        return copyRichTextFallback(htmlContent, textContent);
+      }
+    }
 
-      text = text
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&amp;/g, '&')
-        .replace(/&quot;/g, '"')
-        .replace(/&apos;/g, "'")
-        .replace(/&#39;/g, "'");
+    function copyRichTextFallback(htmlContent, textContent) {
+      return new Promise(function (resolve) {
+        function listener(e) {
+          e.clipboardData.setData('text/html', htmlContent);
+          e.clipboardData.setData('text/plain', textContent);
+          e.preventDefault();
+        }
+        document.addEventListener('copy', listener);
+        try {
+          document.execCommand('copy');
+        } catch (err) {
+          console.error("Fallo al ejecutar execCommand copy:", err);
+        }
+        document.removeEventListener('copy', listener);
+        resolve();
+      });
+    }
 
-      text = text.replace(/\n\s*\n\s*\n+/g, '\n\n').trim();
-      return text;
+    // Función auxiliar para extraer contenido formateado (HTML + Texto plano) desde el XML de un documento Word
+    function extractFormattedContentFromWordXml(contentXml) {
+      if (!contentXml) return { html: '', text: '', htmlParagraphs: [], plainParagraphs: [] };
+
+      var parser = new DOMParser();
+      var xmlDoc = parser.parseFromString(contentXml, "text/xml");
+
+      var allElems = xmlDoc.getElementsByTagName("*");
+      var paragraphs = [];
+      for (var i = 0; i < allElems.length; i++) {
+        if (getLocalName(allElems[i]) === 'p') {
+          paragraphs.push(allElems[i]);
+        }
+      }
+
+      function processRunNode(rNode) {
+        var isBold = false;
+        var isItalic = false;
+        var isUnderline = false;
+
+        var children = rNode.childNodes;
+        for (var i = 0; i < children.length; i++) {
+          var child = children[i];
+          var name = getLocalName(child);
+          if (name === 'rPr') {
+            var rPrChildren = child.childNodes;
+            for (var j = 0; j < rPrChildren.length; j++) {
+              var pr = rPrChildren[j];
+              var prName = getLocalName(pr);
+              var val = pr.getAttribute ? (pr.getAttribute("w:val") || pr.getAttribute("val")) : null;
+              var isTrue = (val === null || val === "true" || val === "1" || val === "on");
+              if ((prName === 'b' || prName === 'bCS') && isTrue) isBold = true;
+              if ((prName === 'i' || prName === 'iCS') && isTrue) isItalic = true;
+              if (prName === 'u' && val !== 'none') isUnderline = true;
+            }
+          }
+        }
+
+        var textHtml = '';
+        var textPlain = '';
+
+        for (var i = 0; i < children.length; i++) {
+          var child = children[i];
+          var name = getLocalName(child);
+          if (name === 't') {
+            var t = child.textContent || '';
+            textHtml += escapeHtml(t);
+            textPlain += t;
+          } else if (name === 'br') {
+            textHtml += '<br>';
+            textPlain += '\n';
+          } else if (name === 'tab') {
+            textHtml += '&nbsp;&nbsp;&nbsp;&nbsp;';
+            textPlain += '\t';
+          }
+        }
+
+        if (textHtml) {
+          if (isUnderline) textHtml = '<u>' + textHtml + '</u>';
+          if (isItalic) textHtml = '<i>' + textHtml + '</i>';
+          if (isBold) textHtml = '<b>' + textHtml + '</b>';
+        }
+
+        return { html: textHtml, text: textPlain };
+      }
+
+      function processContainerNode(node) {
+        var htmlParts = [];
+        var textParts = [];
+
+        var children = node.childNodes;
+        for (var i = 0; i < children.length; i++) {
+          var child = children[i];
+          var name = getLocalName(child);
+          if (name === 'r') {
+            var res = processRunNode(child);
+            htmlParts.push(res.html);
+            textParts.push(res.text);
+          } else if (name === 'hyperlink' || name === 'fldSimple' || name === 'smartTag') {
+            var res = processContainerNode(child);
+            htmlParts.push(res.html);
+            textParts.push(res.text);
+          }
+        }
+
+        return {
+          html: htmlParts.join(''),
+          text: textParts.join('')
+        };
+      }
+
+      var htmlParagraphs = [];
+      var plainParagraphs = [];
+
+      for (var i = 0; i < paragraphs.length; i++) {
+        var pResult = processContainerNode(paragraphs[i]);
+        if (pResult.text.trim() || pResult.html.trim()) {
+          htmlParagraphs.push('<p>' + pResult.html + '</p>');
+          plainParagraphs.push(pResult.text);
+        }
+      }
+
+      var fullHtml = htmlParagraphs.join('');
+      var fullText = plainParagraphs.join('\n\n').trim();
+
+      return {
+        html: fullHtml,
+        text: fullText,
+        htmlParagraphs: htmlParagraphs,
+        plainParagraphs: plainParagraphs
+      };
     }
 
     // Lógica para procesar la Plantilla Word y abrir el Borrador en Gmail
@@ -3437,8 +3566,12 @@
             // Reemplazar marcadores y etiquetas estándar
             contentXml = reemplazarEtiquetasEstandar(contentXml, fields);
 
-            // Convertir a texto plano apto para el cuerpo del correo
-            var cuerpoText = extractPlainTextFromWordXml(contentXml);
+            // Convertir a HTML formateado (negrita, cursiva, etc.) y texto plano apto para el cuerpo del correo
+            var formattedContent = extractFormattedContentFromWordXml(contentXml);
+            var cuerpoText = formattedContent.text;
+            var cuerpoHtml = formattedContent.html;
+            var htmlParagraphs = formattedContent.htmlParagraphs;
+            var plainParagraphs = formattedContent.plainParagraphs;
 
             var email = (fields.email && fields.email !== '___________') ? fields.email.trim() : '';
             var nombreTarjeta = (cardObj && cardObj.name) ? cardObj.name.trim() : '';
@@ -3446,28 +3579,30 @@
             var asunto = nombreTarjeta ? ("Expediente: " + nombreTarjeta) : "Consulta expediente";
 
             // Si la primera línea de la plantilla empieza por "Asunto:", usar ese texto como asunto y quitarlo del cuerpo
-            if (cuerpoText) {
-              var lines = cuerpoText.split('\n');
-              if (lines.length > 0) {
-                var firstLine = lines[0].trim();
-                var match = firstLine.match(/^asunto:\s*(.*)/i);
-                if (match) {
-                  var customAsunto = match[1].trim();
-                  if (customAsunto) {
-                    asunto = customAsunto;
-                  }
-                  lines.shift();
-                  cuerpoText = lines.join('\n').trim();
+            if (plainParagraphs.length > 0) {
+              var firstLine = plainParagraphs[0].trim();
+              var match = firstLine.match(/^asunto:\s*(.*)/i);
+              if (match) {
+                var customAsunto = match[1].trim();
+                if (customAsunto) {
+                  asunto = customAsunto;
                 }
+                plainParagraphs.shift();
+                htmlParagraphs.shift();
+                cuerpoText = plainParagraphs.join('\n\n').trim();
+                cuerpoHtml = htmlParagraphs.join('').trim();
               }
             }
+
+            // Copiar el contenido Rich Text (HTML con negrita/cursiva) al portapapeles
+            copyRichTextToClipboard(cuerpoHtml, cuerpoText);
 
             var gmailUrl = "https://mail.google.com/mail/?view=cm&fs=1&tf=1" +
               "&to=" + encodeURIComponent(email) +
               "&su=" + encodeURIComponent(asunto) +
               "&body=" + encodeURIComponent(cuerpoText);
 
-            statusDiv.textContent = '¡Borrador generado en Gmail a partir de ' + file.name + '! ✔️';
+            statusDiv.innerHTML = '¡Borrador generado en Gmail a partir de ' + escapeHtml(file.name) + '! ✔️<br><small style="color: #0079bf; font-weight: bold;">📋 Formato (negrita/cursiva) copiado al portapapeles. Puedes pulsar Ctrl+V en Gmail para pegar con formato.</small>';
             t.sizeTo(document.body).done();
 
             window.open(gmailUrl, '_blank');
