@@ -3423,27 +3423,31 @@
 
         if (isBold && isItalic) {
           if (targetCode >= 65 && targetCode <= 90) { // A-Z
-            converted = String.fromCodePoint(0x1D63C + (targetCode - 65));
+            converted = String.fromCodePoint(0x1D468 + (targetCode - 65));
           } else if (targetCode >= 97 && targetCode <= 122) { // a-z
-            converted = String.fromCodePoint(0x1D656 + (targetCode - 97));
+            converted = String.fromCodePoint(0x1D482 + (targetCode - 97));
           } else if (targetCode >= 48 && targetCode <= 57) { // 0-9
-            converted = String.fromCodePoint(0x1D7EC + (targetCode - 48));
+            converted = String.fromCodePoint(0x1D7CE + (targetCode - 48));
           }
         } else if (isBold) {
           if (targetCode >= 65 && targetCode <= 90) { // A-Z
-            converted = String.fromCodePoint(0x1D5D4 + (targetCode - 65));
+            converted = String.fromCodePoint(0x1D400 + (targetCode - 65));
           } else if (targetCode >= 97 && targetCode <= 122) { // a-z
-            converted = String.fromCodePoint(0x1D5EE + (targetCode - 97));
+            converted = String.fromCodePoint(0x1D41A + (targetCode - 97));
           } else if (targetCode >= 48 && targetCode <= 57) { // 0-9
-            converted = String.fromCodePoint(0x1D7EC + (targetCode - 48));
+            converted = String.fromCodePoint(0x1D7CE + (targetCode - 48));
           }
         } else if (isItalic) {
           if (targetCode >= 65 && targetCode <= 90) { // A-Z
-            converted = String.fromCodePoint(0x1D608 + (targetCode - 65));
+            converted = String.fromCodePoint(0x1D434 + (targetCode - 65));
           } else if (targetCode >= 97 && targetCode <= 122) { // a-z
-            converted = String.fromCodePoint(0x1D622 + (targetCode - 97));
+            if (targetCode === 104) {
+              converted = 'ℎ';
+            } else {
+              converted = String.fromCodePoint(0x1D44E + (targetCode - 97));
+            }
           } else if (targetCode >= 48 && targetCode <= 57) { // 0-9
-            converted = String.fromCodePoint(0x1D7EC + (targetCode - 48));
+            converted = String.fromCodePoint(0x1D7CE + (targetCode - 48));
           }
         }
 
