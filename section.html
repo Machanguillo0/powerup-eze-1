@@ -4922,8 +4922,8 @@
             });
           })
           .then(function (idListClientes) {
-            // 3. Obtener tarjetas de esa lista en Clientes
-            return fetch(`https://api.trello.com/1/lists/${idListClientes}/cards?fields=name,desc&key=${appKey}&token=${token}`)
+            // 3. Obtener tarjetas de esa lista en Clientes (incluyendo checklists)
+            return fetch(`https://api.trello.com/1/lists/${idListClientes}/cards?checklists=all&fields=name,desc&key=${appKey}&token=${token}`)
               .then(function (res) { return res.json(); })
               .then(function (clientCards) {
                 return {
@@ -4940,7 +4940,8 @@
               nombre: "___________",
               dni: "___________",
               domicilio: "___________",
-              fecha_apertura: "___________"
+              fecha_apertura: "___________",
+              fecha_firma_contrato: "___________"
             };
             var found = { nombre: false, dni: false, domicilio: false, fecha_apertura: false };
             
@@ -4952,12 +4953,37 @@
             });
             
             cards.forEach(function(card) {
+              if (card.checklists && card.checklists.length > 0) {
+                var firmaVal = extractFirmaFromChecklists(card.checklists);
+                if (firmaVal) { clientFields.fecha_firma_contrato = firmaVal; }
+              }
               var parsed = extractFields(card.desc);
               if (!found.nombre && parsed.nombre !== "Cliente Desconocido") { clientFields.nombre = parsed.nombre; found.nombre = true; }
               if (!found.dni && parsed.dni !== "___________") { clientFields.dni = parsed.dni; found.dni = true; }
               if (!found.domicilio && parsed.domicilio !== "___________") { clientFields.domicilio = parsed.domicilio; found.domicilio = true; }
               if (!found.fecha_apertura && parsed.fecha_apertura !== "___________") { clientFields.fecha_apertura = parsed.fecha_apertura; found.fecha_apertura = true; }
             });
+
+            var historyCardInClient = cards.find(function (c) {
+              var n = c.name.toLowerCase();
+              return n.includes("historial de procesos") || n.includes("historial de avisos");
+            });
+            if (historyCardInClient && historyCardInClient.desc) {
+              var lines = historyCardInClient.desc.split('\n');
+              lines.forEach(function (line) {
+                var colonIndex = line.indexOf(':');
+                if (colonIndex > -1) {
+                  var k = line.substring(0, colonIndex).replace(/[*_~`#]/g, '').trim();
+                  var v = line.substring(colonIndex + 1).replace(/[*_~`#]/g, '').trim();
+                  if (k && v && v !== "___________") {
+                    var mapKey = k.toLowerCase().replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                    if (mapKey.includes("firma contrato")) {
+                      clientFields.fecha_firma_contrato = v;
+                    }
+                  }
+                }
+              });
+            }
 
             // 4.5 Extraer y unificar dinámicamente los campos de la tarjeta "Importes" del tablero de Clientes
             var clientImportesCard = cards.find(function (c) {
@@ -5201,6 +5227,7 @@
         var html = "<strong>Ficha de Facturación (datos cruzados con Clientes):</strong><br><br>";
         html += "• Número de expediente: " + fields.num_expediente + "<br>" +
                 "• Fecha de creación (apertura): " + fields.fecha_apertura + "<br>" +
+                "• Fecha firma contrato cliente: " + (fields.fecha_firma_contrato || "___________") + "<br>" +
                 "• Nombre: " + fields.nombre + "<br>" +
                 "• DNI: " + fields.dni + "<br>" +
                 "• Domicilio del cliente: " + fields.domicilio + "<br><br>";
@@ -5211,7 +5238,7 @@
           "fecha", "hora", "lugar", "ciudad", "matricula1", "aseguradora1", 
           "matricula2", "aseguradora2", "parrafada", "fecha_sistema", "fecha_ultima", 
           "fecha_cierre", "fecha_facturacion", "fecha_resolucion", "fecha_designa", 
-          "fecha_reclamacion", "fecha_apertura", "fecha_siniestro", "factura", 
+          "fecha_reclamacion", "fecha_firma_contrato", "fecha_apertura", "fecha_siniestro", "factura", 
           "num_expediente", "secuencial", "importe final", "dds", "mess", "aaaas", 
           "importe_facturacion", "total_factura", "total factura", "importe_facturado", 
           "importe facturado", "total_facturado", "total facturado", "cliente cobra", 

@@ -737,6 +737,31 @@
       return name.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ');
     }
 
+    function extractFirmaFromChecklists(checklists) {
+      if (!checklists || !checklists.length) return null;
+      for (var c = 0; c < checklists.length; c++) {
+        var ch = checklists[c];
+        if (ch && ch.checkItems && ch.checkItems.length > 0) {
+          for (var i = 0; i < ch.checkItems.length; i++) {
+            var item = ch.checkItems[i];
+            if (item && item.name) {
+              var nameTrim = item.name.trim();
+              if (/^\s*Firma/i.test(nameTrim)) {
+                var val = nameTrim.replace(/^\s*Firma[^:\-]*[:\-]?\s*/i, '').trim();
+                if (!val) {
+                  val = nameTrim.replace(/^\s*Firma\s*/i, '').trim();
+                }
+                if (val) {
+                  return val;
+                }
+              }
+            }
+          }
+        }
+      }
+      return null;
+    }
+
     function getCrossBoardBillingData(t) {
       setStatus("Iniciando getCrossBoardBillingData...");
       return Promise.all([
@@ -822,16 +847,20 @@
           .then(match => {
             if (!match) throw new Error('No se encontró lista coincidente en Clientes.');
             setStatus("Obteniendo tarjetas de la lista en Clientes...");
-            return fetch(`https://api.trello.com/1/lists/${match.listId}/cards?fields=name,desc&key=${appKey}&token=${token}`)
+            return fetch(`https://api.trello.com/1/lists/${match.listId}/cards?checklists=all&fields=name,desc&key=${appKey}&token=${token}`)
               .then(res => res.json())
               .then(clientCards => {
                 setStatus("Unificando datos de tarjetas del cliente...");
-                var clientFields = { nombre: "___________", dni: "___________", domicilio: "___________", fecha_apertura: "___________" };
+                var clientFields = { nombre: "___________", dni: "___________", domicilio: "___________", fecha_apertura: "___________", fecha_firma_contrato: "___________" };
                 var found = { nombre: false, dni: false, domicilio: false, fecha_apertura: false };
                 var cards = clientCards || [];
                 cards.sort((a,b) => (b.name.toLowerCase().includes("datos personales") ? 100 : 0) - (a.name.toLowerCase().includes("datos personales") ? 100 : 0));
                 
                 cards.forEach(card => {
+                  if (card.checklists && card.checklists.length > 0) {
+                    var firmaVal = extractFirmaFromChecklists(card.checklists);
+                    if (firmaVal) { clientFields.fecha_firma_contrato = firmaVal; }
+                  }
                   var parsed = extractFields(card.desc);
                   if (!found.nombre && parsed.nombre !== "Cliente Desconocido") { clientFields.nombre = parsed.nombre; found.nombre = true; }
                   if (!found.dni && parsed.dni !== "___________") { clientFields.dni = parsed.dni; found.dni = true; }
@@ -882,6 +911,25 @@
                 combinedFields.dni = clientFields.dni;
                 combinedFields.domicilio = clientFields.domicilio;
                 combinedFields.fecha_apertura = clientFields.fecha_apertura;
+                combinedFields.fecha_firma_contrato = clientFields.fecha_firma_contrato || "___________";
+
+                var historyCardInClient = cards.find(c => c.name.toLowerCase().includes("historial de procesos") || c.name.toLowerCase().includes("historial de avisos"));
+                if (historyCardInClient && historyCardInClient.desc) {
+                  var lines = historyCardInClient.desc.split('\n');
+                  lines.forEach(line => {
+                    var colonIndex = line.indexOf(':');
+                    if (colonIndex > -1) {
+                      var k = line.substring(0, colonIndex).replace(/[*_~`#]/g, '').trim();
+                      var v = line.substring(colonIndex + 1).replace(/[*_~`#]/g, '').trim();
+                      if (k && v && v !== "___________") {
+                        var mapKey = k.toLowerCase().replace(/:/g, ' ').replace(/\s+/g, ' ').trim();
+                        if (mapKey.includes("firma contrato")) {
+                          combinedFields.fecha_firma_contrato = v;
+                        }
+                      }
+                    }
+                  });
+                }
 
                 setStatus("Datos cruzados obtenidos con éxito.");
                 return {
