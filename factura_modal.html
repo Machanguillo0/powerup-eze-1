@@ -149,6 +149,11 @@
   </div>
 
   <div class="form-group">
+    <label for="fecha-firma-input">Fecha firma contrato cliente</label>
+    <input type="text" id="fecha-firma-input" class="editable-input" placeholder="dd/mm/aaaa">
+  </div>
+
+  <div class="form-group">
     <label for="modo-input">Modo</label>
     <input type="text" id="modo-input" class="editable-input" value="T/T">
   </div>
@@ -2062,6 +2067,11 @@
            // Populate the editable inputs
            var inputCobra = document.getElementById('cliente-cobra-input');
            var inputImporte = document.getElementById('importe-factura');
+           var inputFirma = document.getElementById('fecha-firma-input');
+           
+           if (inputFirma && fields.fecha_firma_contrato && fields.fecha_firma_contrato !== "___________") {
+             inputFirma.value = fields.fecha_firma_contrato;
+           }
            
            inputCobra.value = valClienteCobra.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
            
@@ -2171,11 +2181,17 @@
       var inputImporte = document.getElementById('importe-factura').value.trim();
       var inputConcepto = document.getElementById('concepto-contabilidad').value.trim();
       var inputModo = document.getElementById('modo-input').value.trim() || "T/T";
+      var inputFirmaElem = document.getElementById('fecha-firma-input');
+      var inputFirmaVal = inputFirmaElem ? inputFirmaElem.value.trim() : "";
       var baseNum = parseSpanishFloat(inputImporte);
 
       getCrossBoardBillingData(t).then(function(data) {
         var fields = data.fields;
         var token = data.token;
+
+        if (inputFirmaVal) {
+          fields.fecha_firma_contrato = inputFirmaVal;
+        }
 
         var valClienteCobra = parseSpanishFloat(document.getElementById('cliente-cobra-input').value);
 
