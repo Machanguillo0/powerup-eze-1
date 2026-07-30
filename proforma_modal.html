@@ -118,6 +118,11 @@
   </div>
 
   <div class="form-group">
+    <label for="fecha-firma-input">Fecha firma contrato cliente</label>
+    <input type="text" id="fecha-firma-input" class="editable-input" placeholder="dd/mm/aaaa">
+  </div>
+
+  <div class="form-group">
     <label for="modo-input">Modo</label>
     <input type="text" id="modo-input" class="editable-input" value="T/T">
   </div>
@@ -1667,6 +1672,22 @@
           
           recalculateProforma();
 
+          var inputFirma = document.getElementById('fecha-firma-input');
+          if (inputFirma && fields.fecha_firma_contrato && fields.fecha_firma_contrato !== "___________") {
+            inputFirma.value = fields.fecha_firma_contrato;
+          }
+
+          // Asynchronously fetch cross-board billing data from Clientes board to populate Fecha firma contrato cliente
+          getCrossBoardBillingData(t).then(function(crossData) {
+            if (crossData && crossData.fields && crossData.fields.fecha_firma_contrato && crossData.fields.fecha_firma_contrato !== "___________") {
+              if (inputFirma) {
+                inputFirma.value = crossData.fields.fecha_firma_contrato;
+              }
+            }
+          }).catch(function(err) {
+            console.warn("No se pudo cargar fecha de firma cruzada al inicializar en proformas:", err);
+          });
+
           setStatus("Listo para generar proforma.");
           t.sizeTo(document.body).done();
         });
@@ -1700,6 +1721,8 @@
       var inputProforma = document.getElementById('importe-proforma').value.trim();
       var inputModo = document.getElementById('modo-input').value.trim() || "T/T";
       var inputConcepto = document.getElementById('concepto-contabilidad').value.trim() || "Negociación IS";
+      var inputFirmaElem = document.getElementById('fecha-firma-input');
+      var inputFirmaVal = inputFirmaElem ? inputFirmaElem.value.trim() : "";
       
       var valCobra = parseSpanishFloat(inputCobra);
       var valProforma = parseSpanishFloat(inputProforma);
@@ -1707,6 +1730,10 @@
       getCrossBoardBillingData(t).then(function(data) {
         var fields = data.fields;
         var token = data.token;
+
+        if (inputFirmaVal) {
+          fields.fecha_firma_contrato = inputFirmaVal;
+        }
 
         setStatus('Generando correlativo de proforma...');
 

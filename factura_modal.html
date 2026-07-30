@@ -2144,7 +2144,18 @@
              }
            });
  
-           setStatus("Introduce el importe y concepto, luego haz clic en 'Facturar'.");
+           // Asynchronously fetch cross-board billing data from Clientes board to populate Fecha firma contrato cliente
+           getCrossBoardBillingData(t).then(function(crossData) {
+             if (crossData && crossData.fields && crossData.fields.fecha_firma_contrato && crossData.fields.fecha_firma_contrato !== "___________") {
+               var inputFirma = document.getElementById('fecha-firma-input');
+               if (inputFirma) {
+                 inputFirma.value = crossData.fields.fecha_firma_contrato;
+               }
+             }
+             setStatus("Introduce el importe y concepto, luego haz clic en 'Facturar'.");
+           }).catch(function(err) {
+             console.warn("No se pudo cargar fecha de firma cruzada al inicializar:", err);
+           });
          });
       }).catch(function(err) {
         setStatus("Error al inicializar: " + err.message);
