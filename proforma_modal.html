@@ -572,6 +572,7 @@
                 { label: "**Fecha de resolución:**", prop: "fecha_resolucion" },
                 { label: "**Fecha de comunicación designación:**", prop: "fecha_designa" },
                 { label: "**Fecha de reclamación previa:**", prop: "fecha_reclamacion" },
+                { label: "**Fecha firma contrato cliente:**", prop: "fecha_firma_contrato" },
                 { label: "**Fecha creación de expediente:**", prop: "fecha_apertura" },
                 { label: "**Fecha del siniestro:**", prop: "fecha" }
               ];
@@ -593,6 +594,9 @@
                 if (values.fecha_sistema !== today) values.fecha_sistema = today;
                 if (isAction) values.fecha_ultima = today;
                 if (unified.fecha !== "___________" && values.fecha !== unified.fecha) values.fecha = unified.fecha;
+                if (unified.fecha_firma_contrato && unified.fecha_firma_contrato !== "___________" && values.fecha_firma_contrato !== unified.fecha_firma_contrato) {
+                  values.fecha_firma_contrato = unified.fecha_firma_contrato;
+                }
                 if (personalCard && values.fecha_apertura === "___________") {
                   values.fecha_apertura = new Date(1000 * parseInt(personalCard.id.substring(0, 8), 16)).toLocaleDateString('es-ES');
                 }
@@ -614,6 +618,7 @@
                     if (baseLabel.includes("creación de expediente")) variations.push("fecha apertura expediente");
                     if (baseLabel.includes("comunicación designación")) variations.push("fecha comunicación designa");
                     if (baseLabel.includes("siniestro")) variations.push("fecha siniestro");
+                    if (baseLabel.includes("firma contrato")) variations.push("fecha firma contrato");
                     return variations.some(v => lineLower.indexOf(v) === 0 || lineLower.includes(v));
                   });
                   if (!isKeyLine && line.trim() !== "") newDescLines.push(line);

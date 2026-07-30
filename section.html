@@ -2534,6 +2534,31 @@
       return /^(factura|fechadefacturacion|fechafacturacion|importedefacturacion|importefacturacion|totaldefactura|totalfactura|totalfacturado|totaldefacturado|importefacturado|importedefacturado|clientecobrasumarizado|clientecobrasumarisado)\d*$/i.test(norm);
     }
 
+    function extractFirmaFromChecklists(checklists) {
+      if (!checklists || !checklists.length) return null;
+      for (var c = 0; c < checklists.length; c++) {
+        var ch = checklists[c];
+        if (ch && ch.checkItems && ch.checkItems.length > 0) {
+          for (var i = 0; i < ch.checkItems.length; i++) {
+            var item = ch.checkItems[i];
+            if (item && item.name) {
+              var nameTrim = item.name.trim();
+              if (/^\s*Firma/i.test(nameTrim)) {
+                var val = nameTrim.replace(/^\s*Firma[^:\-]*[:\-]?\s*/i, '').trim();
+                if (!val) {
+                  val = nameTrim.replace(/^\s*Firma\s*/i, '').trim();
+                }
+                if (val) {
+                  return val;
+                }
+              }
+            }
+          }
+        }
+      }
+      return null;
+    }
+
     // Función para obtener datos unificados de toda la lista
     function getUnifiedFields(t) {
       var importesCard = null;
@@ -2591,6 +2616,7 @@
             fecha_resolucion: "___________",
             fecha_designa: "___________",
             fecha_reclamacion: "___________",
+            fecha_firma_contrato: "___________",
             fecha_apertura: "___________",
             fecha_siniestro: "___________",
             num_expediente: numExpediente,
@@ -2951,6 +2977,24 @@
             }
             
             return t.getRestApi().getToken().then(function(token) {
+              // Extraer fecha de firma desde las checklists de las tarjetas de la lista si existe
+              fetch(`https://api.trello.com/1/lists/${idList}/cards?checklists=all&key=${appKey}&token=${token}`)
+                .then(function(res) { return res.ok ? res.json() : []; })
+                .then(function(cardsWithChecklists) {
+                  if (cardsWithChecklists && cardsWithChecklists.length > 0) {
+                    cardsWithChecklists.forEach(function(cObj) {
+                      if (cObj.checklists && cObj.checklists.length > 0) {
+                        var firmaVal = extractFirmaFromChecklists(cObj.checklists);
+                        if (firmaVal) {
+                          unified.fecha_firma_contrato = firmaVal;
+                        }
+                      }
+                    });
+                  }
+                }).catch(function(err) {
+                  console.warn("Error buscando fecha de firma en checklists:", err);
+                });
+
               var facturasCard = cardsInList.find(function(c) {
                 var nameLower = c.name.trim().toLowerCase();
                 return nameLower === "facturas" || nameLower === "facturación" || nameLower === "facturacion";
@@ -5007,6 +5051,7 @@
             combinedFields.dni = clientFields.dni;
             combinedFields.domicilio = clientFields.domicilio;
             combinedFields.fecha_apertura = clientFields.fecha_apertura;
+            combinedFields.fecha_firma_contrato = clientFields.fecha_firma_contrato || "___________";
 
             // 5.5 Buscar y parsear la tarjeta de Historial de procesos desde el tablero de Clientes
             var historyCard = cards.find(function (c) {
@@ -5698,6 +5743,7 @@
                 { label: "**Fecha de resolución:**", prop: "fecha_resolucion" },
                 { label: "**Fecha de comunicación designación:**", prop: "fecha_designa" },
                 { label: "**Fecha de reclamación previa:**", prop: "fecha_reclamacion" },
+                { label: "**Fecha firma contrato cliente:**", prop: "fecha_firma_contrato" },
                 { label: "**Fecha creación de expediente:**", prop: "fecha_apertura" },
                 { label: "**Fecha del siniestro:**", prop: "fecha" }
               ];
@@ -5766,6 +5812,12 @@
                   values.fecha_apertura = creationDate;
                   needsUpdate = true;
                 }
+
+                // 5. Sincronizar Fecha firma contrato cliente
+                if (unified.fecha_firma_contrato && unified.fecha_firma_contrato !== "___________" && values.fecha_firma_contrato !== unified.fecha_firma_contrato) {
+                  values.fecha_firma_contrato = unified.fecha_firma_contrato;
+                  needsUpdate = true;
+                }
                 
                 // 5. Verificar si algún campo forzado ha provocado cambio
                 if (forcedFields) {
@@ -5792,6 +5844,7 @@
                     if (baseLabel.includes("creación de expediente")) variations.push("fecha apertura expediente");
                     if (baseLabel.includes("comunicación designación")) variations.push("fecha comunicación designa");
                     if (baseLabel.includes("siniestro")) variations.push("fecha siniestro");
+                    if (baseLabel.includes("firma contrato")) variations.push("fecha firma contrato");
                     return variations.some(function(v) { return lineLower.indexOf(v) === 0 || lineLower.includes(v); });
                   });
                   if (!isKeyLine && line.trim() !== "") newDescLines.push(line);

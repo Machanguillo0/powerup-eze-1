@@ -1699,6 +1699,8 @@
         .replace(/\{\{Fecha de resolución\}\}/gi, fields.fecha_resolucion || "___________")
         .replace(/\{\{Fecha comunicación designa\}\}/gi, fields.fecha_designa || "___________")
         .replace(/\{\{Fecha reclamación previa\}\}/gi, fields.fecha_reclamacion || "___________")
+        .replace(/\{\{Fecha firma contrato cliente\}\}/gi, fields.fecha_firma_contrato || "___________")
+        .replace(/\{\{Fecha firma\}\}/gi, fields.fecha_firma_contrato || "___________")
         .replace(/\{\{Fecha apertura expediente\}\}/gi, fields.fecha_apertura || "___________")
         .replace(/\{\{Fecha siniestro\}\}/gi, fields.fecha_siniestro || "___________")
         .replace(/\{\{Número de factura\}\}/gi, facturaVal)
@@ -1860,6 +1862,7 @@
                 { label: "**Fecha de resolución:**", prop: "fecha_resolucion" },
                 { label: "**Fecha de comunicación designación:**", prop: "fecha_designa" },
                 { label: "**Fecha de reclamación previa:**", prop: "fecha_reclamacion" },
+                { label: "**Fecha firma contrato cliente:**", prop: "fecha_firma_contrato" },
                 { label: "**Fecha creación de expediente:**", prop: "fecha_apertura" },
                 { label: "**Fecha del siniestro:**", prop: "fecha" }
               ];
@@ -1892,6 +1895,10 @@
                   values.fecha_apertura = new Date(1000 * parseInt(personalCard.id.substring(0, 8), 16)).toLocaleDateString('es-ES');
                   needsUpdate = true;
                 }
+                if (unified.fecha_firma_contrato && unified.fecha_firma_contrato !== "___________" && values.fecha_firma_contrato !== unified.fecha_firma_contrato) {
+                  values.fecha_firma_contrato = unified.fecha_firma_contrato;
+                  needsUpdate = true;
+                }
                 
                 // Reconstruir descripción sin acumular campos de facturas
                 var newDescLines = [];
@@ -1911,6 +1918,7 @@
                     if (baseLabel.includes("creación de expediente")) variations.push("fecha apertura expediente");
                     if (baseLabel.includes("comunicación designación")) variations.push("fecha comunicación designa");
                     if (baseLabel.includes("siniestro")) variations.push("fecha siniestro");
+                    if (baseLabel.includes("firma contrato")) variations.push("fecha firma contrato");
                     return variations.some(v => lineLower.indexOf(v) === 0 || lineLower.includes(v));
                   });
                   if (!isKeyLine && line.trim() !== "") newDescLines.push(line);
