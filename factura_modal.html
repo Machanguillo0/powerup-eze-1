@@ -2136,20 +2136,20 @@
            // Perform initial calculation
            recalculateAFacturar();
            
-           // Asynchronously fetch cross-board percentage from Clientes board and recalculate if found
-           getCrossBoardPercentage(t).then(function(pct) {
-             if (pct !== null && pct !== undefined) {
-               globalPorcentaje = pct;
-               recalculateAFacturar();
-             }
-           });
- 
-           // Asynchronously fetch cross-board billing data from Clientes board to populate Fecha firma contrato cliente
+           // Asynchronously fetch cross-board billing data from Clientes board to populate Fecha firma contrato cliente & percentage
            getCrossBoardBillingData(t).then(function(crossData) {
-             if (crossData && crossData.fields && crossData.fields.fecha_firma_contrato && crossData.fields.fecha_firma_contrato !== "___________") {
-               var inputFirma = document.getElementById('fecha-firma-input');
-               if (inputFirma) {
-                 inputFirma.value = crossData.fields.fecha_firma_contrato;
+             if (crossData && crossData.fields) {
+               var pctVal = getNumericFieldValue(crossData.fields, ['porcentaje facturacion', 'porcentaje facturación', 'porcentaje facturcion', 'porcentaje facturción', 'porcentaje', 'porcentaje honorarios', 'porcentage facturacion', 'porcentage facturación', 'porcentage facturcion', 'porcentage facturción', 'porcentage', 'porcentage honorarios']);
+               if (pctVal !== null && pctVal !== undefined) {
+                 globalPorcentaje = pctVal;
+                 recalculateAFacturar();
+               }
+
+               if (crossData.fields.fecha_firma_contrato && crossData.fields.fecha_firma_contrato !== "___________") {
+                 var inputFirma = document.getElementById('fecha-firma-input');
+                 if (inputFirma) {
+                   inputFirma.value = crossData.fields.fecha_firma_contrato;
+                 }
                }
              }
              setStatus("Introduce el importe y concepto, luego haz clic en 'Facturar'.");
