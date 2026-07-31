@@ -3603,13 +3603,16 @@
       });
     }
 
+    var DEFAULT_GOOGLE_CLIENT_ID = '453601579761-hetk9bg6f7qvdmpg6vik07arcro59rms.apps.googleusercontent.com';
+
     function getGoogleClientId() {
       return t.get('board', 'shared', 'google_client_id').catch(function() { return null; }).then(function(boardId) {
         if (boardId) return boardId;
         return t.get('member', 'private', 'google_client_id').catch(function() { return null; });
       }).then(function(id) {
         if (id) return id;
-        return (window.localStorage && window.localStorage.getItem('google_client_id')) ? window.localStorage.getItem('google_client_id') : null;
+        var localId = (window.localStorage && window.localStorage.getItem('google_client_id')) ? window.localStorage.getItem('google_client_id') : null;
+        return localId || DEFAULT_GOOGLE_CLIENT_ID;
       });
     }
 
