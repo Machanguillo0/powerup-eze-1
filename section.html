@@ -3874,7 +3874,7 @@
         var pBold = /<w:b[\s\/>]/i.test(pPrStr) || /<w:bCS[\s\/>]/i.test(pPrStr);
         var pItalic = /<w:i[\s\/>]/i.test(pPrStr) || /<w:iCS[\s\/>]/i.test(pPrStr);
 
-        var marginBottomPx = 0; // Por defecto 0px (líneas consecutivas sin espacio posterior)
+        var marginBottomPx = 10; // Espaciado por defecto para párrafos normales del cuerpo
         if (pPrStr) {
           if (/w:val="(?:NoSpacing|SinEspacio|NormalWeb)"/i.test(pPrStr)) {
             marginBottomPx = 0;
@@ -3886,10 +3886,13 @@
                 var afterDxa = parseInt(afterMatch[1], 10);
                 marginBottomPx = Math.round((afterDxa / 20) * 1.33);
               } else if (/w:afterAutospacing/i.test(spacingMatch[0])) {
-                marginBottomPx = 12;
+                marginBottomPx = 10;
               } else {
                 marginBottomPx = 0;
               }
+            } else if (/<w:ind\b/i.test(pPrStr)) {
+              // Bloques de datos o firmas tabuladas con sangría sin etiqueta spacing explícita
+              marginBottomPx = 0;
             }
           }
         }
