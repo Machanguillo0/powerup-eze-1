@@ -3874,7 +3874,7 @@
         var pBold = /<w:b[\s\/>]/i.test(pPrStr) || /<w:bCS[\s\/>]/i.test(pPrStr);
         var pItalic = /<w:i[\s\/>]/i.test(pPrStr) || /<w:iCS[\s\/>]/i.test(pPrStr);
 
-        var marginBottomPx = 12; // Espaciado por defecto (párrafos normales con salto)
+        var marginBottomPx = 0; // Por defecto 0px (líneas consecutivas sin espacio posterior)
         if (pPrStr) {
           if (/w:val="(?:NoSpacing|SinEspacio|NormalWeb)"/i.test(pPrStr)) {
             marginBottomPx = 0;
