@@ -1298,8 +1298,12 @@
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DNI\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.dni = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*DOMICILIO\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.domicilio = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:TELÉFONO|Tel[eé]fono|Tlf|Tel)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.telefono = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:EMAIL|E-MAIL|CORREO|CORREO ELECTRÓNICO)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.email = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (fields.email === "___________") {
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:EMAIL|E-MAIL|MAIL|CORREO|CORREO ELECTRÓNICO|MAIL ELECTRÓNICO)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { 
+        var rawEmailVal = m[1].replace(/[*_~`]/g, '').trim();
+        var emailMatchVal = rawEmailVal.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+        fields.email = emailMatchVal ? emailMatchVal[0] : rawEmailVal;
+      }
+      if (fields.email === "___________" || fields.email.indexOf('@') === -1) {
         var emailMatch = desc.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
         if (emailMatch) { fields.email = emailMatch[0]; }
       }
@@ -2349,8 +2353,9 @@
         case 'telefono': return fields.telefono;
         case 'email':
         case 'e-mail':
+        case 'mail':
         case 'correo':
-        case 'correo electrónico': return fields.email;
+        case 'correo electrónico': return fields.email || fields.mail;
         case 'profesión':
         case 'profesion': return fields.profesion;
         case 'observaciones': return fields.observaciones;
@@ -3621,6 +3626,8 @@
     function isValidEmail(email) {
       if (!email) return false;
       var clean = email.trim();
+      var pureMatch = clean.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+      if (pureMatch) clean = pureMatch[0];
       if (clean === '' || clean === '___________' || clean.indexOf('@') === -1) return false;
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean);
     }
@@ -3939,7 +3946,18 @@
               var plainParagraphs = formattedContent.plainParagraphs;
               var htmlParagraphs = formattedContent.htmlParagraphs;
 
-              var email = (fields.email && fields.email !== '___________') ? fields.email.trim() : '';
+              var rawEmail = (fields.email && fields.email !== '___________') ? fields.email.trim() : '';
+              if (!rawEmail) {
+                for (var key in fields) {
+                  var kLower = key.toLowerCase();
+                  if ((kLower.includes('email') || kLower.includes('mail') || kLower.includes('correo')) && fields[key] && fields[key] !== '___________') {
+                    rawEmail = fields[key];
+                    break;
+                  }
+                }
+              }
+              var emailMatch = rawEmail ? rawEmail.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/) : null;
+              var email = emailMatch ? emailMatch[0] : (rawEmail && rawEmail !== '___________' ? rawEmail.trim() : '');
               var nombreTarjeta = (cardObj && cardObj.name) ? cardObj.name.trim() : '';
               var asunto = nombreTarjeta ? ("Expediente: " + nombreTarjeta) : "Consulta expediente";
 
