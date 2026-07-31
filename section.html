@@ -3871,6 +3871,26 @@
         var pBold = /<w:b[\s\/>]/i.test(pPrStr) || /<w:bCS[\s\/>]/i.test(pPrStr);
         var pItalic = /<w:i[\s\/>]/i.test(pPrStr) || /<w:iCS[\s\/>]/i.test(pPrStr);
 
+        var marginBottomPx = 12; // Espaciado por defecto (párrafos normales con salto)
+        if (pPrStr) {
+          if (/w:val="(?:NoSpacing|SinEspacio|NormalWeb)"/i.test(pPrStr)) {
+            marginBottomPx = 0;
+          } else {
+            var spacingMatch = pPrStr.match(/<w:spacing\b[^>]*\/?>/i);
+            if (spacingMatch) {
+              var afterMatch = spacingMatch[0].match(/w:after="(\d+)"/i);
+              if (afterMatch) {
+                var afterDxa = parseInt(afterMatch[1], 10);
+                marginBottomPx = Math.round((afterDxa / 20) * 1.33);
+              } else if (/w:afterAutospacing/i.test(spacingMatch[0])) {
+                marginBottomPx = 12;
+              } else {
+                marginBottomPx = 0;
+              }
+            }
+          }
+        }
+
         var htmlParts = [];
         var textParts = [];
 
@@ -3888,7 +3908,8 @@
 
         return {
           html: htmlParts.join(''),
-          text: textParts.join('')
+          text: textParts.join(''),
+          marginBottomPx: marginBottomPx
         };
       }
 
@@ -3897,14 +3918,23 @@
 
       for (var i = 0; i < paragraphs.length; i++) {
         var pResult = processParagraphNode(paragraphs[i]);
-        if (pResult.text.trim() || pResult.html.trim()) {
-          htmlParagraphs.push('<div style="margin-bottom: 12px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #222222; line-height: 1.5;">' + (pResult.html || '&nbsp;') + '</div>');
-          plainParagraphs.push(pResult.text);
-        }
+        var mb = (pResult.marginBottomPx !== undefined) ? pResult.marginBottomPx : 12;
+        var hasContent = !!(pResult.text.trim() || pResult.html.trim());
+        
+        var contentHtml = hasContent ? pResult.html : '&nbsp;';
+        
+        htmlParagraphs.push('<div style="margin-bottom: ' + mb + 'px; font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #222222; line-height: 1.4;">' + contentHtml + '</div>');
+        plainParagraphs.push(pResult.text);
+      }
+
+      // Quitar párrafos vacíos al final del documento
+      while (htmlParagraphs.length > 0 && plainParagraphs[plainParagraphs.length - 1].trim() === '') {
+        htmlParagraphs.pop();
+        plainParagraphs.pop();
       }
 
       var fullHtml = htmlParagraphs.join('');
-      var fullText = plainParagraphs.join('\n\n').trim();
+      var fullText = plainParagraphs.join('\n').trim();
 
       return {
         html: fullHtml,
@@ -3971,7 +4001,7 @@
                   }
                   plainParagraphs.shift();
                   htmlParagraphs.shift();
-                  cuerpoText = plainParagraphs.join('\n\n').trim();
+                  cuerpoText = plainParagraphs.join('\n').trim();
                   cuerpoHtml = htmlParagraphs.join('').trim();
                 }
               }
