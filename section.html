@@ -3997,20 +3997,39 @@
               var nombreTarjeta = (cardObj && cardObj.name) ? cardObj.name.trim() : '';
               var asunto = nombreTarjeta ? ("Expediente: " + nombreTarjeta) : "Consulta expediente";
 
-              if (plainParagraphs.length > 0) {
+              while (plainParagraphs.length > 0) {
                 var firstLine = plainParagraphs[0].trim();
-                var match = firstLine.match(/^asunto:\s*(.*)/i);
-                if (match) {
-                  var customAsunto = match[1].trim();
+                var asuntoMatch = firstLine.match(/^asunto:\s*(.*)/i);
+                var paraMatch = firstLine.match(/^para:\s*(.*)/i);
+
+                if (asuntoMatch) {
+                  var customAsunto = asuntoMatch[1].trim();
                   if (customAsunto) {
                     asunto = customAsunto;
                   }
                   plainParagraphs.shift();
                   htmlParagraphs.shift();
-                  cuerpoText = plainParagraphs.join('\n').trim();
-                  cuerpoHtml = htmlParagraphs.join('').trim();
+                } else if (paraMatch) {
+                  var customPara = paraMatch[1].trim();
+                  if (customPara && customPara !== '___________') {
+                    var targetEmailMatch = customPara.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                    if (targetEmailMatch) {
+                      email = targetEmailMatch[0];
+                    } else {
+                      var cleanCustomPara = customPara.replace(/[*_~`]/g, '').trim();
+                      if (cleanCustomPara) {
+                        email = cleanCustomPara;
+                      }
+                    }
+                  }
+                  plainParagraphs.shift();
+                  htmlParagraphs.shift();
+                } else {
+                  break;
                 }
               }
+              cuerpoText = plainParagraphs.join('\n').trim();
+              cuerpoHtml = htmlParagraphs.join('').trim();
 
               getGoogleClientId().then(function(clientId) {
                 if (!clientId) {
