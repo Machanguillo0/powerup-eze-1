@@ -4029,22 +4029,7 @@
               cuerpoText = plainParagraphs.join('\n').trim();
               cuerpoHtml = htmlParagraphs.join('').trim();
 
-              getGoogleClientId().then(function(clientId) {
-                if (!clientId) {
-                  openGmailSettingsModal();
-                  statusDiv.textContent = 'Configura tu ID de cliente de Google (Client ID) para activar la API de Gmail.';
-                  openGmailUrlFallback(email, asunto, cuerpoText, statusDiv, file.name);
-                  return;
-                }
-
-                t.get('member', 'private', 'gmail_token_data').then(function(tokenData) {
-                  if (tokenData && tokenData.token && tokenData.expiresAt && tokenData.expiresAt > Date.now()) {
-                    executeDraftCreation(tokenData.token, email, asunto, cuerpoHtml, cuerpoText, statusDiv, file.name);
-                  } else {
-                    requestGoogleTokenAndCreateDraft(clientId, email, asunto, cuerpoHtml, cuerpoText, statusDiv, file.name);
-                  }
-                });
-              });
+              openGmailUrlFallback(email, asunto, cuerpoText, statusDiv, file.name);
             } catch (err) {
               console.error("Error al procesar plantilla para Gmail:", err);
               statusDiv.textContent = 'Error al procesar plantilla: ' + err.message;
