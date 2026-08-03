@@ -3679,62 +3679,72 @@
     }
 
     function requestGoogleTokenAndCreateDraft(clientId, to, subject, htmlBody, plainBody, statusDiv, fileName) {
+      console.log("[DEBUG Gmail] Iniciando autorización con Client ID:", clientId);
       if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
-        console.warn("SDK de Google Identity Services no cargado. Usando enlace directo.");
+        console.warn("[DEBUG Gmail] SDK de Google Identity Services no cargado. Usando enlace directo.");
+        statusDiv.textContent = '⚠️ SDK de Google no cargado. Abriendo enlace directo...';
         openGmailUrlFallback(to, subject, plainBody, statusDiv, fileName);
         return;
       }
 
-      statusDiv.textContent = 'Iniciando autorización de Google...';
+      statusDiv.textContent = '⏳ Solicitando permiso a Google (Client ID: ' + (clientId ? clientId.substring(0, 15) : 'sin id') + '...)...';
       t.sizeTo(document.body).done();
 
-      var tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope: 'https://www.googleapis.com/auth/gmail.compose',
-        callback: function(tokenResponse) {
-          if (tokenResponse.error !== undefined) {
-            console.error("Error al autorizar con Google:", tokenResponse);
-            statusDiv.textContent = 'Autorización no completada. Generando por enlace...';
-            t.sizeTo(document.body).done();
-            openGmailUrlFallback(to, subject, plainBody, statusDiv, fileName);
-            return;
+      try {
+        var tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: 'https://www.googleapis.com/auth/gmail.compose',
+          callback: function(tokenResponse) {
+            console.log("[DEBUG Gmail] Callback Google OAuth respuesta:", tokenResponse);
+            if (tokenResponse.error !== undefined) {
+              console.error("[DEBUG Gmail] Error en tokenResponse:", tokenResponse.error, tokenResponse);
+              statusDiv.textContent = '⚠️ Error Google OAuth (' + tokenResponse.error + '). Abriendo enlace directo...';
+              t.sizeTo(document.body).done();
+              openGmailUrlFallback(to, subject, plainBody, statusDiv, fileName);
+              return;
+            }
+
+            var accessToken = tokenResponse.access_token;
+            var expiresAt = Date.now() + ((tokenResponse.expires_in || 3600) - 300) * 1000;
+
+            t.set('member', 'private', 'gmail_token_data', {
+              token: accessToken,
+              expiresAt: expiresAt
+            });
+
+            console.log("[DEBUG Gmail] Token obtenido con éxito. Ejecutando executeDraftCreation...");
+            executeDraftCreation(accessToken, to, subject, htmlBody, plainBody, statusDiv, fileName);
           }
+        });
 
-          var accessToken = tokenResponse.access_token;
-          var expiresAt = Date.now() + ((tokenResponse.expires_in || 3600) - 300) * 1000;
-
-          t.set('member', 'private', 'gmail_token_data', {
-            token: accessToken,
-            expiresAt: expiresAt
-          });
-
-          executeDraftCreation(accessToken, to, subject, htmlBody, plainBody, statusDiv, fileName);
-        }
-      });
-
-      tokenClient.requestAccessToken({ prompt: 'consent' });
+        tokenClient.requestAccessToken({ prompt: 'consent' });
+      } catch (err) {
+        console.error("[DEBUG Gmail] Excepción al llamar a initTokenClient:", err);
+        statusDiv.textContent = '⚠️ Error al iniciar OAuth: ' + err.message + '. Abriendo enlace directo...';
+        openGmailUrlFallback(to, subject, plainBody, statusDiv, fileName);
+      }
     }
 
     function executeDraftCreation(accessToken, to, subject, htmlBody, plainBody, statusDiv, fileName) {
-      statusDiv.textContent = 'Creando borrador nativo HTML en tu Gmail...';
+      statusDiv.textContent = '⏳ Enviando borrador HTML a la API de Gmail...';
       t.sizeTo(document.body).done();
 
       var rawBase64Url = createBase64UrlEmail(to, subject, htmlBody);
 
       createGmailDraftViaApi(accessToken, rawBase64Url).then(function(draftData) {
-        console.log("Draft creado correctamente:", draftData);
+        console.log("[DEBUG Gmail] Draft creado en API correctamente:", draftData);
         statusDiv.innerHTML = '¡Borrador nativo HTML creado en tu Gmail a partir de ' + escapeHtml(fileName) + '! ✔️';
         t.sizeTo(document.body).done();
 
         var openUrl = 'https://mail.google.com/mail/#drafts';
         window.open(openUrl, '_blank');
       }).catch(function(err) {
-        console.error("Error al crear borrador en Gmail API:", err);
+        console.error("[DEBUG Gmail] Error al crear borrador en Gmail API:", err);
         if (err.message && (err.message.includes('401') || err.message.includes('Unauthenticated') || err.message.includes('invalid_token'))) {
           t.remove('member', 'private', 'gmail_token_data');
-          statusDiv.textContent = 'Sesión expirada. Vuelve a hacer clic para autorizar tu Gmail.';
+          statusDiv.textContent = '⚠️ Sesión expirada. Vuelve a hacer clic para autorizar tu Gmail.';
         } else {
-          statusDiv.textContent = 'Error API Gmail: ' + err.message + '. Abriendo por enlace...';
+          statusDiv.textContent = '⚠️ Error API Gmail: ' + err.message + '. Abriendo por enlace...';
           openGmailUrlFallback(to, subject, plainBody, statusDiv, fileName);
         }
         t.sizeTo(document.body).done();
@@ -3742,6 +3752,7 @@
     }
 
     function openGmailUrlFallback(to, subject, plainBody, statusDiv, fileName) {
+      console.log("[DEBUG Gmail] Ejecutando openGmailUrlFallback para:", to, subject);
       var gmailUrl = "https://mail.google.com/mail/?view=cm" +
         "&to=" + encodeURIComponent(to) +
         "&su=" + encodeURIComponent(subject) +
