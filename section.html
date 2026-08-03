@@ -3694,8 +3694,9 @@
         callback: function(tokenResponse) {
           if (tokenResponse.error !== undefined) {
             console.error("Error al autorizar con Google:", tokenResponse);
-            statusDiv.textContent = 'Error de autorización Google: ' + tokenResponse.error;
+            statusDiv.textContent = 'Autorización no completada. Generando por enlace...';
             t.sizeTo(document.body).done();
+            openGmailUrlFallback(to, subject, plainBody, statusDiv, fileName);
             return;
           }
 
@@ -3711,7 +3712,7 @@
         }
       });
 
-      tokenClient.requestAccessToken({ prompt: '' });
+      tokenClient.requestAccessToken({ prompt: 'consent' });
     }
 
     function executeDraftCreation(accessToken, to, subject, htmlBody, plainBody, statusDiv, fileName) {
