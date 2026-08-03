@@ -3722,7 +3722,11 @@
 
       createGmailDraftViaApi(accessToken, rawBase64Url).then(function(draftData) {
         console.log("Draft creado correctamente:", draftData);
-        openGmailUrlFallback(to, subject, plainBody, statusDiv, fileName);
+        statusDiv.innerHTML = '¡Borrador nativo HTML creado en tu Gmail a partir de ' + escapeHtml(fileName) + '! ✔️';
+        t.sizeTo(document.body).done();
+
+        var openUrl = 'https://mail.google.com/mail/#drafts';
+        window.open(openUrl, '_blank');
       }).catch(function(err) {
         console.error("Error al crear borrador en Gmail API:", err);
         if (err.message && (err.message.includes('401') || err.message.includes('Unauthenticated') || err.message.includes('invalid_token'))) {
