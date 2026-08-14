@@ -591,7 +591,7 @@
       
       <!-- Totalizador Derecha -->
       <div class="totalizer-row">
-        <input type="text" id="label-col-derecha" class="totalizer-label" value="Consultas y estudio expediente">
+        <input type="text" id="label-col-derecha" class="totalizer-label" value="Consulta y estudio de expediente">
         <span class="totalizer-amount" id="val-col-derecha">0,00 €</span>
       </div>
     </div>
@@ -2170,7 +2170,7 @@
       lines.push('Conceptos incluidos:');
 
       var labelIzquierdaText = document.getElementById('label-col-izquierda').value.trim() || "Transacción extrajudicial";
-      var labelDerechaText = document.getElementById('label-col-derecha').value.trim() || "Consultas y estudio expediente";
+      var labelDerechaText = document.getElementById('label-col-derecha').value.trim() || "Consulta y estudio de expediente";
 
       var linesIzquierda = [];
       var sumaEscalasActivas = 0;
@@ -2238,16 +2238,16 @@
 
       var itemsSelectedCount = linesIzquierda.length + linesDerecha.length;
 
-      // Agrupar visualmente en el portapapeles
-      if (linesIzquierda.length > 0) {
-        lines.push(labelIzquierdaText + ': ' + totalIzquierda.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        linesIzquierda.forEach(function(l) { lines.push(l); });
+      // Agrupar visualmente en el portapapeles (Conceptos Fijos primero, Criterios Escalables segundo)
+      if (linesDerecha.length > 0) {
+        lines.push(labelDerechaText + ': ' + totalDerecha.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €');
+        linesDerecha.forEach(function(l) { lines.push(l); });
         lines.push('------------------------------------------------');
       }
 
-      if (linesDerecha.length > 0) {
-        lines.push(labelDerechaText + ': ' + totalDerecha.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
-        linesDerecha.forEach(function(l) { lines.push(l); });
+      if (linesIzquierda.length > 0) {
+        lines.push(labelIzquierdaText + ': ' + totalIzquierda.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €');
+        linesIzquierda.forEach(function(l) { lines.push(l); });
         lines.push('------------------------------------------------');
       }
 
@@ -2457,7 +2457,7 @@
       var conceptosList = [];
       
       var labelIzquierdaText = document.getElementById('label-col-izquierda').value.trim() || "Transacción extrajudicial";
-      var labelDerechaText = document.getElementById('label-col-derecha').value.trim() || "Consultas y estudio expediente";
+      var labelDerechaText = document.getElementById('label-col-derecha').value.trim() || "Consulta y estudio de expediente";
 
       var base35 = calcularEscala35(base);
       var base36 = calcularEscala36(base);
@@ -2491,12 +2491,7 @@
         totalIzquierda -= valDescuento30b;
       }
 
-      if (tieneIzquierda) {
-        totalIzquierda = Math.round(totalIzquierda * 100) / 100;
-        conceptosList.push({ name: labelIzquierdaText, val: totalIzquierda });
-      }
-
-      // Calcular columna derecha
+      // Calcular columna derecha (Conceptos Fijos)
       var totalDerecha = 0;
       var tieneDerecha = false;
 
@@ -2526,9 +2521,16 @@
         tieneDerecha = true;
       }
 
+      // PRIMERO: Conceptos Fijos
       if (tieneDerecha) {
         totalDerecha = Math.round(totalDerecha * 100) / 100;
         conceptosList.push({ name: labelDerechaText, val: totalDerecha });
+      }
+
+      // SEGUNDO: Criterios Escalables
+      if (tieneIzquierda) {
+        totalIzquierda = Math.round(totalIzquierda * 100) / 100;
+        conceptosList.push({ name: labelIzquierdaText, val: totalIzquierda });
       }
 
       var sumaActual = 0;
