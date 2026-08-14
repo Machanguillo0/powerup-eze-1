@@ -716,7 +716,10 @@
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha de comunicación designa(?:ción)?\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_designa = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha(?: de)? reclamación previa\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_reclamacion = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha (?:apertura|creación) de? expediente\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_apertura = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:Fecha\s+)?(?:de\s+)?(?:la\s+)?Firma(?: del?| de)?\s*(?:contrato|cliente)?\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_firma_contrato = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:Fecha\s+)?(?:de\s+)?(?:la\s+)?(?:Firma|Contrato|Encargo)(?: del?| de)?\s*(?:contrato|cliente|encargo|hoja)?\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) {
+        var rawVal = m[1].replace(/[*_~`]/g, '').trim();
+        fields.fecha_firma_contrato = rawVal.replace(/^(?:cliente[:\s-]*)+/i, '').trim();
+      }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha siniestro\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_siniestro = m[1].replace(/[*_~`]/g, '').trim(); }
 
       var vehicleLookahead = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES)|$)";
@@ -753,38 +756,26 @@
       var dateRegex = /\b(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2})\b/;
       for (var c = 0; c < checklists.length; c++) {
         var ch = checklists[c];
-        if (!ch) continue;
+        if (!ch || !ch.checkItems || !ch.checkItems.length) continue;
         var chName = (ch.name || "").trim();
-        var isFirmaChecklist = /(?:firma|contrato|encargo|hoja)/i.test(chName);
+        var isFirmaChecklist = /(?:firma|hoja\s+de\s+encargo)/i.test(chName);
 
-        if (ch.checkItems && ch.checkItems.length > 0) {
-          for (var i = 0; i < ch.checkItems.length; i++) {
-            var item = ch.checkItems[i];
-            if (!item || !item.name) continue;
-            var nameTrim = item.name.trim();
+        for (var i = 0; i < ch.checkItems.length; i++) {
+          var item = ch.checkItems[i];
+          if (!item || !item.name) continue;
+          var nameTrim = item.name.trim();
 
-            if (/^\s*(?:Fecha\s+)?(?:Firma|Firmado)/i.test(nameTrim)) {
-              var dateMatch = nameTrim.match(dateRegex);
-              if (dateMatch) {
-                return dateMatch[1];
-              }
-              var val = nameTrim.replace(/^\s*(?:Fecha\s+)?(?:Firma|Firmado)[^:\-]*[:\-]?\s*/i, '').trim();
-              if (!val) {
-                val = nameTrim.replace(/^\s*(?:Fecha\s+)?(?:Firma|Firmado)\s*/i, '').trim();
-              }
-              if (val && val !== "___________" && val.length >= 6) {
-                return val;
-              }
+          if (/(?:firma|firmado|hoja\s+de\s+encargo)/i.test(nameTrim) || isFirmaChecklist) {
+            var dateMatch = nameTrim.match(dateRegex);
+            if (dateMatch) {
+              return dateMatch[1];
             }
-
-            if (isFirmaChecklist) {
-              var dateMatch = nameTrim.match(dateRegex);
-              if (dateMatch) {
-                return dateMatch[1];
-              }
-              var cleanItemVal = nameTrim.replace(/[*_~`#]/g, '').trim();
-              if (cleanItemVal && cleanItemVal !== "___________" && cleanItemVal.length >= 6) {
-                return cleanItemVal;
+            var colonIdx = nameTrim.indexOf(':');
+            if (colonIdx > -1) {
+              var valAfterColon = nameTrim.substring(colonIdx + 1).replace(/[*_~`#]/g, '').trim();
+              valAfterColon = valAfterColon.replace(/^(?:cliente[:\s-]*)+/i, '').trim();
+              if (valAfterColon && valAfterColon !== "___________" && valAfterColon.length >= 6) {
+                return valAfterColon;
               }
             }
           }
@@ -930,13 +921,15 @@
                   if (firmaFoundInCross && historyCardInClient && appKey && token) {
                     var desc = historyCardInClient.desc || "";
                     var updatedDesc = desc;
-                    if (desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Firma contrato\s*[*_~`#]*[ \t]*[:\s-]+\s*___________/i)) {
-                      updatedDesc = desc.replace(/(?:^|\n)([ \t]*[*_~`#]*\s*Firma contrato\s*[*_~`#]*[ \t]*[:\s-]+\s*)___________/i, "$1" + firmaFoundInCross);
-                    } else if (!desc.toLowerCase().includes("firma contrato")) {
+                    if (desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:Fecha\s+)?(?:Firma|Firmado)(?: del?| de)?\s*(?:contrato|cliente)?\s*[*_~`#]*[ \t]*[:\s-].*/i)) {
+                      updatedDesc = desc.replace(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:Fecha\s+)?(?:Firma|Firmado)(?: del?| de)?\s*(?:contrato|cliente)?\s*[*_~`#]*[ \t]*[:\s-].*/gi, "\nFirma contrato: " + firmaFoundInCross).trim();
+                    } else {
                       updatedDesc = desc + (desc ? "\n" : "") + "Firma contrato: " + firmaFoundInCross;
                     }
                     
-                    if (updatedDesc !== desc) {
+                    window._firmaAutoSavedCards = window._firmaAutoSavedCards || {};
+                    if (updatedDesc !== desc && !window._firmaAutoSavedCards[historyCardInClient.id]) {
+                      window._firmaAutoSavedCards[historyCardInClient.id] = true;
                       historyCardInClient.desc = updatedDesc;
                       fetch(`https://api.trello.com/1/cards/${historyCardInClient.id}?key=${appKey}&token=${token}`, {
                         method: 'PUT',

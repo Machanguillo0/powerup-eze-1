@@ -746,7 +746,10 @@
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha de comunicación designa(?:ción)?\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_designa = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha(?: de)? reclamación previa\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_reclamacion = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha (?:apertura|creación) de? expediente\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_apertura = m[1].replace(/[*_~`]/g, '').trim(); }
-      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:Fecha\s+)?(?:de\s+)?(?:la\s+)?Firma(?: del?| de)?\s*(?:contrato|cliente)?\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_firma_contrato = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:Fecha\s+)?(?:de\s+)?(?:la\s+)?(?:Firma|Contrato|Encargo)(?: del?| de)?\s*(?:contrato|cliente|encargo|hoja)?\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) {
+        var rawVal = m[1].replace(/[*_~`]/g, '').trim();
+        fields.fecha_firma_contrato = rawVal.replace(/^(?:cliente[:\s-]*)+/i, '').trim();
+      }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha siniestro\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_siniestro = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:NÚMERO DE FACTURA|Numero de factura|Nº Factura|Nº de Factura)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.factura = m[1].replace(/[*_~`]/g, '').trim(); }
 
@@ -1144,13 +1147,15 @@
               if (firmaFoundInCross && historyCardInClient && appKey && token) {
                 var desc = historyCardInClient.desc || "";
                 var updatedDesc = desc;
-                if (desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Firma contrato\s*[*_~`#]*[ \t]*[:\s-]+\s*___________/i)) {
-                  updatedDesc = desc.replace(/(?:^|\n)([ \t]*[*_~`#]*\s*Firma contrato\s*[*_~`#]*[ \t]*[:\s-]+\s*)___________/i, "$1" + firmaFoundInCross);
-                } else if (!desc.toLowerCase().includes("firma contrato")) {
+                if (desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:Fecha\s+)?(?:Firma|Firmado)(?: del?| de)?\s*(?:contrato|cliente)?\s*[*_~`#]*[ \t]*[:\s-].*/i)) {
+                  updatedDesc = desc.replace(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:Fecha\s+)?(?:Firma|Firmado)(?: del?| de)?\s*(?:contrato|cliente)?\s*[*_~`#]*[ \t]*[:\s-].*/gi, "\nFirma contrato: " + firmaFoundInCross).trim();
+                } else {
                   updatedDesc = desc + (desc ? "\n" : "") + "Firma contrato: " + firmaFoundInCross;
                 }
                 
-                if (updatedDesc !== desc) {
+                window._firmaAutoSavedCards = window._firmaAutoSavedCards || {};
+                if (updatedDesc !== desc && !window._firmaAutoSavedCards[historyCardInClient.id]) {
+                  window._firmaAutoSavedCards[historyCardInClient.id] = true;
                   historyCardInClient.desc = updatedDesc;
                   fetch(`https://api.trello.com/1/cards/${historyCardInClient.id}?key=${appKey}&token=${token}`, {
                     method: 'PUT',
