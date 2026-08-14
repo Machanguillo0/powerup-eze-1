@@ -2879,6 +2879,26 @@
           }
 
           if (demandaCard && demandaCard.desc) {
+            var extractYearFromStr = function(dateStr) {
+              if (!dateStr || dateStr === "___________") return null;
+              var m = String(dateStr).match(/\b(20\d{2}|19\d{2})\b/);
+              if (m) return m[1];
+              var mShort = String(dateStr).match(/\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.](\d{2})\b/);
+              if (mShort) {
+                var yy = parseInt(mShort[1], 10);
+                return (yy >= 50 ? "19" : "20") + (yy < 10 ? "0" + yy : yy);
+              }
+              return null;
+            };
+
+            var accidentYear = extractYearFromStr(
+              unified.fecha_siniestro || 
+              unified.fecha || 
+              unified["fecha de siniestro"] || 
+              unified["fecha del siniestro"] || 
+              unified["fecha siniestro"]
+            );
+
             var lines = demandaCard.desc.split('\n');
             lines.forEach(function (line) {
               line = line.trim();
@@ -2920,6 +2940,20 @@
                   if (isDefaultOriginal) {
                     unified[normKOriginal] = v;
                     unified[normKOriginal.toLowerCase()] = v;
+                  }
+
+                  // Si la clave termina en un año (ej: "Importe por día de perjuicio moderado 2024")
+                  var yearMatch = k.match(/^(.*?)\s+((?:19|20)\d{2})$/);
+                  if (yearMatch) {
+                    var baseKey = yearMatch[1].trim();
+                    var keyYear = yearMatch[2];
+
+                    if (accidentYear && keyYear === accidentYear) {
+                      var normBaseK = baseKey.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+                      unified[baseKey] = v;
+                      unified[baseKey.toLowerCase()] = v;
+                      unified[normBaseK] = v;
+                    }
                   }
                 }
               }
