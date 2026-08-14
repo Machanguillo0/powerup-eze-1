@@ -339,21 +339,49 @@
       background: #e6f4ea;
       border: 1px dashed #1f845a;
       border-radius: 6px;
-      padding: 12px;
-      text-align: center;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .desglose-total-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
     }
 
     .desglose-total-label {
       font-size: 13px;
       color: #137333;
-      font-weight: bold;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .desglose-total-row-val {
+      font-size: 14px;
+      color: #137333;
+      font-weight: 700;
+    }
+
+    .desglose-total-row-main {
+      margin-top: 4px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(31, 132, 90, 0.4);
+    }
+
+    .desglose-total-main-label {
+      font-size: 14px;
+      color: #137333;
+      font-weight: 800;
+      letter-spacing: 0.5px;
     }
 
     .desglose-total-amount {
-      font-size: 22px;
+      font-size: 20px;
       color: #137333;
       font-weight: 800;
-      margin-top: 4px;
     }
 
     .desglose-actions {
@@ -911,8 +939,18 @@
         </div>
 
         <div id="desglose-total-panel">
-          <div class="desglose-total-label">IMPORTE TOTAL:</div>
-          <div class="desglose-total-amount" id="desglose-total">0,00 €</div>
+          <div class="desglose-total-row">
+            <span class="desglose-total-label">IMPORTE BASE:</span>
+            <span class="desglose-total-row-val" id="desglose-base-amount">0,00 €</span>
+          </div>
+          <div class="desglose-total-row">
+            <span class="desglose-total-label" id="desglose-igic-label">IGIC:</span>
+            <span class="desglose-total-row-val" id="desglose-igic-amount">0,00 €</span>
+          </div>
+          <div class="desglose-total-row desglose-total-row-main">
+            <span class="desglose-total-main-label">TOTAL FACTURA:</span>
+            <span class="desglose-total-amount" id="desglose-total">0,00 €</span>
+          </div>
         </div>
 
         <div class="desglose-actions">
@@ -6475,7 +6513,29 @@
 
         var desgloseResto = document.getElementById('desglose-resto');
         if (desgloseResto) desgloseResto.textContent = resto.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
-        labelTotal.textContent = finalTotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+
+        var taxPct = typeof getTaxPercentage === 'function' ? getTaxPercentage(unified || {}) : 0;
+        var baseAmount = finalTotal;
+        var igicAmount = Math.round(baseAmount * taxPct) / 100;
+        var totalFactura = Math.round((baseAmount + igicAmount) * 100) / 100;
+
+        var labelBase = document.getElementById('desglose-base-amount');
+        if (labelBase) {
+          labelBase.textContent = baseAmount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        }
+
+        var labelIgic = document.getElementById('desglose-igic-amount');
+        var labelIgicTitle = document.getElementById('desglose-igic-label');
+        if (labelIgicTitle) {
+          labelIgicTitle.textContent = taxPct > 0 ? ('IGIC (' + taxPct + '%):') : 'IGIC:';
+        }
+        if (labelIgic) {
+          labelIgic.textContent = igicAmount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        }
+
+        if (labelTotal) {
+          labelTotal.textContent = totalFactura.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        }
       }
 
       window.toggleCheckbox = function(id) {
@@ -6617,8 +6677,19 @@
             return;
           }
 
+          var baseTotal = base > sumatoriaTotal ? base : sumatoriaTotal;
+          var taxPct = typeof getTaxPercentage === 'function' ? getTaxPercentage(unified || {}) : 0;
+          var igicTotal = Math.round(baseTotal * taxPct) / 100;
+          var grandTotal = Math.round((baseTotal + igicTotal) * 100) / 100;
+
           lines.push('------------------------------------------------');
-          lines.push('IMPORTE TOTAL: ' + total.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+          lines.push('IMPORTE BASE: ' + baseTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+          if (taxPct > 0) {
+            lines.push('IGIC (' + taxPct + '%): ' + igicTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+          } else {
+            lines.push('IGIC: ' + igicTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+          }
+          lines.push('TOTAL FACTURA: ' + grandTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
           lines.push('================================================');
 
           var textToCopy = lines.join('\n');

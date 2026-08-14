@@ -327,6 +327,49 @@
       min-width: 80px;
       text-align: right;
     }
+    .total-panel, #desglose-total-panel {
+      margin-top: 15px;
+      background: #e6f4ea;
+      border: 1px dashed #1f845a;
+      border-radius: 6px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+    }
+    .total-row-label {
+      font-size: 13px;
+      color: #137333;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .total-row-val {
+      font-size: 14px;
+      color: #137333;
+      font-weight: 700;
+    }
+    .total-row-main {
+      margin-top: 4px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(31, 132, 90, 0.4);
+    }
+    .total-main-label {
+      font-size: 14px;
+      color: #137333;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+    }
+    .total-amount {
+      font-size: 20px;
+      color: #137333;
+      font-weight: 800;
+    }
   </style>
 </head>
 <body>
@@ -561,10 +604,20 @@
     <div class="resto-amount" id="desglose-resto">0,00 €</div>
   </div>
 
-  <!-- Panel de Total -->
-  <div class="total-panel">
-    <div class="total-label">IMPORTE TOTAL:</div>
-    <div class="total-amount" id="desglose-total">0,00 €</div>
+  <!-- Panel de Total e Impuestos -->
+  <div class="total-panel" id="desglose-total-panel">
+    <div class="total-row">
+      <span class="total-row-label">IMPORTE BASE:</span>
+      <span class="total-row-val" id="desglose-base-amount">0,00 €</span>
+    </div>
+    <div class="total-row">
+      <span class="total-row-label" id="desglose-igic-label">IGIC:</span>
+      <span class="total-row-val" id="desglose-igic-amount">0,00 €</span>
+    </div>
+    <div class="total-row total-row-main">
+      <span class="total-main-label">TOTAL FACTURA:</span>
+      <span class="total-amount" id="desglose-total">0,00 €</span>
+    </div>
   </div>
 
   <!-- Botones de Acción -->
@@ -1666,6 +1719,26 @@
       return Math.max(total, 150);
     }
 
+    var globalFields = {};
+
+    function getTaxPercentage(fields) {
+      if (!fields) return 0;
+      var pctKey = Object.keys(fields).find(function(k) {
+        var normalized = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return normalized === 'porcentajeimpuestos' || normalized === 'impuestos';
+      });
+      if (pctKey) {
+        var valStr = String(fields[pctKey]);
+        var cleaned = valStr.replace(/[^0-9.,]/g, '').replace(',', '.');
+        var val = parseFloat(cleaned) || 0;
+        if (val > 0 && val < 1) {
+          val = val * 100;
+        }
+        return val;
+      }
+      return 0;
+    }
+
     function recalcularDesglose() {
       var rawVal = String(inputCuantiva.value || "0").replace(/[^0-9.,-]/g, '');
       if (rawVal.indexOf('.') > -1 && rawVal.indexOf(',') > -1) {
@@ -1788,7 +1861,28 @@
         if (restoPanel) restoPanel.style.display = 'none';
       }
 
-      labelTotal.textContent = finalTotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+      var taxPct = getTaxPercentage(globalFields);
+      var baseAmount = finalTotal;
+      var igicAmount = Math.round(baseAmount * taxPct) / 100;
+      var totalFactura = Math.round((baseAmount + igicAmount) * 100) / 100;
+
+      var labelBase = document.getElementById('desglose-base-amount');
+      if (labelBase) {
+        labelBase.textContent = baseAmount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+      }
+
+      var labelIgic = document.getElementById('desglose-igic-amount');
+      var labelIgicTitle = document.getElementById('desglose-igic-label');
+      if (labelIgicTitle) {
+        labelIgicTitle.textContent = taxPct > 0 ? ('IGIC (' + taxPct + '%):') : 'IGIC:';
+      }
+      if (labelIgic) {
+        labelIgic.textContent = igicAmount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+      }
+
+      if (labelTotal) {
+        labelTotal.textContent = totalFactura.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+      }
     }
 
     // Registrar Eventos de Re-cálculo e Inputs de Cantidad/Etiquetas
@@ -1966,6 +2060,7 @@
 
           // Usar los campos de datos cruzados unificados (Tablero de Facturación + Clientes) para inicializar
           var fields = (data && data.fields) ? data.fields : ((localData && localData.fields) ? localData.fields : {});
+          globalFields = fields || {};
           
           if (fields) {
             debugText += "<b>Claves en Importes local (Tablero Facturación):</b> " + Object.keys(fields).join(', ') + "<br>";
@@ -2171,9 +2266,19 @@
         return;
       }
 
-      var total = targetVal > 0 ? targetVal : sumatoriaTotal;
+      var baseTotal = targetVal > 0 ? targetVal : sumatoriaTotal;
+      var taxPct = getTaxPercentage(globalFields);
+      var igicTotal = Math.round(baseTotal * taxPct) / 100;
+      var grandTotal = Math.round((baseTotal + igicTotal) * 100) / 100;
+
       lines.push('------------------------------------------------');
-      lines.push('IMPORTE TOTAL: ' + total.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+      lines.push('IMPORTE BASE: ' + baseTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+      if (taxPct > 0) {
+        lines.push('IGIC (' + taxPct + '%): ' + igicTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+      } else {
+        lines.push('IGIC: ' + igicTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
+      }
+      lines.push('TOTAL FACTURA: ' + grandTotal.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €');
       lines.push('================================================');
 
       var textToCopy = lines.join('\n');
@@ -2468,12 +2573,33 @@
         fields["Nº_Factura"] = selectedNum;
         fields["NºFactura"] = selectedNum;
 
-        var total = targetVal > 0 ? targetVal : totalConceptos;
-        fields["Total_Desglose_Imp"] = total.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        var baseTotal = targetVal > 0 ? targetVal : totalConceptos;
+        var taxPct = getTaxPercentage(globalFields);
+        var igicTotal = Math.round(baseTotal * taxPct) / 100;
+        var grandTotal = Math.round((baseTotal + igicTotal) * 100) / 100;
+
+        fields["Base_Imponible"] = baseTotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        fields["Base_Imponible_Imp"] = fields["Base_Imponible"];
+        fields["Importe_Base"] = fields["Base_Imponible"];
+        fields["Importe Base"] = fields["Base_Imponible"];
+        fields["Total_Desglose_Imp"] = fields["Base_Imponible"];
+
+        fields["IGIC"] = igicTotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        fields["IGIC_Imp"] = fields["IGIC"];
+        fields["Igic"] = fields["IGIC"];
+        fields["igic"] = fields["IGIC"];
+        fields["Igic_Imp"] = fields["IGIC"];
+        fields["Porcentaje_Impuestos"] = taxPct > 0 ? (taxPct.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + '%') : '0%';
+
+        fields["Total_Factura"] = grandTotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        fields["Total_Factura_Imp"] = fields["Total_Factura"];
+        fields["Total Factura"] = fields["Total_Factura"];
+        fields["Total factura"] = fields["Total_Factura"];
+        fields["total_factura"] = fields["Total_Factura"];
 
         // Marcadores de sumatorios y descripciones de las columnas para la plantilla Excel
-        var sumEscalables = totalIzquierda.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
-        var sumFijos = totalDerecha.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        var sumEscalables = totalIzquierda.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+        var sumFijos = totalDerecha.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
         
         fields["Sumatorio criterios escalables"] = sumEscalables;
         fields["Sumatorio_criterios_escalables"] = sumEscalables;
@@ -2594,8 +2720,17 @@
             .replace(/\{\{Fecha apertura expediente\}\}/gi, f.fecha_apertura || "___________")
             .replace(/\{\{Fecha siniestro\}\}/gi, f.fecha_siniestro || "___________")
             .replace(/\{\{Número de factura\}\}/gi, facturaVal)
-            .replace(/\{\{Numero de factura\}\}/gi, facturaVal);
-            
+            .replace(/\{\{Numero de factura\}\}/gi, facturaVal)
+            .replace(/\{\{IGIC\}\}/gi, f.IGIC || f.Igic || f.igic || "0,00 €")
+            .replace(/\{\{IGIC_Imp\}\}/gi, f.IGIC_Imp || f.IGIC || "0,00 €")
+            .replace(/\{\{Igic_Imp\}\}/gi, f.IGIC_Imp || f.IGIC || "0,00 €")
+            .replace(/\{\{Total Factura\}\}/gi, f.Total_Factura || f["Total Factura"] || f.total_factura || "0,00 €")
+            .replace(/\{\{Total_Factura\}\}/gi, f.Total_Factura || f["Total Factura"] || f.total_factura || "0,00 €")
+            .replace(/\{\{Total_Factura_Imp\}\}/gi, f.Total_Factura || f["Total Factura"] || f.total_factura || "0,00 €")
+            .replace(/\{\{Importe Base\}\}/gi, f.Importe_Base || f.Base_Imponible || "0,00 €")
+            .replace(/\{\{Importe_Base\}\}/gi, f.Importe_Base || f.Base_Imponible || "0,00 €")
+            .replace(/\{\{Base Imponible\}\}/gi, f.Base_Imponible || "0,00 €")
+            .replace(/\{\{Base_Imponible\}\}/gi, f.Base_Imponible || "0,00 €");
           return res;
         }
 
