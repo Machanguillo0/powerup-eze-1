@@ -1056,21 +1056,41 @@
 
     function extractFirmaFromChecklists(checklists) {
       if (!checklists || !checklists.length) return null;
+      var dateRegex = /\b(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{4}[\/\-\.]\d{1,2}[\/\-\.]\d{1,2})\b/;
       for (var c = 0; c < checklists.length; c++) {
         var ch = checklists[c];
-        if (ch && ch.checkItems && ch.checkItems.length > 0) {
+        if (!ch) continue;
+        var chName = (ch.name || "").trim();
+        var isFirmaChecklist = /(?:firma|contrato|encargo|hoja)/i.test(chName);
+
+        if (ch.checkItems && ch.checkItems.length > 0) {
           for (var i = 0; i < ch.checkItems.length; i++) {
             var item = ch.checkItems[i];
-            if (item && item.name) {
-              var nameTrim = item.name.trim();
-              if (/(?:fecha\s+)?(?:de\s+)?(?:la\s+)?firma/i.test(nameTrim)) {
-                var val = nameTrim.replace(/^\s*(?:Fecha\s+)?(?:de\s+)?(?:la\s+)?Firma[^:\-]*[:\-]?\s*/i, '').trim();
-                if (!val) {
-                  val = nameTrim.replace(/^\s*(?:Fecha\s+)?(?:de\s+)?(?:la\s+)?Firma\s*/i, '').trim();
-                }
-                if (val && val !== "___________") {
-                  return val;
-                }
+            if (!item || !item.name) continue;
+            var nameTrim = item.name.trim();
+
+            if (/^\s*(?:Fecha\s+)?(?:Firma|Firmado)/i.test(nameTrim)) {
+              var dateMatch = nameTrim.match(dateRegex);
+              if (dateMatch) {
+                return dateMatch[1];
+              }
+              var val = nameTrim.replace(/^\s*(?:Fecha\s+)?(?:Firma|Firmado)[^:\-]*[:\-]?\s*/i, '').trim();
+              if (!val) {
+                val = nameTrim.replace(/^\s*(?:Fecha\s+)?(?:Firma|Firmado)\s*/i, '').trim();
+              }
+              if (val && val !== "___________" && val.length >= 6) {
+                return val;
+              }
+            }
+
+            if (isFirmaChecklist) {
+              var dateMatch = nameTrim.match(dateRegex);
+              if (dateMatch) {
+                return dateMatch[1];
+              }
+              var cleanItemVal = nameTrim.replace(/[*_~`#]/g, '').trim();
+              if (cleanItemVal && cleanItemVal !== "___________" && cleanItemVal.length >= 6) {
+                return cleanItemVal;
               }
             }
           }
@@ -1616,36 +1636,70 @@
                 cards.sort((a,b) => (b.name.toLowerCase().includes("datos personales") ? 100 : 0) - (a.name.toLowerCase().includes("datos personales") ? 100 : 0));
                 
                 cards.forEach(card => {
-                  if (card.checklists && card.checklists.length > 0) {
-                    var firmaVal = extractFirmaFromChecklists(card.checklists);
-                    if (firmaVal && firmaVal !== "___________") { clientFields.fecha_firma_contrato = firmaVal; found.fecha_firma_contrato = true; }
-                  }
                   var parsed = extractFields(card.desc);
                   if (!found.nombre && parsed.nombre !== "Cliente Desconocido") { clientFields.nombre = parsed.nombre; found.nombre = true; }
                   if (!found.dni && parsed.dni !== "___________") { clientFields.dni = parsed.dni; found.dni = true; }
                   if (!found.domicilio && parsed.domicilio !== "___________") { clientFields.domicilio = parsed.domicilio; found.domicilio = true; }
                   if (!found.fecha_apertura && parsed.fecha_apertura !== "___________") { clientFields.fecha_apertura = parsed.fecha_apertura; found.fecha_apertura = true; }
-                  if (!found.fecha_firma_contrato && parsed.fecha_firma_contrato && parsed.fecha_firma_contrato !== "___________") { clientFields.fecha_firma_contrato = parsed.fecha_firma_contrato; found.fecha_firma_contrato = true; }
-
-                  if (card.desc) {
-                    var cardLines = card.desc.split('\n');
-                    cardLines.forEach(function (line) {
-                      var sepIndex = line.indexOf(':');
-                      if (sepIndex === -1) sepIndex = line.indexOf('=');
-                      if (sepIndex > -1) {
-                        var k = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
-                        var v = line.substring(sepIndex + 1).replace(/[*_~`#]/g, '').trim();
-                        if (k && v && v !== "___________") {
-                          var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
-                          if ((normK.includes("firma") || normK.includes("contrato")) && !found.fecha_firma_contrato) {
-                            clientFields.fecha_firma_contrato = v;
-                            found.fecha_firma_contrato = true;
-                          }
-                        }
-                      }
-                    });
-                  }
                 });
+
+                var historyCardInClient = cards.find(c => {
+                  var n = c.name.toLowerCase();
+                  return n.includes("historial de procesos") || n.includes("historial de avisos");
+                });
+                var datosPersonalesCardInClient = cards.find(c => c.name.toLowerCase().includes("datos personales"));
+
+                var firmaFoundInCross = null;
+
+                if (historyCardInClient && historyCardInClient.desc) {
+                  var parsedHist = extractFields(historyCardInClient.desc);
+                  if (parsedHist.fecha_firma_contrato && parsedHist.fecha_firma_contrato !== "___________") {
+                    firmaFoundInCross = parsedHist.fecha_firma_contrato;
+                  }
+                }
+
+                if (!firmaFoundInCross && datosPersonalesCardInClient && datosPersonalesCardInClient.desc) {
+                  var parsedPers = extractFields(datosPersonalesCardInClient.desc);
+                  if (parsedPers.fecha_firma_contrato && parsedPers.fecha_firma_contrato !== "___________") {
+                    firmaFoundInCross = parsedPers.fecha_firma_contrato;
+                  }
+                }
+
+                if (!firmaFoundInCross) {
+                  cards.forEach(card => {
+                    if (!firmaFoundInCross && card.checklists && card.checklists.length > 0) {
+                      var firmaVal = extractFirmaFromChecklists(card.checklists);
+                      if (firmaVal && firmaVal !== "___________") {
+                        firmaFoundInCross = firmaVal;
+                      }
+                    }
+                  });
+
+                  if (firmaFoundInCross && historyCardInClient && appKey && token) {
+                    var desc = historyCardInClient.desc || "";
+                    var updatedDesc = desc;
+                    if (desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Firma contrato\s*[*_~`#]*[ \t]*[:\s-]+\s*___________/i)) {
+                      updatedDesc = desc.replace(/(?:^|\n)([ \t]*[*_~`#]*\s*Firma contrato\s*[*_~`#]*[ \t]*[:\s-]+\s*)___________/i, "$1" + firmaFoundInCross);
+                    } else if (!desc.toLowerCase().includes("firma contrato")) {
+                      updatedDesc = desc + (desc ? "\n" : "") + "Firma contrato: " + firmaFoundInCross;
+                    }
+                    
+                    if (updatedDesc !== desc) {
+                      historyCardInClient.desc = updatedDesc;
+                      fetch(`https://api.trello.com/1/cards/${historyCardInClient.id}?key=${appKey}&token=${token}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ desc: updatedDesc })
+                      }).then(r => {
+                        if (r.ok) console.log("Fecha de firma inicializada en Historial de procesos.");
+                      }).catch(e => console.error("Error al guardar fecha de firma:", e));
+                    }
+                  }
+                }
+
+                if (firmaFoundInCross) {
+                  clientFields.fecha_firma_contrato = firmaFoundInCross;
+                }
 
                 var clientImportesCard = cards.find(c => c.name.toLowerCase().includes("importes"));
                 var clientImportesFields = {};
