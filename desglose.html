@@ -698,6 +698,7 @@
         nombre: "Cliente Desconocido",
         dni: "___________",
         domicilio: "___________",
+        fecha_firma_contrato: "___________",
         telefono: "___________",
         profesion: "___________",
         observaciones: "___________",
@@ -745,6 +746,7 @@
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha de comunicación designa(?:ción)?\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_designa = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha(?: de)? reclamación previa\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_reclamacion = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha (?:apertura|creación) de? expediente\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_apertura = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:Fecha\s+)?(?:de\s+)?(?:la\s+)?Firma(?: del?| de)?\s*(?:contrato|cliente)?\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_firma_contrato = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha siniestro\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_siniestro = m[1].replace(/[*_~`]/g, '').trim(); }
       if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:NÚMERO DE FACTURA|Numero de factura|Nº Factura|Nº de Factura)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.factura = m[1].replace(/[*_~`]/g, '').trim(); }
 
@@ -1084,9 +1086,10 @@
               nombre: "___________",
               dni: "___________",
               domicilio: "___________",
-              fecha_apertura: "___________"
+              fecha_apertura: "___________",
+              fecha_firma_contrato: "___________"
             };
-            var found = { nombre: false, dni: false, domicilio: false, fecha_apertura: false };
+            var found = { nombre: false, dni: false, domicilio: false, fecha_apertura: false, fecha_firma_contrato: false };
             
             var cards = clientCards || [];
             cards.sort(function(a, b) {
@@ -1096,11 +1099,36 @@
             });
             
             cards.forEach(function(card) {
+              if (card.checklists && card.checklists.length > 0) {
+                var firmaVal = extractFirmaFromChecklists(card.checklists);
+                if (firmaVal && firmaVal !== "___________") { clientFields.fecha_firma_contrato = firmaVal; found.fecha_firma_contrato = true; }
+              }
               var parsed = extractFields(card.desc);
               if (!found.nombre && parsed.nombre !== "Cliente Desconocido") { clientFields.nombre = parsed.nombre; found.nombre = true; }
               if (!found.dni && parsed.dni !== "___________") { clientFields.dni = parsed.dni; found.dni = true; }
               if (!found.domicilio && parsed.domicilio !== "___________") { clientFields.domicilio = parsed.domicilio; found.domicilio = true; }
               if (!found.fecha_apertura && parsed.fecha_apertura !== "___________") { clientFields.fecha_apertura = parsed.fecha_apertura; found.fecha_apertura = true; }
+              if (!found.fecha_firma_contrato && parsed.fecha_firma_contrato && parsed.fecha_firma_contrato !== "___________") { clientFields.fecha_firma_contrato = parsed.fecha_firma_contrato; found.fecha_firma_contrato = true; }
+
+              // Escanear cualquier par Clave: Valor de las líneas de la tarjeta
+              if (card.desc) {
+                var cardLines = card.desc.split('\n');
+                cardLines.forEach(function (line) {
+                  var sepIndex = line.indexOf(':');
+                  if (sepIndex === -1) sepIndex = line.indexOf('=');
+                  if (sepIndex > -1) {
+                    var k = line.substring(0, sepIndex).replace(/[*_~`#]/g, '').trim();
+                    var v = line.substring(sepIndex + 1).replace(/[*_~`#]/g, '').trim();
+                    if (k && v && v !== "___________") {
+                      var normK = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
+                      if ((normK.includes("firma") || normK.includes("contrato")) && !found.fecha_firma_contrato) {
+                        clientFields.fecha_firma_contrato = v;
+                        found.fecha_firma_contrato = true;
+                      }
+                    }
+                  }
+                });
+              }
             });
 
             // 4.5 Extraer y unificar dinámicamente los campos de la tarjeta "Importes" del tablero de Clientes
@@ -1206,6 +1234,7 @@
             combinedFields.dni = clientFields.dni;
             combinedFields.domicilio = clientFields.domicilio;
             combinedFields.fecha_apertura = clientFields.fecha_apertura;
+            combinedFields.fecha_firma_contrato = clientFields.fecha_firma_contrato || "___________";
 
             // 5.5 Buscar y parsear la tarjeta de Historial de procesos desde el tablero de Clientes
             var historyCard = cards.find(function (c) {
