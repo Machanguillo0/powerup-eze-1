@@ -249,6 +249,7 @@
     }
 
     function getTaxPercentage(fields) {
+      if (!fields) return 0;
       var pctKey = Object.keys(fields).find(function(k) {
         var normalized = k.toLowerCase().replace(/[^a-z0-9]/g, '');
         return normalized === 'porcentajeimpuestos' || normalized === 'impuestos';
@@ -259,6 +260,10 @@
         var val = parseFloat(cleaned) || 0;
         if (val > 0 && val < 1) {
           val = val * 100;
+        }
+        val = Math.round(val * 10000) / 10000;
+        if (val % 1 === 0) {
+          val = Math.round(val);
         }
         return val;
       }

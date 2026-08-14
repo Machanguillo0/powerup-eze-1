@@ -1060,6 +1060,7 @@
 
     // Extraedor de porcentaje de impuestos desde los campos unificados
     function getTaxPercentage(fields) {
+      if (!fields) return 0;
       var pctKey = Object.keys(fields).find(function(k) {
         var normalized = k.toLowerCase().replace(/[^a-z0-9]/g, '');
         return normalized === 'porcentajeimpuestos' || normalized === 'impuestos';
@@ -1068,9 +1069,12 @@
         var valStr = String(fields[pctKey]);
         var cleaned = valStr.replace(/[^0-9.,]/g, '').replace(',', '.');
         var val = parseFloat(cleaned) || 0;
-        // Si el impuesto está en formato decimal (ej: 0.07 o 0.21), lo normalizamos a porcentaje (7% o 21%)
         if (val > 0 && val < 1) {
           val = val * 100;
+        }
+        val = Math.round(val * 10000) / 10000;
+        if (val % 1 === 0) {
+          val = Math.round(val);
         }
         return val;
       }
@@ -6297,7 +6301,7 @@
           e.preventDefault();
           e.stopPropagation();
           t.modal({
-            url: './desglose.html?v=67',
+            url: './desglose.html?v=69',
             height: 600,
             title: 'Desglose de Factura (Colegio LP 2012)',
             accentColor: '#1f845a'
