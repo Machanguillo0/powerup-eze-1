@@ -1367,7 +1367,7 @@
         var rawVal = m[1].replace(/[*_~`]/g, '').trim();
         fields.fecha_firma_contrato = rawVal.replace(/^(?:cliente[:\s-]*)+/i, '').trim();
       }
-      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*Fecha siniestro\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_siniestro = m[1].replace(/[*_~`]/g, '').trim(); }
+      if (m = desc.match(/(?:^|\n)[ \t]*[*_~`#]*\s*(?:FECHA DEL SINIESTRO|FECHA DE SINIESTRO|Fecha siniestro)\s*[*_~`#]*[ \t]*[:\s-]+\s*([^\n\r]*)/i)) { fields.fecha_siniestro = m[1].replace(/[*_~`]/g, '').trim(); }
 
       // --- EXTRACCIÓN CONTEXTUAL DE VEHÍCULOS ---
       var vehicleLookahead = "(?=\\n\\s*(?:VEH[ÍI]CULO CONTRARIO|VEH[ÍI]CULO PROPIO|PARRAFADA|NOMBRE|DNI|DOMICILIO|PROFESI[OÓ]N|TEL[EÉ]FONO|EMAIL|OBSERVACIONES|DIAGN[ÓO]STICO)|$)";
@@ -2881,23 +2881,37 @@
           if (demandaCard && demandaCard.desc) {
             var extractYearFromStr = function(dateStr) {
               if (!dateStr || dateStr === "___________") return null;
-              var m = String(dateStr).match(/\b(20\d{2}|19\d{2})\b/);
+              var str = String(dateStr).trim();
+              var m = str.match(/\b(20\d{2}|19\d{2})\b/);
               if (m) return m[1];
-              var mShort = String(dateStr).match(/\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.](\d{2})\b/);
+              var mShort = str.match(/\b\d{1,2}[\/\-\.]\d{1,2}[\/\-\.](\d{2})\b/);
               if (mShort) {
                 var yy = parseInt(mShort[1], 10);
-                return (yy >= 50 ? "19" : "20") + (yy < 10 ? "0" + yy : yy);
+                return String(yy >= 50 ? 1900 + yy : 2000 + yy);
               }
               return null;
             };
 
-            var accidentYear = extractYearFromStr(
-              unified.fecha_siniestro || 
-              unified.fecha || 
-              unified["fecha de siniestro"] || 
-              unified["fecha del siniestro"] || 
-              unified["fecha siniestro"]
-            );
+            var getValidAccidentYear = function(u) {
+              var candidates = [
+                u.fecha_siniestro,
+                u.fecha,
+                u["fecha de siniestro"],
+                u["fecha del siniestro"],
+                u["fecha siniestro"],
+                u["fecha_siniestro"]
+              ];
+              for (var i = 0; i < candidates.length; i++) {
+                var c = candidates[i];
+                if (c && c !== "___________") {
+                  var y = extractYearFromStr(c);
+                  if (y) return y;
+                }
+              }
+              return null;
+            };
+
+            var accidentYear = getValidAccidentYear(unified);
 
             var lines = demandaCard.desc.split('\n');
             lines.forEach(function (line) {
@@ -2942,13 +2956,14 @@
                     unified[normKOriginal.toLowerCase()] = v;
                   }
 
-                  // Si la clave termina en un año (ej: "Importe por día de perjuicio moderado 2024")
-                  var yearMatch = k.match(/^(.*?)\s+((?:19|20)\d{2})$/);
+                  // Si la clave termina en un año (ej: "Importe por día de perjuicio moderado 2024" o "24")
+                  var yearMatch = k.match(/^(.*?)\s+((?:19|20)?\d{2})$/);
                   if (yearMatch) {
                     var baseKey = yearMatch[1].trim();
-                    var keyYear = yearMatch[2];
+                    var rawKeyYear = yearMatch[2];
+                    var normalizedKeyYear = rawKeyYear.length === 2 ? String(parseInt(rawKeyYear, 10) >= 50 ? 1900 + parseInt(rawKeyYear, 10) : 2000 + parseInt(rawKeyYear, 10)) : rawKeyYear;
 
-                    if (accidentYear && keyYear === accidentYear) {
+                    if (accidentYear && normalizedKeyYear === accidentYear) {
                       var normBaseK = baseKey.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, ' ').trim();
                       unified[baseKey] = v;
                       unified[baseKey.toLowerCase()] = v;
