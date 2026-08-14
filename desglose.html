@@ -2492,6 +2492,7 @@
       }
 
       if (tieneIzquierda) {
+        totalIzquierda = Math.round(totalIzquierda * 100) / 100;
         conceptosList.push({ name: labelIzquierdaText, val: totalIzquierda });
       }
 
@@ -2526,6 +2527,7 @@
       }
 
       if (tieneDerecha) {
+        totalDerecha = Math.round(totalDerecha * 100) / 100;
         conceptosList.push({ name: labelDerechaText, val: totalDerecha });
       }
 
@@ -2533,13 +2535,13 @@
       conceptosList.forEach(function(item) {
         sumaActual += item.val;
       });
-      var totalConceptos = sumaActual;
+      var totalConceptos = Math.round(sumaActual * 100) / 100;
 
       var targetVal = globalFacturado > 0 ? globalFacturado : globalAFacturar;
 
       var restoVal = 0;
       if (targetVal > 0 && Math.abs(targetVal - totalConceptos) >= 0.01) {
-        restoVal = targetVal - totalConceptos;
+        restoVal = Math.round((targetVal - totalConceptos) * 100) / 100;
         conceptosList.push({ name: 'Descuento especial', val: restoVal });
       }
 
@@ -2554,8 +2556,9 @@
           
           if (idx <= conceptosList.length) {
             var item = conceptosList[idx - 1];
+            var itemVal = Math.round(item.val * 100) / 100;
             fields[cKey] = item.name;
-            fields[iKey] = item.val.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+            fields[iKey] = itemVal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
           } else {
             fields[cKey] = "";
             fields[iKey] = "";
@@ -2565,7 +2568,7 @@
         // Asignar el importe base ajustado (Resto) a Concepto_0 e Importe_0
         fields["Concepto_0"] = restoVal !== 0 ? "Descuento especial" : "";
         fields["Importe_0"] = restoVal !== 0 ? 
-          (restoVal < 0 ? '-' + Math.abs(restoVal).toLocaleString('es-ES', { minimumFractionDigits: 2 }) : restoVal.toLocaleString('es-ES', { minimumFractionDigits: 2 })) + ' €' : "";
+          (restoVal < 0 ? '-' + Math.abs(restoVal).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : restoVal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) + ' €' : "";
 
         // Asignar fecha y número de la factura seleccionada a marcadores
         fields["Fecha_Factura"] = selectedDate;
@@ -2577,7 +2580,7 @@
         fields["Nº_Factura"] = selectedNum;
         fields["NºFactura"] = selectedNum;
 
-        var baseTotal = targetVal > 0 ? targetVal : totalConceptos;
+        var baseTotal = Math.round((targetVal > 0 ? targetVal : totalConceptos) * 100) / 100;
         var taxPct = getTaxPercentage(globalFields);
         var igicTotal = Math.round(baseTotal * taxPct) / 100;
         var grandTotal = Math.round((baseTotal + igicTotal) * 100) / 100;
@@ -2642,46 +2645,46 @@
         fields["Monitorio_Imp"] = chkMonitorio.checked ? "165,00 €" : "";
         
         fields["Principal_100"] = chkPrincipal100.checked ? "Procedimiento Principal (100% Criterio 35)" : "";
-        fields["Principal_100_Imp"] = chkPrincipal100.checked ? base35.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        fields["Principal_100_Imp"] = chkPrincipal100.checked ? (Math.round(base35 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €" : "";
         
         fields["Demanda_50"] = chkPrincipalDemanda.checked ? "Fase Demanda / Alegaciones (50% Criterio 35)" : "";
-        fields["Demanda_50_Imp"] = chkPrincipalDemanda.checked ? (Math.round(base35 * 0.5 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        fields["Demanda_50_Imp"] = chkPrincipalDemanda.checked ? (Math.round(base35 * 0.5 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €" : "";
         
         fields["Audiencia_10"] = chkPrincipalAudiencia.checked ? "Fase Audiencia Previa (10% Criterio 35)" : "";
-        fields["Audiencia_10_Imp"] = chkPrincipalAudiencia.checked ? (Math.round(base35 * 0.1 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        fields["Audiencia_10_Imp"] = chkPrincipalAudiencia.checked ? (Math.round(base35 * 0.1 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €" : "";
         
         fields["Juicio_40"] = chkPrincipalJuicio.checked ? "Fase Juicio / Vista (40% Criterio 35)" : "";
-        fields["Juicio_40_Imp"] = chkPrincipalJuicio.checked ? (Math.round(base35 * 0.4 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        fields["Juicio_40_Imp"] = chkPrincipalJuicio.checked ? (Math.round(base35 * 0.4 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €" : "";
         
         fields["Ejecucion_Sin"] = chkEjecucionSin.checked ? "Ejecución sin Oposición (50% Criterio 36)" : "";
-        fields["Ejecucion_Sin_Imp"] = chkEjecucionSin.checked ? (Math.round(base36 * 0.5 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        fields["Ejecucion_Sin_Imp"] = chkEjecucionSin.checked ? (Math.round(base36 * 0.5 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €" : "";
         
         fields["Ejecucion_Con"] = chkEjecucionCon.checked ? "Ejecución con Oposición (100% Criterio 35)" : "";
-        fields["Ejecucion_Con_Imp"] = chkEjecucionCon.checked ? base35.toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        fields["Ejecucion_Con_Imp"] = chkEjecucionCon.checked ? (Math.round(base35 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €" : "";
         
         fields["Apelacion_Mismo"] = chkApelacionMismo.checked ? "Apelación (Mismo Letrado) (50% Criterio 71)" : "";
-        fields["Apelacion_Mismo_Imp"] = chkApelacionMismo.checked ? (Math.round(base35 * 0.5 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        fields["Apelacion_Mismo_Imp"] = chkApelacionMismo.checked ? (Math.round(base35 * 0.5 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €" : "";
         
         fields["Apelacion_Otro"] = chkApelacionOtro.checked ? "Apelación (Otro Letrado) (60% Criterio 71)" : "";
-        fields["Apelacion_Otro_Imp"] = chkApelacionOtro.checked ? (Math.round(base35 * 0.6 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        fields["Apelacion_Otro_Imp"] = chkApelacionOtro.checked ? (Math.round(base35 * 0.6 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €" : "";
         
         fields["Recargo_Costas"] = chkRecargoCostas.checked ? "Recargo Oficial de Costas (+15%)" : "";
-        fields["Recargo_Costas_Imp"] = chkRecargoCostas.checked ? (Math.round(sumaEscalasActivas * 0.15 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        fields["Recargo_Costas_Imp"] = chkRecargoCostas.checked ? (Math.round(sumaEscalasActivas * 0.15 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €" : "";
         
         fields["Criterio_30b"] = (chkCriterio30b && chkCriterio30b.checked) ? "Criterio 30B (Descuento -25%)" : "";
         var baseDescuento30bExcel = sumaEscalasActivas;
         if (chkRecargoCostas.checked) {
           baseDescuento30bExcel += Math.round(sumaEscalasActivas * 0.15 * 100) / 100;
         }
-        fields["Criterio_30b_Imp"] = (chkCriterio30b && chkCriterio30b.checked) ? "-" + (Math.round(baseDescuento30bExcel * 0.25 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + " €" : "";
+        fields["Criterio_30b_Imp"] = (chkCriterio30b && chkCriterio30b.checked) ? "-" + (Math.round(baseDescuento30bExcel * 0.25 * 100) / 100).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €" : "";
         
         var restoCalculado = 0;
         if (targetVal > 0 && Math.abs(targetVal - totalConceptos) >= 0.01) {
-          restoCalculado = targetVal - totalConceptos;
+          restoCalculado = Math.round((targetVal - totalConceptos) * 100) / 100;
         }
         fields["Base_Ajustada"] = restoCalculado !== 0 ? "Descuento especial" : "";
         fields["Base_Ajustada_Imp"] = restoCalculado !== 0 ? 
-          (restoCalculado < 0 ? '-' + Math.abs(restoCalculado).toLocaleString('es-ES', { minimumFractionDigits: 2 }) : restoCalculado.toLocaleString('es-ES', { minimumFractionDigits: 2 })) + " €" : "";
+          (restoCalculado < 0 ? '-' + Math.abs(restoCalculado).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : restoCalculado.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })) + " €" : "";
 
         function escapeRegExp(string) {
           return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
