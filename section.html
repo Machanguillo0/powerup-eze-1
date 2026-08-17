@@ -1380,15 +1380,45 @@
       var propioMatch = desc.match(new RegExp("(?:^|\\n)[ \\t]*[^a-zA-Z0-9\\n\\r]*\\s*VEH[ÍI]CULO PROPIO[\\s\\S]*?" + vehicleLookahead, "i"));
       if (propioMatch) {
         var pText = propioMatch[0];
-        if (m = pText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula1 = m[1].replace(/[*_~`]/g, '').trim(); }
-        if (m = pText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora1 = m[1].replace(/[*_~`]/g, '').trim(); }
+        if (m = pText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { 
+          var matPropio = m[1].replace(/[*_~`]/g, '').trim();
+          fields.matricula1 = matPropio;
+          fields["vehiculo propio.matricula"] = matPropio;
+          fields["vehiculo propio.matrícula"] = matPropio;
+          fields["vehículo propio.matrícula"] = matPropio;
+          fields["vehículo propio.matricula"] = matPropio;
+        }
+        if (m = pText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { 
+          var asegPropio = m[1].replace(/[*_~`]/g, '').trim();
+          fields.aseguradora1 = asegPropio;
+          fields["vehiculo propio.aseguradora"] = asegPropio;
+          fields["vehículo propio.aseguradora"] = asegPropio;
+        }
+        if (m = pText.match(/(?:ref|referencia)[:\s-]+\s*([^\s;,\)\n\r]+)/i)) { fields["vehiculo propio.ref"] = m[1].replace(/[*_~`]/g, '').trim(); }
+        if (m = pText.match(/tramitador[:\s-]+\s*([^;\)\n\r]+)/i)) { fields["vehiculo propio.tramitador"] = m[1].replace(/[*_~`]/g, '').trim(); }
+        if (m = pText.match(/(?:p[óo]liza)[:\s-]+\s*([^\s;,\)\n\r]+)/i)) { fields["vehiculo propio.poliza"] = m[1].replace(/[*_~`]/g, '').trim(); }
       }
 
       var contrarioMatch = desc.match(new RegExp("(?:^|\\n)[ \\t]*[^a-zA-Z0-9\\n\\r]*\\s*VEH[ÍI]CULO CONTRARIO[\\s\\S]*?" + vehicleLookahead, "i"));
       if (contrarioMatch) {
         var cText = contrarioMatch[0];
-        if (m = cText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.matricula2 = m[1].replace(/[*_~`]/g, '').trim(); }
-        if (m = cText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { fields.aseguradora2 = m[1].replace(/[*_~`]/g, '').trim(); }
+        if (m = cText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*MATR[ÍI]CULA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { 
+          var matContrario = m[1].replace(/[*_~`]/g, '').trim();
+          fields.matricula2 = matContrario;
+          fields["vehiculo contrario.matricula"] = matContrario;
+          fields["vehiculo contrario.matrícula"] = matContrario;
+          fields["vehículo contrario.matrícula"] = matContrario;
+          fields["vehículo contrario.matricula"] = matContrario;
+        }
+        if (m = cText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { 
+          var asegContrario = m[1].replace(/[*_~`]/g, '').trim();
+          fields.aseguradora2 = asegContrario;
+          fields["vehiculo contrario.aseguradora"] = asegContrario;
+          fields["vehículo contrario.aseguradora"] = asegContrario;
+        }
+        if (m = cText.match(/(?:ref|referencia)[:\s-]+\s*([^\s;,\)\n\r]+)/i)) { fields["vehiculo contrario.ref"] = m[1].replace(/[*_~`]/g, '').trim(); }
+        if (m = cText.match(/tramitador[:\s-]+\s*([^;\)\n\r]+)/i)) { fields["vehiculo contrario.tramitador"] = m[1].replace(/[*_~`]/g, '').trim(); }
+        if (m = cText.match(/(?:p[óo]liza)[:\s-]+\s*([^\s;,\)\n\r]+)/i)) { fields["vehiculo contrario.poliza"] = m[1].replace(/[*_~`]/g, '').trim(); }
       }
 
       // Extracción multilínea para PARRAFADA (más robusta: busca el siguiente encabezado manualmente)
@@ -2420,11 +2450,47 @@
         case 'lugar': return fields.lugar;
         case 'ciudad': return fields.ciudad;
         case 'matrícula1':
-        case 'matricula1': return fields.matricula1;
-        case 'aseguradora1': return fields.aseguradora1;
+        case 'matricula1':
+        case 'vehículo propio.matrícula':
+        case 'vehiculo propio.matricula':
+        case 'vehículo propio.matricula':
+        case 'vehiculo propio.matrícula':
+        case 'vehículo propio: matrícula':
+        case 'vehiculo propio: matricula':
+        case 'vehículo propio matrícula':
+        case 'vehiculo propio matricula':
+        case 'matrícula vehículo propio':
+        case 'matricula vehiculo propio': return fields.matricula1 || fields["vehiculo propio.matricula"] || fields["vehículo propio.matrícula"];
+        case 'aseguradora1':
+        case 'vehículo propio.aseguradora':
+        case 'vehiculo propio.aseguradora':
+        case 'vehículo propio: aseguradora':
+        case 'vehiculo propio: aseguradora':
+        case 'vehículo propio aseguradora':
+        case 'vehiculo propio aseguradora':
+        case 'aseguradora vehículo propio':
+        case 'aseguradora vehiculo propio': return fields.aseguradora1 || fields["vehiculo propio.aseguradora"] || fields["vehículo propio.aseguradora"];
         case 'matrícula2':
-        case 'matricula2': return fields.matricula2;
-        case 'aseguradora2': return fields.aseguradora2;
+        case 'matricula2':
+        case 'vehículo contrario.matrícula':
+        case 'vehiculo contrario.matricula':
+        case 'vehículo contrario.matricula':
+        case 'vehiculo contrario.matrícula':
+        case 'vehículo contrario: matrícula':
+        case 'vehiculo contrario: matricula':
+        case 'vehículo contrario matrícula':
+        case 'vehiculo contrario matricula':
+        case 'matrícula vehículo contrario':
+        case 'matricula vehiculo contrario': return fields.matricula2 || fields["vehiculo contrario.matricula"] || fields["vehículo contrario.matrícula"];
+        case 'aseguradora2':
+        case 'vehículo contrario.aseguradora':
+        case 'vehiculo contrario.aseguradora':
+        case 'vehículo contrario: aseguradora':
+        case 'vehiculo contrario: aseguradora':
+        case 'vehículo contrario aseguradora':
+        case 'vehiculo contrario aseguradora':
+        case 'aseguradora vehículo contrario':
+        case 'aseguradora vehiculo contrario': return fields.aseguradora2 || fields["vehiculo contrario.aseguradora"] || fields["vehículo contrario.aseguradora"];
         case 'fecha del sistema': return fields.fecha_sistema;
         case 'fecha última actuación': return fields.fecha_ultima;
         case 'fecha cierre expediente': return fields.fecha_cierre;
@@ -2834,10 +2900,10 @@
             if (!found.hora && fields.hora !== "___________") { unified.hora = fields.hora; found.hora = true; }
             if (!found.lugar && fields.lugar !== "___________") { unified.lugar = fields.lugar; found.lugar = true; }
             if (!found.ciudad && fields.ciudad !== "___________") { unified.ciudad = fields.ciudad; found.ciudad = true; }
-            if (!found.matricula1 && fields.matricula1 !== "___________") { unified.matricula1 = fields.matricula1; found.matricula1 = true; }
-            if (!found.aseguradora1 && fields.aseguradora1 !== "___________") { unified.aseguradora1 = fields.aseguradora1; found.aseguradora1 = true; }
-            if (!found.matricula2 && fields.matricula2 !== "___________") { unified.matricula2 = fields.matricula2; found.matricula2 = true; }
-            if (!found.aseguradora2 && fields.aseguradora2 !== "___________") { unified.aseguradora2 = fields.aseguradora2; found.aseguradora2 = true; }
+            if (!found.matricula1 && fields.matricula1 !== "___________") { unified.matricula1 = fields.matricula1; unified["vehiculo propio.matricula"] = fields.matricula1; unified["vehículo propio.matrícula"] = fields.matricula1; found.matricula1 = true; }
+            if (!found.aseguradora1 && fields.aseguradora1 !== "___________") { unified.aseguradora1 = fields.aseguradora1; unified["vehiculo propio.aseguradora"] = fields.aseguradora1; unified["vehículo propio.aseguradora"] = fields.aseguradora1; found.aseguradora1 = true; }
+            if (!found.matricula2 && fields.matricula2 !== "___________") { unified.matricula2 = fields.matricula2; unified["vehiculo contrario.matricula"] = fields.matricula2; unified["vehículo contrario.matrícula"] = fields.matricula2; found.matricula2 = true; }
+            if (!found.aseguradora2 && fields.aseguradora2 !== "___________") { unified.aseguradora2 = fields.aseguradora2; unified["vehiculo contrario.aseguradora"] = fields.aseguradora2; unified["vehículo contrario.aseguradora"] = fields.aseguradora2; found.aseguradora2 = true; }
             if (!found.fecha_sistema && fields.fecha_sistema !== "___________") { unified.fecha_sistema = fields.fecha_sistema; found.fecha_sistema = true; }
             if (!found.fecha_ultima && fields.fecha_ultima !== "___________") { unified.fecha_ultima = fields.fecha_ultima; found.fecha_ultima = true; }
             if (!found.fecha_cierre && fields.fecha_cierre !== "___________") { unified.fecha_cierre = fields.fecha_cierre; found.fecha_cierre = true; }
