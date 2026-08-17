@@ -2487,6 +2487,47 @@
       };
     }
 
+    // Función auxiliar para convertir cualquier cadena de fecha en español a días transcurridos desde Epoch UTC
+    function parseDateToEpochDays(rawVal) {
+      if (!rawVal || rawVal === "___________") return null;
+      var str = String(rawVal).trim().toLowerCase();
+      
+      // 1. Formato DD/MM/AAAA o D/M/AAAA o DD-MM-AAAA o DD.MM.AAAA
+      var mShort = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+      if (mShort) {
+        var d = parseInt(mShort[1], 10);
+        var m = parseInt(mShort[2], 10) - 1;
+        var y = parseInt(mShort[3], 10);
+        if (y < 100) y += (y >= 50 ? 1900 : 2000);
+        return Math.round(Date.UTC(y, m, d) / 86400000);
+      }
+      
+      // 2. Formato en texto: "1 de febrero de 2026", "01 de febrero de 2026", "1 febrero 2026"
+      var monthNames = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+      var mText = str.match(/^(\d{1,2})\s+(?:de\s+)?([a-z]+)\s+(?:de\s+)?(\d{4})$/i);
+      if (mText) {
+        var d = parseInt(mText[1], 10);
+        var monthStr = mText[2].toLowerCase();
+        var y = parseInt(mText[3], 10);
+        var m = monthNames.indexOf(monthStr);
+        if (m > -1) {
+          return Math.round(Date.UTC(y, m, d) / 86400000);
+        }
+      }
+
+      // 3. Fallback: buscar cualquier dd/mm/yyyy dentro del texto
+      var mMatch = str.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
+      if (mMatch) {
+        var d = parseInt(mMatch[1], 10);
+        var m = parseInt(mMatch[2], 10) - 1;
+        var y = parseInt(mMatch[3], 10);
+        if (y < 100) y += (y >= 50 ? 1900 : 2000);
+        return Math.round(Date.UTC(y, m, d) / 86400000);
+      }
+
+      return null;
+    }
+
     // Función auxiliar para almacenar un campo calculado en el objeto de campos
     function storeCalculatedField(varName, value, fields) {
       if (!varName || !fields) return;
@@ -2499,11 +2540,14 @@
       fields[normVar] = value;
     }
 
-    // Función para evaluar la fórmula matemática sustituyendo los campos por sus valores numéricos
+    // Función para evaluar la fórmula matemática sustituyendo los campos por sus valores numéricos o días de fecha
     function evaluateFormula(formula, fields, inWords, isInt) {
       var targetVarName = null;
       var cleanFormula = formula.trim();
       
+      // Normalizar guiones largos (en-dash, em-dash, signo menos matemático) a guión estándar '-'
+      cleanFormula = cleanFormula.replace(/[\u2013\u2014\u2212]/g, '-');
+
       // 1. Detectar si es una asignación: "Nombre Variable = Expresión"
       var eqIdx = cleanFormula.indexOf('=');
       if (eqIdx > 0) {
@@ -2534,6 +2578,8 @@
       keys.sort(function(a, b) { return b.length - a.length; });
       
       var evaluatedFormula = cleanFormula;
+      var dateKeysFound = false;
+
       keys.forEach(function(key) {
         var cleanKey = cleanStringForMatching(key).trim();
         if (!cleanKey) return;
@@ -2544,9 +2590,17 @@
           if (idx === -1) break;
           
           var rawVal = fields[key];
-          var numVal = parseNumericValue(rawVal);
+          var epochDays = parseDateToEpochDays(rawVal);
           
-          evaluatedFormula = evaluatedFormula.substring(0, idx) + numVal + evaluatedFormula.substring(idx + cleanKey.length);
+          var valToSubstitute;
+          if (epochDays !== null) {
+            valToSubstitute = epochDays;
+            dateKeysFound = true;
+          } else {
+            valToSubstitute = parseNumericValue(rawVal);
+          }
+          
+          evaluatedFormula = evaluatedFormula.substring(0, idx) + valToSubstitute + evaluatedFormula.substring(idx + cleanKey.length);
         }
       });
       
@@ -2555,9 +2609,16 @@
       try {
         var res = Function("return (" + sanitized + ")")();
         if (isFinite(res)) {
-          if (inWords) {
+          if (dateKeysFound && res > 10000) {
+            // Es una fecha resultante (ej: Fecha inicio + 30 días)
+            var dObj = new Date(res * 86400000);
+            var d = dObj.getUTCDate();
+            var m = dObj.getUTCMonth() + 1;
+            var y = dObj.getUTCFullYear();
+            resultVal = (d < 10 ? '0' + d : d) + '/' + (m < 10 ? '0' + m : m) + '/' + y;
+          } else if (inWords) {
             resultVal = formatAsWordsAndNumbers(res);
-          } else if (isInt) {
+          } else if (isInt || (dateKeysFound && res % 1 === 0)) {
             var intVal = Math.round(res);
             var strInt = String(intVal);
             resultVal = strInt.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
