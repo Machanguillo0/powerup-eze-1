@@ -2487,8 +2487,44 @@
       };
     }
 
+    // Función auxiliar para almacenar un campo calculado en el objeto de campos
+    function storeCalculatedField(varName, value, fields) {
+      if (!varName || !fields) return;
+      var cleanVar = varName.trim();
+      if (!cleanVar) return;
+      
+      var normVar = cleanStringForMatching(cleanVar);
+      fields[cleanVar] = value;
+      fields[cleanVar.toLowerCase()] = value;
+      fields[normVar] = value;
+    }
+
     // Función para evaluar la fórmula matemática sustituyendo los campos por sus valores numéricos
     function evaluateFormula(formula, fields, inWords, isInt) {
+      var targetVarName = null;
+      var cleanFormula = formula.trim();
+      
+      // 1. Detectar si es una asignación: "Nombre Variable = Expresión"
+      var eqIdx = cleanFormula.indexOf('=');
+      if (eqIdx > 0) {
+        targetVarName = cleanFormula.substring(0, eqIdx).trim();
+        cleanFormula = cleanFormula.substring(eqIdx + 1).trim();
+      }
+
+      // 2. Si la fórmula es únicamente el nombre de una variable previamente almacenada o existente (sin operadores matemáticos)
+      var normFormula = cleanStringForMatching(cleanFormula);
+      var isDirectVariable = !/[+\-*/()]/.test(cleanFormula);
+      if (isDirectVariable) {
+        var existingVal = fields[cleanFormula] !== undefined ? fields[cleanFormula] : fields[normFormula];
+        if (existingVal !== undefined && existingVal !== null) {
+          if (targetVarName) {
+            storeCalculatedField(targetVarName, existingVal, fields);
+          }
+          return existingVal;
+        }
+      }
+
+      // 3. Sustitución de claves existentes en la expresión matemática
       var keys = [];
       for (var k in fields) {
         if (fields.hasOwnProperty(k) && typeof fields[k] === 'string') {
@@ -2497,14 +2533,14 @@
       }
       keys.sort(function(a, b) { return b.length - a.length; });
       
-      var evaluatedFormula = formula;
+      var evaluatedFormula = cleanFormula;
       keys.forEach(function(key) {
         var cleanKey = cleanStringForMatching(key).trim();
         if (!cleanKey) return;
         
         while (true) {
-          var cleanFormula = cleanStringForMatching(evaluatedFormula);
-          var idx = cleanFormula.indexOf(cleanKey);
+          var cleanFormulaStr = cleanStringForMatching(evaluatedFormula);
+          var idx = cleanFormulaStr.indexOf(cleanKey);
           if (idx === -1) break;
           
           var rawVal = fields[key];
@@ -2515,23 +2551,30 @@
       });
       
       var sanitized = evaluatedFormula.replace(/[^0-9.\s()+\-*/]/g, '');
+      var resultVal = "___________";
       try {
         var res = Function("return (" + sanitized + ")")();
         if (isFinite(res)) {
           if (inWords) {
-            return formatAsWordsAndNumbers(res);
-          }
-          if (isInt) {
+            resultVal = formatAsWordsAndNumbers(res);
+          } else if (isInt) {
             var intVal = Math.round(res);
             var strInt = String(intVal);
-            return strInt.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+            resultVal = strInt.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+          } else {
+            resultVal = formatSpanishFloat(res);
           }
-          return formatSpanishFloat(res);
         }
       } catch (err) {
         console.error("Error al evaluar fórmula:", formula, "->", sanitized, err);
       }
-      return "___________";
+
+      // 4. Si se asignó a una variable, guardar el resultado calculado en el almacén de campos
+      if (targetVarName && resultVal !== "___________") {
+        storeCalculatedField(targetVarName, resultVal, fields);
+      }
+
+      return resultVal;
     }
 
     // Función auxiliar para obtener el valor del campo a partir del nombre de etiqueta estándar
