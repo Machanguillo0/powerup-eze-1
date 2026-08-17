@@ -2163,6 +2163,92 @@
       return str;
     }
 
+    // Función para parsear la tarjeta "Datos aseguradoras"
+    function parseDatosAseguradoras(desc) {
+      var map = {};
+      if (!desc) return map;
+      
+      var lines = desc.split(/\r?\n/);
+      var currentInsurerKey = null;
+
+      lines.forEach(function(line) {
+        var rawLine = line.trim();
+        if (!rawLine) return;
+        
+        var cleanLine = rawLine.replace(/[`*_~#]/g, '').trim();
+        if (!cleanLine) return;
+
+        var sepIdx = -1;
+        for (var i = 0; i < cleanLine.length; i++) {
+          if ((cleanLine[i] === ':' || cleanLine[i] === '=') && i < cleanLine.length - 1 && /\s/.test(cleanLine[i+1])) {
+            sepIdx = i;
+            break;
+          }
+        }
+        if (sepIdx === -1) {
+          sepIdx = cleanLine.indexOf(':');
+        }
+        if (sepIdx === -1) {
+          sepIdx = cleanLine.indexOf('=');
+        }
+
+        var isKeyValue = false;
+        var rawKey = "", rawVal = "";
+        if (sepIdx > 0) {
+          rawKey = cleanLine.substring(0, sepIdx).trim();
+          rawVal = cleanLine.substring(sepIdx + 1).trim();
+          
+          var normK = cleanStringForMatching(rawKey);
+          if (rawKey && rawVal && normK !== "vehiculo propio" && normK !== "vehiculo contrario") {
+            isKeyValue = true;
+          }
+        }
+
+        if (isKeyValue && currentInsurerKey) {
+          var subMap = map[currentInsurerKey] || {};
+          var normK = cleanStringForMatching(rawKey);
+          
+          subMap[rawKey] = rawVal;
+          subMap[rawKey.toLowerCase()] = rawVal;
+          subMap[normK] = rawVal;
+
+          if (normK.indexOf("tel") > -1 || normK.indexOf("tfno") > -1 || normK.indexOf("telefono") > -1) {
+            subMap["telefono"] = rawVal;
+            subMap["teléfono"] = rawVal;
+            subMap["tfno"] = rawVal;
+            subMap["tlfn"] = rawVal;
+            subMap["telef"] = rawVal;
+          }
+          if (normK.indexOf("cif") > -1 || normK.indexOf("nif") > -1) {
+            subMap["cif"] = rawVal;
+            subMap["nif"] = rawVal;
+            subMap["cif/nif"] = rawVal;
+            subMap["cif_nif"] = rawVal;
+          }
+          if (normK.indexOf("domicilio") > -1 || normK.indexOf("direccion") > -1 || normK.indexOf("dirección") > -1) {
+            subMap["domicilio"] = rawVal;
+            subMap["domicilio social"] = rawVal;
+            subMap["domicilio_social"] = rawVal;
+            subMap["dirección"] = rawVal;
+            subMap["direccion"] = rawVal;
+          }
+          map[currentInsurerKey] = subMap;
+        } else {
+          var insurerName = cleanInsuranceName(cleanLine);
+          if (insurerName) {
+            currentInsurerKey = cleanStringForMatching(insurerName);
+            if (!map[currentInsurerKey]) {
+              map[currentInsurerKey] = {
+                _name: insurerName
+              };
+            }
+          }
+        }
+      });
+
+      return map;
+    }
+
     // Función para limpiar cadenas y hacer comparaciones insensibles a acentos y caso
     function cleanStringForMatching(str) {
       if (!str) return '';
@@ -2454,6 +2540,66 @@
       
       if (nameLower.endsWith(':')) {
         nameLower = nameLower.substring(0, nameLower.length - 1).trim();
+      }
+
+      // --- RESOLUCIÓN DE CAMPOS DE ASEGURADORAS (ej: {{Vehículo contrario: aseguradora: teléfono}}) ---
+      var insurancesMap = fields.insurancesMap || (typeof unified !== 'undefined' ? unified.insurancesMap : null);
+      if (insurancesMap) {
+        var rawTagNorm = nameLower.replace(/:/g, '.').replace(/\s*\.\s*/g, '.').trim();
+        
+        var getSubField = function(insName, fName) {
+          if (!insName) return null;
+          var cleanIns = cleanInsuranceName(insName);
+          if (!cleanIns) return null;
+          var insKey = cleanStringForMatching(cleanIns);
+          var insObj = insurancesMap[insKey];
+          if (insObj) {
+            var normField = cleanStringForMatching(fName);
+            if (insObj[normField] !== undefined) return insObj[normField];
+            if (insObj[fName] !== undefined) return insObj[fName];
+            if (insObj[fName.toLowerCase()] !== undefined) return insObj[fName.toLowerCase()];
+          }
+          return null;
+        };
+
+        // 1. Vehículo contrario / Aseguradora contraria
+        if (rawTagNorm.indexOf('vehiculo contrario.aseguradora.') === 0 || 
+            rawTagNorm.indexOf('vehículo contrario.aseguradora.') === 0 ||
+            rawTagNorm.indexOf('aseguradora contraria.') === 0) {
+          var fieldName = rawTagNorm.substring(rawTagNorm.lastIndexOf('.') + 1).trim();
+          var insName = fields.aseguradora2 || fields["vehiculo contrario.aseguradora"] || fields["vehículo contrario.aseguradora"];
+          var res = getSubField(insName, fieldName);
+          if (res !== null) return res;
+        }
+
+        // 2. Vehículo propio / Aseguradora propia
+        if (rawTagNorm.indexOf('vehiculo propio.aseguradora.') === 0 || 
+            rawTagNorm.indexOf('vehículo propio.aseguradora.') === 0 ||
+            rawTagNorm.indexOf('aseguradora propia.') === 0) {
+          var fieldName = rawTagNorm.substring(rawTagNorm.lastIndexOf('.') + 1).trim();
+          var insName = fields.aseguradora1 || fields["vehiculo propio.aseguradora"] || fields["vehículo propio.aseguradora"];
+          var res = getSubField(insName, fieldName);
+          if (res !== null) return res;
+        }
+
+        // 3. Aseguradora general
+        if (rawTagNorm.indexOf('aseguradora.') === 0) {
+          var fieldName = rawTagNorm.substring(rawTagNorm.indexOf('.') + 1).trim();
+          var insName = fields.aseguradora1 || fields.aseguradora2 || fields.aseguradora;
+          var res = getSubField(insName, fieldName);
+          if (res !== null) return res;
+        }
+
+        // 4. Nombre directo de la aseguradora (ej. Generali.teléfono, Reale.cif)
+        var parts = rawTagNorm.split('.');
+        if (parts.length === 2) {
+          var insKey = cleanStringForMatching(parts[0]);
+          if (insurancesMap[insKey]) {
+            var fieldName = parts[1];
+            var res = getSubField(parts[0], fieldName);
+            if (res !== null) return res;
+          }
+        }
       }
       
       switch (nameLower) {
@@ -3077,6 +3223,25 @@
                 }
               }
             });
+          }
+
+          // Buscar y parsear la tarjeta "Datos aseguradoras" en la primera columna o en el tablero
+          var aseguradorasCard = null;
+          if (firstList) {
+            aseguradorasCard = allCards.find(function(c) {
+              var n = c.name.trim().toLowerCase();
+              return c.idList === firstList.id && (n === "datos aseguradoras" || n === "datos de aseguradoras" || n === "aseguradoras");
+            });
+          }
+          if (!aseguradorasCard) {
+            aseguradorasCard = allCards.find(function(c) {
+              var n = c.name.trim().toLowerCase();
+              return n === "datos aseguradoras" || n === "datos de aseguradoras" || n === "aseguradoras";
+            });
+          }
+
+          if (aseguradorasCard && aseguradorasCard.desc) {
+            unified.insurancesMap = parseDatosAseguradoras(aseguradorasCard.desc);
           }
 
           var localFacturasCard = cardsInList.find(function(c) {
