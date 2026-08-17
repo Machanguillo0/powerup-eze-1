@@ -1389,7 +1389,8 @@
           fields["vehículo propio.matricula"] = matPropio;
         }
         if (m = pText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { 
-          var asegPropio = m[1].replace(/[*_~`]/g, '').trim();
+          var rawAsegPropio = m[1].replace(/[*_~`]/g, '').trim();
+          var asegPropio = cleanInsuranceName(rawAsegPropio);
           fields.aseguradora1 = asegPropio;
           fields["vehiculo propio.aseguradora"] = asegPropio;
           fields["vehículo propio.aseguradora"] = asegPropio;
@@ -1411,7 +1412,8 @@
           fields["vehículo contrario.matricula"] = matContrario;
         }
         if (m = cText.match(/(?:^|\n)[ \t]*[^a-zA-Z0-9\n\r]*\s*ASEGURADORA[^:]*[:\s-]+\s*([^\n\r]*)/i)) { 
-          var asegContrario = m[1].replace(/[*_~`]/g, '').trim();
+          var rawAsegContrario = m[1].replace(/[*_~`]/g, '').trim();
+          var asegContrario = cleanInsuranceName(rawAsegContrario);
           fields.aseguradora2 = asegContrario;
           fields["vehiculo contrario.aseguradora"] = asegContrario;
           fields["vehículo contrario.aseguradora"] = asegContrario;
@@ -2133,6 +2135,34 @@
       };
     }
 
+    // Función para limpiar el nombre de la aseguradora eliminando detalles posteriores entre paréntesis o tras guiones
+    function cleanInsuranceName(rawVal) {
+      if (!rawVal) return rawVal;
+      var str = String(rawVal).replace(/[*_~`]/g, '').trim();
+      if (!str || str === "___________") return str;
+      
+      // 1. Recortar cualquier comentario entre paréntesis: Ej. "ADMIRAL SEGUROS (REF: ...)" -> "ADMIRAL SEGUROS"
+      var idxParen = str.indexOf('(');
+      if (idxParen > -1) {
+        str = str.substring(0, idxParen).trim();
+      }
+      
+      // 2. Recortar cualquier detalle tras un guión: Ej. "Generali - Ref: GUV..." -> "Generali"
+      var dashMatch = str.match(/\s+[\-\u2013\u2014]/);
+      if (dashMatch) {
+        str = str.substring(0, dashMatch.index).trim();
+      } else {
+        var idxDash = str.indexOf('-');
+        if (idxDash > 1) {
+          var rest = str.substring(idxDash + 1).trim();
+          if (/^(?:ref|p[óo]liza|tramit|tfno|tel|contacto|\s)/i.test(rest)) {
+            str = str.substring(0, idxDash).trim();
+          }
+        }
+      }
+      return str;
+    }
+
     // Función para limpiar cadenas y hacer comparaciones insensibles a acentos y caso
     function cleanStringForMatching(str) {
       if (!str) return '';
@@ -2461,7 +2491,10 @@
         case 'vehiculo propio matricula':
         case 'matrícula vehículo propio':
         case 'matricula vehiculo propio': return fields.matricula1 || fields["vehiculo propio.matricula"] || fields["vehículo propio.matrícula"];
+        case 'aseguradora':
         case 'aseguradora1':
+        case 'compañía de seguros':
+        case 'compania de seguros':
         case 'vehículo propio.aseguradora':
         case 'vehiculo propio.aseguradora':
         case 'vehículo propio: aseguradora':
@@ -2469,7 +2502,7 @@
         case 'vehículo propio aseguradora':
         case 'vehiculo propio aseguradora':
         case 'aseguradora vehículo propio':
-        case 'aseguradora vehiculo propio': return fields.aseguradora1 || fields["vehiculo propio.aseguradora"] || fields["vehículo propio.aseguradora"];
+        case 'aseguradora vehiculo propio': return cleanInsuranceName(fields.aseguradora1 || fields["vehiculo propio.aseguradora"] || fields["vehículo propio.aseguradora"] || fields.aseguradora);
         case 'matrícula2':
         case 'matricula2':
         case 'vehículo contrario.matrícula':
@@ -2490,7 +2523,7 @@
         case 'vehículo contrario aseguradora':
         case 'vehiculo contrario aseguradora':
         case 'aseguradora vehículo contrario':
-        case 'aseguradora vehiculo contrario': return fields.aseguradora2 || fields["vehiculo contrario.aseguradora"] || fields["vehículo contrario.aseguradora"];
+        case 'aseguradora vehiculo contrario': return cleanInsuranceName(fields.aseguradora2 || fields["vehiculo contrario.aseguradora"] || fields["vehículo contrario.aseguradora"]);
         case 'fecha del sistema': return fields.fecha_sistema;
         case 'fecha última actuación': return fields.fecha_ultima;
         case 'fecha cierre expediente': return fields.fecha_cierre;
