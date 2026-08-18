@@ -80,13 +80,15 @@
       flex-direction: row;
       align-items: center;
       justify-content: flex-start;
-      gap: 8px;
+      gap: 10px;
     }
 
     .form-group.horizontal label {
       margin: 0 !important;
       padding: 0 !important;
       line-height: 24px;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
 
     .form-group.horizontal input {
@@ -96,13 +98,25 @@
     input[type="text"].demanda-input-field.narrow {
       margin: 0 !important;
       width: 55px;
-      height: 24px;
+      height: 26px;
       padding: 0 4px;
       font-size: 13px;
       text-align: center;
       flex-shrink: 0;
       box-sizing: border-box;
-      line-height: 22px;
+      line-height: 24px;
+    }
+
+    input[type="text"].demanda-input-field.narrow-date {
+      margin: 0 !important;
+      width: 105px;
+      height: 26px;
+      padding: 0 6px;
+      font-size: 13px;
+      text-align: center;
+      flex-shrink: 0;
+      box-sizing: border-box;
+      line-height: 24px;
     }
     
     .actions {
@@ -242,9 +256,17 @@
         formGroup.appendChild(label);
 
         if (metaTag.type === 'select') {
+          formGroup.className = 'form-group horizontal';
+          label.style.display = 'inline-block';
+          label.style.marginBottom = '0px';
+
           var select = document.createElement('select');
           select.className = 'demanda-select';
           select.setAttribute('data-title', title);
+          select.style.width = 'auto';
+          select.style.minWidth = '180px';
+          select.style.flex = '1';
+          select.style.maxWidth = '100%';
 
           (metaTag.options || []).forEach(function(opt, index) {
             var option = document.createElement('option');
@@ -356,7 +378,7 @@
 
           var inputDesde = document.createElement('input');
           inputDesde.type = 'text';
-          inputDesde.className = 'demanda-input-field narrow demanda-date-input-desde';
+          inputDesde.className = 'demanda-input-field narrow-date demanda-date-input-desde';
           inputDesde.setAttribute('data-title', title);
           inputDesde.placeholder = 'DD/MM/AAAA';
           inputDesde.maxLength = 10;
@@ -368,7 +390,7 @@
 
           var inputHasta = document.createElement('input');
           inputHasta.type = 'text';
-          inputHasta.className = 'demanda-input-field narrow demanda-date-input-hasta';
+          inputHasta.className = 'demanda-input-field narrow-date demanda-date-input-hasta';
           inputHasta.setAttribute('data-title', title);
           inputHasta.placeholder = 'DD/MM/AAAA';
           inputHasta.maxLength = 10;
@@ -407,7 +429,7 @@
 
           var inputDate = document.createElement('input');
           inputDate.type = 'text';
-          inputDate.className = 'demanda-input-field narrow';
+          inputDate.className = 'demanda-input-field narrow-date';
           inputDate.setAttribute('data-title', title);
           inputDate.setAttribute('data-type', 'date');
           inputDate.placeholder = 'DD/MM/AAAA';
