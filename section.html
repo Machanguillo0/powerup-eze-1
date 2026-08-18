@@ -3903,11 +3903,24 @@
                 display: 'success'
               });
             }
-} else {
+          })
+          .catch(function(err) {
+            console.error("Error al autorizar:", err);
+          });
+      } else {
         // Limpiar el valor para permitir seleccionar el mismo archivo tras modificaciones
         event.target.value = '';
       }
-      
+    });
+
+    // Procesar la plantilla de Demanda Nexo Causal al seleccionar archivo
+    document.getElementById('demanda-upload').addEventListener('change', function (event) {
+      if (!event.target.files || event.target.files.length === 0) return;
+      var file = event.target.files[0];
+      var statusDiv = document.getElementById('upload-status');
+      statusDiv.textContent = 'Analizando plantilla: ' + file.name + '...';
+      t.sizeTo(document.body).done();
+
       getUnifiedFields(t).then(function (data) {
         var reader = new FileReader();
         reader.onload = function (e) {
@@ -3993,13 +4006,26 @@
             }
 
           } catch (err) {
-            console.error(err);
+            console.error("Error procesando plantilla:", err);
             statusDiv.textContent = 'Error al procesar plantilla: ' + err.message;
-            event.target.value = '';
+            if (event.target) event.target.value = '';
             t.sizeTo(document.body).done();
           }
         };
+
+        reader.onerror = function (err) {
+          console.error("Error en FileReader:", err);
+          statusDiv.textContent = 'Error al leer el archivo.';
+          if (event.target) event.target.value = '';
+          t.sizeTo(document.body).done();
+        };
+
         reader.readAsArrayBuffer(file);
+      }).catch(function (err) {
+        console.error("Error al obtener datos unificados:", err);
+        statusDiv.textContent = 'Error analizando tarjeta: ' + err.message;
+        if (event.target) event.target.value = '';
+        t.sizeTo(document.body).done();
       });
     });
 
