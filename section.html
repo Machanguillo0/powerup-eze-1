@@ -3793,7 +3793,7 @@
     }
 
     // Función auxiliar para subir el documento modificado a Trello
-    function subirDocumentoATrello(t, data, outContent, nombreFinal, originalFileName, statusDiv, fileInput) {
+    function subirDocumentoATrello(t, data, outContent, nombreFinal, originalFileName, statusDiv, fileInput, formState) {
       console.log("[DEMANDA DEBUG] Iniciando subirDocumentoATrello:", nombreFinal);
       statusDiv.textContent = 'Autenticando con Trello API...';
       t.getRestApi().getToken().then(function (token) {
@@ -3830,6 +3830,14 @@
         if (fileInput) fileInput.value = '';
         t.sizeTo(document.body).done();
         
+        // Guardar selecciones del formulario en Trello una vez subido el documento para evitar recargas del iframe durante el fetch
+        if (formState && data && data.idList) {
+          var storageKey = 'demanda_selections_' + data.idList;
+          t.set('board', 'shared', storageKey, formState).catch(function(err) {
+            console.error("Error al guardar selecciones de la demanda post-generación:", err);
+          });
+        }
+
         // Actualizar historial
         var forced = {};
         var upperName = originalFileName.toUpperCase();
@@ -4889,18 +4897,6 @@
         statusDiv.textContent = 'Procesando opciones y generando documento...';
         t.sizeTo(document.body).done();
 
-        // Guardar las selecciones del formulario en Trello en segundo plano sin interrumpir la generación
-        if (formState) {
-          t.card('idList').then(function(card) {
-            if (card && card.idList) {
-              var storageKey = 'demanda_selections_' + card.idList;
-              return t.set('board', 'shared', storageKey, formState);
-            }
-          }).catch(function(err) {
-            console.error("Error al guardar selecciones de la demanda en background:", err);
-          });
-        }
-
         try {
           if (!demandaState || !demandaState.contentXml) {
             throw new Error("No hay una plantilla cargada en memoria. Por favor, selecciona el archivo de plantilla de nuevo.");
@@ -5314,7 +5310,7 @@
           var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + ".docx";
 
           var inputEl = document.getElementById('demanda-upload');
-          subirDocumentoATrello(t, demandaState.unifiedData, outContent, nombreFinal, demandaState.file.name, statusDiv, inputEl);
+          subirDocumentoATrello(t, demandaState.unifiedData, outContent, nombreFinal, demandaState.file.name, statusDiv, inputEl, formState);
           
           resetDemandaState();
         } catch (err) {
