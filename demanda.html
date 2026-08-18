@@ -445,20 +445,20 @@
         fieldsContainer.appendChild(formGroup);
       }
 
-      if (!hasFields) {
-        document.getElementById('no-data-message').textContent = 'No se encontraron meta-etiquetas de personalización en la plantilla.';
-        document.getElementById('btn-generar').style.display = 'none';
-      } else {
-        document.getElementById('no-data-message').textContent = '';
+      if (hasFields) {
+        document.getElementById('no-data-message').style.display = 'none';
+        document.getElementById('form-container').style.display = 'flex';
         document.getElementById('btn-generar').style.display = 'inline-block';
+        resizeModal();
+      } else {
+        document.getElementById('no-data-message').textContent = 'No se encontraron meta-etiquetas de personalización en la plantilla.';
+        document.getElementById('no-data-message').style.display = 'block';
+        document.getElementById('form-container').style.display = 'none';
+        t.sizeTo(document.body).catch(function(e){});
       }
-
-      resizeModal();
     }
 
-    function resizeModal() {
-      t.sizeTo(document.body).catch(function(e){});
-    }
+
 
     document.getElementById('btn-generar').addEventListener('click', function() {
       try {
