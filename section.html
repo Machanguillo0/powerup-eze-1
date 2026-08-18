@@ -3889,7 +3889,7 @@
       });
     });
 
-    // Interceptar click en demanda-upload para verificar autorización
+    // Interceptar click en demanda-upload para verificar autorización y resetear el valor del input
     document.getElementById('demanda-upload').addEventListener('click', function (event) {
       if (!window.isApiAuthorized) {
         event.preventDefault();
@@ -3907,6 +3907,9 @@
           .catch(function(err) {
             console.error("Error al autorizar:", err);
           });
+      } else {
+        // Limpiar el valor para permitir seleccionar el mismo archivo tras modificaciones
+        event.target.value = '';
       }
     });
 
@@ -4843,11 +4846,27 @@
         // Generar el documento con las selecciones del modal
         var selections = event.data.selections;
         var rawSelections = event.data.rawSelections || {};
+        var formState = event.data.formState || null;
         var statusDiv = document.getElementById('upload-status');
         statusDiv.textContent = 'Procesando opciones y generando documento...';
         t.sizeTo(document.body).done();
 
+        // Guardar las selecciones del formulario en Trello en segundo plano sin interrumpir la generación
+        if (formState) {
+          t.card('idList').then(function(card) {
+            if (card && card.idList) {
+              var storageKey = 'demanda_selections_' + card.idList;
+              return t.set('board', 'shared', storageKey, formState);
+            }
+          }).catch(function(err) {
+            console.error("Error al guardar selecciones de la demanda en background:", err);
+          });
+        }
+
         try {
+          if (!demandaState || !demandaState.contentXml) {
+            throw new Error("No hay una plantilla cargada en memoria. Por favor, selecciona el archivo de plantilla de nuevo.");
+          }
           var contentXml = demandaState.contentXml;
 
           // Asegurar que las selecciones de usuario estén en el dataset de campos unificados para cálculos y reemplazos
