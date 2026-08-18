@@ -511,8 +511,12 @@
           
           if (type === 'date' && val) {
             var formattedVal = formatSpanishLongDate(val);
-            selections[title] = formattedVal;
-            rawSelections[title] = [formattedVal];
+            selections[title] = val;
+            rawSelections[title] = [val];
+            selections[title + ":text"] = formattedVal;
+            selections[title + ":texto"] = formattedVal;
+            selections[title + " en texto"] = formattedVal;
+            selections[title + " (texto)"] = formattedVal;
           } else {
             selections[title] = val;
             rawSelections[title] = [val];
