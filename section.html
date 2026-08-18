@@ -7110,7 +7110,8 @@
         var desgloseResto = document.getElementById('desglose-resto');
         if (desgloseResto) desgloseResto.textContent = resto.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 
-        var taxPct = typeof getTaxPercentage === 'function' ? getTaxPercentage(unified || {}) : 0;
+        var currentUnified = (typeof unified !== 'undefined') ? unified : ((typeof demandaState !== 'undefined' && demandaState.unifiedData) ? demandaState.unifiedData : {});
+        var taxPct = typeof getTaxPercentage === 'function' ? getTaxPercentage(currentUnified) : 0;
         var baseAmount = finalTotal;
         var igicAmount = Math.round(baseAmount * taxPct) / 100;
         var totalFactura = Math.round((baseAmount + igicAmount) * 100) / 100;
