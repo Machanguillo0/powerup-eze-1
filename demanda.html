@@ -168,21 +168,34 @@
   <script>
     var t = window.TrelloPowerUp.iframe();
     var bc = new BroadcastChannel('demanda_channel');
-    var receivedData = null;
-
-    // Pedir datos a section.html
-    bc.postMessage({ type: 'get_meta_tags' });
+    var receivedData = null;    // Pedir datos a section.html con reintento automático hasta recibir respuesta
+    function requestMetaTags() {
+      if (!receivedData) {
+        bc.postMessage({ type: 'get_meta_tags' });
+      }
+    }
+    requestMetaTags();
+    var metaInterval = setInterval(function() {
+      if (receivedData) {
+        clearInterval(metaInterval);
+      } else {
+        requestMetaTags();
+      }
+    }, 250);
 
     // Escuchar respuesta
     bc.onmessage = function(event) {
       if (event.data && event.data.type === 'meta_tags') {
+        if (!event.data.metaTags) return; // Si aún no están listas, esperar siguiente reintento
         receivedData = event.data.metaTags;
+        clearInterval(metaInterval);
+        
         // Obtener el idList de la tarjeta actual para cargar la persistencia a nivel de cliente (columna)
         t.card('idList')
           .then(function(card) {
-            var idList = card.idList;
-            var storageKey = 'demanda_selections_' + idList;
-            return t.get('board', 'shared', storageKey);
+            var idList = card ? card.idList : null;
+            var storageKey = idList ? ('demanda_selections_' + idList) : null;
+            return storageKey ? t.get('board', 'shared', storageKey) : Promise.resolve({});
           })
           .then(function(saved) {
             renderForm(receivedData, saved || {});
@@ -218,48 +231,50 @@
       for (var title in metaTags) {
         hasFields = true;
         var metaTag = metaTags[title];
-        
+        if (!metaTag) continue;
+
         var formGroup = document.createElement('div');
         formGroup.className = 'form-group';
-        formGroup.style.marginBottom = '16px';
 
         var label = document.createElement('label');
-        label.textContent = metaTag.title;
-        label.style.display = 'block';
-        label.style.marginBottom = '6px';
+        label.className = 'demanda-label';
+        label.textContent = metaTag.title || title;
         formGroup.appendChild(label);
 
-        if (metaTag.type === 'checkbox') {
-          // Renderizar una lista de checkboxes
-          var checkboxContainer = document.createElement('div');
-          checkboxContainer.style.display = 'flex';
-          checkboxContainer.style.flexDirection = 'column';
-          checkboxContainer.style.gap = '6px';
-          checkboxContainer.style.paddingLeft = '5px';
+        if (metaTag.type === 'select') {
+          var select = document.createElement('select');
+          select.className = 'demanda-select';
+          select.setAttribute('data-title', title);
 
-          metaTag.options.forEach(function (opt, index) {
+          (metaTag.options || []).forEach(function(opt, index) {
+            var option = document.createElement('option');
+            option.value = opt.value || '';
+            option.textContent = opt.name || opt.value || ('Opción ' + (index + 1));
+            select.appendChild(option);
+          });
+
+          if (saved && saved[title] !== undefined) {
+            select.value = saved[title];
+          }
+
+          formGroup.appendChild(select);
+        } else if (metaTag.type === 'checkbox') {
+          var checkboxContainer = document.createElement('div');
+          checkboxContainer.className = 'checkbox-group-container';
+
+          (metaTag.options || []).forEach(function(opt, index) {
             var itemLabel = document.createElement('label');
-            itemLabel.style.display = 'flex';
-            itemLabel.style.alignItems = 'center';
-            itemLabel.style.gap = '8px';
-            itemLabel.style.fontWeight = 'normal';
-            itemLabel.style.fontSize = '13px';
-            itemLabel.style.cursor = 'pointer';
+            itemLabel.className = 'demanda-checkbox-label';
 
             var checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.className = 'demanda-checkbox-option';
             checkbox.setAttribute('data-title', title);
             checkbox.setAttribute('data-index', index);
-            checkbox.style.cursor = 'pointer';
-            checkbox.style.width = '16px';
-            checkbox.style.height = '16px';
-            checkbox.style.margin = '0';
 
             var span = document.createElement('span');
-            span.textContent = opt.name;
+            span.textContent = opt.name || opt.value || ('Opción ' + (index + 1));
 
-            // Prefiltrar estado seleccionado del checkbox
             if (saved && saved[title] && Array.isArray(saved[title])) {
               if (saved[title].indexOf(index) > -1) {
                 checkbox.checked = true;
@@ -272,12 +287,10 @@
           });
           formGroup.appendChild(checkboxContainer);
         } else if (metaTag.type === 'single-checkbox') {
-          // Renderizar un único checkbox horizontal y compacto
           formGroup.className = 'form-group horizontal';
           label.style.display = 'inline-block';
           label.style.marginBottom = '0px';
 
-          // Envolver en etiqueta label y span de acompañamiento para cumplir con el estilo de Trello
           var itemLabel = document.createElement('label');
           itemLabel.style.display = 'inline-flex';
           itemLabel.style.alignItems = 'center';
@@ -301,7 +314,6 @@
           span.style.height = '16px';
           span.style.margin = '0';
 
-          // Prefiltrar estado seleccionado del checkbox
           if (saved && saved[title] && Array.isArray(saved[title])) {
             if (saved[title].indexOf(0) > -1) {
               checkbox.checked = true;
@@ -312,7 +324,6 @@
           itemLabel.appendChild(span);
           formGroup.appendChild(itemLabel);
         } else if (metaTag.type === 'int' || metaTag.type === 'number' || metaTag.type === 'float') {
-          // Renderizar campo de entrada numérico horizontal y estrecho
           formGroup.className = 'form-group horizontal';
           label.style.display = 'inline-block';
           label.style.marginBottom = '0px';
@@ -323,486 +334,378 @@
           input.setAttribute('data-title', title);
           input.setAttribute('data-type', metaTag.type);
           
-          if (metaTag.type === 'int') {
-            input.placeholder = 'Ej. 10';
-            input.maxLength = 5;
-            input.addEventListener('keypress', function(e) {
-              if (e.key < '0' || e.key > '9') {
-                e.preventDefault();
-              }
-            });
-          } else {
-            input.placeholder = 'Ej. 12.50';
-            input.maxLength = 7;
-            input.addEventListener('keypress', function(e) {
-              if ((e.key < '0' || e.key > '9') && e.key !== '.' && e.key !== ',') {
-                e.preventDefault();
-              }
-            });
-          }
-          
           if (saved && saved[title] !== undefined) {
             input.value = saved[title];
           }
 
           formGroup.appendChild(input);
         } else if (metaTag.type === 'date-range') {
-          // Renderizar campo de rango de fechas
           formGroup.className = 'form-group horizontal';
           label.style.display = 'inline-block';
           label.style.marginBottom = '0px';
 
-          var dateRangeContainer = document.createElement('div');
-          dateRangeContainer.style.display = 'inline-flex';
-          dateRangeContainer.style.alignItems = 'center';
-          dateRangeContainer.style.gap = '6px';
-          dateRangeContainer.style.fontSize = '13px';
+          var dateContainer = document.createElement('div');
+          dateContainer.style.display = 'flex';
+          dateContainer.style.alignItems = 'center';
+          dateContainer.style.gap = '6px';
 
           var spanDesde = document.createElement('span');
-          spanDesde.textContent = 'desde el ';
+          spanDesde.textContent = 'Desde:';
+          spanDesde.style.fontSize = '12px';
+          spanDesde.style.color = '#5e6c84';
 
           var inputDesde = document.createElement('input');
           inputDesde.type = 'text';
-          inputDesde.className = 'demanda-date-input-desde';
+          inputDesde.className = 'demanda-input-field narrow demanda-date-input-desde';
           inputDesde.setAttribute('data-title', title);
-          inputDesde.placeholder = 'dd/mm/aaaa';
-          inputDesde.style.width = '95px';
-          inputDesde.style.height = '24px';
-          inputDesde.style.padding = '0 6px';
-          inputDesde.style.fontSize = '13px';
-          inputDesde.style.textAlign = 'center';
-          inputDesde.style.boxSizing = 'border-box';
-          inputDesde.style.border = '1px solid #ced4da';
-          inputDesde.style.borderRadius = '3px';
+          inputDesde.placeholder = 'DD/MM/AAAA';
+          inputDesde.maxLength = 10;
 
           var spanHasta = document.createElement('span');
-          spanHasta.textContent = ' hasta el ';
+          spanHasta.textContent = 'Hasta:';
+          spanHasta.style.fontSize = '12px';
+          spanHasta.style.color = '#5e6c84';
 
           var inputHasta = document.createElement('input');
           inputHasta.type = 'text';
-          inputHasta.className = 'demanda-date-input-hasta';
+          inputHasta.className = 'demanda-input-field narrow demanda-date-input-hasta';
           inputHasta.setAttribute('data-title', title);
-          inputHasta.placeholder = 'dd/mm/aaaa';
-          inputHasta.style.width = '95px';
-          inputHasta.style.height = '24px';
-          inputHasta.style.padding = '0 6px';
-          inputHasta.style.fontSize = '13px';
-          inputHasta.style.textAlign = 'center';
-          inputHasta.style.boxSizing = 'border-box';
-          inputHasta.style.border = '1px solid #ced4da';
-          inputHasta.style.borderRadius = '3px';
+          inputHasta.placeholder = 'DD/MM/AAAA';
+          inputHasta.maxLength = 10;
 
-          // Autocompletado de barras '/' al escribir la fecha
-          function formatInputDate(e) {
-            var val = e.target.value.replace(/\D/g, '');
-            if (val.length > 2 && val.length <= 4) {
-              val = val.slice(0, 2) + '/' + val.slice(2);
-            } else if (val.length > 4) {
-              val = val.slice(0, 2) + '/' + val.slice(2, 4) + '/' + val.slice(4, 8);
-            }
-            e.target.value = val;
-          }
-          inputDesde.addEventListener('input', formatInputDate);
-          inputHasta.addEventListener('input', formatInputDate);
-
-          var calcDaysResult = document.createElement('span');
-          calcDaysResult.className = 'calc-days-result';
-          calcDaysResult.style.fontWeight = '600';
-          calcDaysResult.style.marginLeft = '8px';
-          calcDaysResult.style.fontSize = '13px';
-
-          function updateCalculatedDays(targetEl) {
-            var el = targetEl || inputDesde;
-            var parent = el.parentElement;
-            if (!parent) return;
-            var inpDesde = parent.querySelector('.demanda-date-input-desde');
-            var inpHasta = parent.querySelector('.demanda-date-input-hasta');
-            var resSpan = parent.querySelector('.calc-days-result');
-            if (!inpDesde || !inpHasta || !resSpan) return;
-
-            var desdeVal = inpDesde.value.trim();
-            var hastaVal = inpHasta.value.trim();
-            if (desdeVal && hastaVal) {
-              var d1 = parseSpanishDate(desdeVal);
-              var d2 = parseSpanishDate(hastaVal);
-              if (d1 && d2) {
-                var diff = Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                if (diff >= 0) {
-                  resSpan.textContent = ' (' + diff + ' días)';
-                  resSpan.style.color = '#1f845a';
-                  return;
-                } else {
-                  resSpan.textContent = ' (Fecha fin anterior a inicio)';
-                  resSpan.style.color = '#bf2600';
-                  return;
-                }
+          var applyAutoFormat = function(inp) {
+            inp.addEventListener('input', function(e) {
+              var val = inp.value.replace(/\D/g, '');
+              if (val.length >= 5) {
+                inp.value = val.substring(0,2) + '/' + val.substring(2,4) + '/' + val.substring(4,8);
+              } else if (val.length >= 3) {
+                inp.value = val.substring(0,2) + '/' + val.substring(2);
+              } else {
+                inp.value = val;
               }
-            }
-            resSpan.textContent = '';
-          }
-          inputDesde.addEventListener('input', function(e) { updateCalculatedDays(e.target); });
-          inputHasta.addEventListener('input', function(e) { updateCalculatedDays(e.target); });
-
-          inputDesde.addEventListener('focus', function(e) { e.target.style.borderColor = '#0079bf'; });
-          inputDesde.addEventListener('blur', function(e) { e.target.style.borderColor = '#ced4da'; });
-          inputHasta.addEventListener('focus', function(e) { e.target.style.borderColor = '#0079bf'; });
-          inputHasta.addEventListener('blur', function(e) { e.target.style.borderColor = '#ced4da'; });
-
-          dateRangeContainer.appendChild(spanDesde);
-          dateRangeContainer.appendChild(inputDesde);
-          dateRangeContainer.appendChild(spanHasta);
-          dateRangeContainer.appendChild(inputHasta);
-          dateRangeContainer.appendChild(calcDaysResult);
-
-          formGroup.appendChild(dateRangeContainer);
+            });
+          };
+          applyAutoFormat(inputDesde);
+          applyAutoFormat(inputHasta);
 
           if (saved && saved[title]) {
-            inputDesde.value = saved[title].desde || '';
-            inputHasta.value = saved[title].hasta || '';
-            updateCalculatedDays(inputDesde);
+            if (typeof saved[title] === 'object') {
+              if (saved[title].desde) inputDesde.value = saved[title].desde;
+              if (saved[title].hasta) inputHasta.value = saved[title].hasta;
+            }
           }
+
+          dateContainer.appendChild(spanDesde);
+          dateContainer.appendChild(inputDesde);
+          dateContainer.appendChild(spanHasta);
+          dateContainer.appendChild(inputHasta);
+          formGroup.appendChild(dateContainer);
         } else if (metaTag.type === 'date') {
-          // Renderizar campo de entrada de fecha única horizontal y estrecho
           formGroup.className = 'form-group horizontal';
           label.style.display = 'inline-block';
           label.style.marginBottom = '0px';
-          label.style.flexShrink = '0';
 
           var inputDate = document.createElement('input');
           inputDate.type = 'text';
-          inputDate.className = 'demanda-input-field';
+          inputDate.className = 'demanda-input-field narrow';
           inputDate.setAttribute('data-title', title);
           inputDate.setAttribute('data-type', 'date');
-          inputDate.placeholder = 'dd/mm/aaaa';
-          inputDate.style.width = '95px';
-          inputDate.style.height = '24px';
-          inputDate.style.padding = '0 6px';
-          inputDate.style.fontSize = '13px';
-          inputDate.style.textAlign = 'center';
-          inputDate.style.boxSizing = 'border-box';
-          inputDate.style.border = '1px solid #ced4da';
-          inputDate.style.borderRadius = '3px';
-          inputDate.style.flexShrink = '0';
+          inputDate.placeholder = 'DD/MM/AAAA';
+          inputDate.maxLength = 10;
 
-          // Autocompletado de barras '/' al escribir la fecha
           inputDate.addEventListener('input', function(e) {
-            var val = e.target.value.replace(/\D/g, '');
-            if (val.length > 2 && val.length <= 4) {
-              val = val.slice(0, 2) + '/' + val.slice(2);
-            } else if (val.length > 4) {
-              val = val.slice(0, 2) + '/' + val.slice(2, 4) + '/' + val.slice(4, 8);
+            var val = inputDate.value.replace(/\D/g, '');
+            if (val.length >= 5) {
+              inputDate.value = val.substring(0,2) + '/' + val.substring(2,4) + '/' + val.substring(4,8);
+            } else if (val.length >= 3) {
+              inputDate.value = val.substring(0,2) + '/' + val.substring(2);
+            } else {
+              inputDate.value = val;
             }
-            e.target.value = val;
           });
-
-          inputDate.addEventListener('focus', function(e) { e.target.style.borderColor = '#0079bf'; });
-          inputDate.addEventListener('blur', function(e) { e.target.style.borderColor = '#ced4da'; });
 
           if (saved && saved[title] !== undefined) {
             inputDate.value = saved[title];
           }
 
           formGroup.appendChild(inputDate);
-        } else if (metaTag.type === 'text') {
-          // Renderizar campo de entrada de texto largo estándar (vertical)
-          var input = document.createElement('input');
-          input.type = 'text';
-          input.className = 'demanda-input-field';
-          input.setAttribute('data-title', title);
-          input.setAttribute('data-type', metaTag.type);
-          input.placeholder = 'Introduce un texto...';
-          
-          if (saved && saved[title] !== undefined) {
-            input.value = saved[title];
-          }
-
-          formGroup.appendChild(input);
         } else {
-          // Renderizar select desplegable estándar
-          formGroup.className = 'form-group horizontal';
-          label.style.display = 'inline-block';
-          label.style.marginBottom = '0px';
-          label.style.flexShrink = '0';
-
-          var select = document.createElement('select');
-          select.className = 'demanda-select';
-          select.setAttribute('data-title', title);
-          select.style.flex = '1';
- 
-          metaTag.options.forEach(function (opt) {
-            var option = document.createElement('option');
-            option.value = opt.value;
-            option.textContent = opt.name;
-            select.appendChild(option);
-          });
+          var inputTxt = document.createElement('input');
+          inputTxt.type = 'text';
+          inputTxt.className = 'demanda-input-field';
+          inputTxt.setAttribute('data-title', title);
 
           if (saved && saved[title] !== undefined) {
-            select.value = saved[title];
+            inputTxt.value = saved[title];
           }
 
-          formGroup.appendChild(select);
+          formGroup.appendChild(inputTxt);
         }
 
         fieldsContainer.appendChild(formGroup);
       }
 
-      if (hasFields) {
-        document.getElementById('no-data-message').style.display = 'none';
-        document.getElementById('form-container').style.display = 'flex';
-        resizeModal();
+      if (!hasFields) {
+        document.getElementById('no-data-message').textContent = 'No se encontraron meta-etiquetas de personalización en la plantilla.';
+        document.getElementById('btn-generar').style.display = 'none';
       } else {
-        document.getElementById('no-data-message').textContent = 'No se encontraron opciones de personalización en la plantilla.';
-        t.sizeTo(document.body).catch(function(e){});
+        document.getElementById('no-data-message').textContent = '';
+        document.getElementById('btn-generar').style.display = 'inline-block';
       }
+
+      resizeModal();
+    }
+
+    function resizeModal() {
+      t.sizeTo(document.body).catch(function(e){});
     }
 
     document.getElementById('btn-generar').addEventListener('click', function() {
-      var selections = {};
-      var rawSelections = {};
-      var formState = {};
-      
-      // 1. Recopilar valores de dropdowns
-      var selects = document.querySelectorAll('.demanda-select');
-      selects.forEach(function(s) {
-        var title = s.getAttribute('data-title');
-        selections[title] = s.value;
-        // Guardar el nombre de la opción seleccionada para la lógica IF
-        var selectedOptName = s.options[s.selectedIndex].text;
-        rawSelections[title] = [selectedOptName];
-        formState[title] = s.value;
-      });
-
-      // 1.2. Recopilar valores de campos de texto (int, text, number, float, date)
-      var inputs = document.querySelectorAll('.demanda-input-field');
-      inputs.forEach(function(inp) {
-        var title = inp.getAttribute('data-title');
-        var val = inp.value.trim();
-        var type = inp.getAttribute('data-type');
+      try {
+        var selections = {};
+        var rawSelections = {};
+        var formState = {};
         
-        formState[title] = val;
-        
-        if (type === 'date' && val) {
-          var formattedVal = formatSpanishLongDate(val);
-          selections[title] = formattedVal;
-          rawSelections[title] = [formattedVal];
-        } else {
-          selections[title] = val;
-          rawSelections[title] = [val];
-        }
-      });
-
-      // 1.3. Recopilar valores de campos de tipo date-range y calcular la diferencia de días
-      var dateRangeGroups = {};
-      var inputsDesde = document.querySelectorAll('.demanda-date-input-desde');
-      inputsDesde.forEach(function(inp) {
-        var title = inp.getAttribute('data-title');
-        if (!dateRangeGroups[title]) dateRangeGroups[title] = {};
-        dateRangeGroups[title].desde = inp.value.trim();
-      });
-      var inputsHasta = document.querySelectorAll('.demanda-date-input-hasta');
-      inputsHasta.forEach(function(inp) {
-        var title = inp.getAttribute('data-title');
-        if (!dateRangeGroups[title]) dateRangeGroups[title] = {};
-        dateRangeGroups[title].hasta = inp.value.trim();
-      });
-
-      for (var title in dateRangeGroups) {
-        var group = dateRangeGroups[title];
-        var desdeVal = group.desde;
-        var hastaVal = group.hasta;
-
-        var numDaysStr = '';
-        if (desdeVal && hastaVal) {
-          var dateDesde = parseSpanishDate(desdeVal);
-          var dateHasta = parseSpanishDate(hastaVal);
-          if (dateDesde && dateHasta) {
-            var diffTime = dateHasta.getTime() - dateDesde.getTime();
-            var diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
-            if (diffDays >= 0) {
-              numDaysStr = String(diffDays);
-            } else {
-              numDaysStr = '0';
-            }
-          }
-        }
-        selections[title] = numDaysStr;
-        selections[title + ": start"] = desdeVal || '';
-        selections[title + ":start"] = desdeVal || '';
-        selections[title + ": end"] = hastaVal || '';
-        selections[title + ":end"] = hastaVal || '';
-
-        // Formato largo de texto para :start y :end en español
-        var desdeText = desdeVal ? formatSpanishLongDate(desdeVal) : '';
-        var hastaText = hastaVal ? formatSpanishLongDate(hastaVal) : '';
-
-        // Variaciones sintácticas con guion, espacios, corchetes o palabra "texto"
-        selections[title + ":start-text"] = desdeText;
-        selections[title + ": start-text"] = desdeText;
-        selections[title + ":end-text"] = hastaText;
-        selections[title + ": end-text"] = hastaText;
-        
-        selections[title + ":start - text"] = desdeText;
-        selections[title + ": start - text"] = desdeText;
-        selections[title + ":end - text"] = hastaText;
-        selections[title + ": end - text"] = hastaText;
-        
-        selections[title + ":start[text]"] = desdeText;
-        selections[title + ": start[text]"] = desdeText;
-        selections[title + ":end[text]"] = hastaText;
-        selections[title + ": end[text]"] = hastaText;
-
-        selections[title + ":start-texto"] = desdeText;
-        selections[title + ": start-texto"] = desdeText;
-        selections[title + ":end-texto"] = hastaText;
-        selections[title + ": end-texto"] = hastaText;
-
-        rawSelections[title] = [numDaysStr];
-        rawSelections[title + ": start"] = [desdeVal || ''];
-        rawSelections[title + ":start"] = [desdeVal || ''];
-        rawSelections[title + ": end"] = [hastaVal || ''];
-        rawSelections[title + ":end"] = [hastaVal || ''];
-
-        rawSelections[title + ":start-text"] = [desdeText];
-        rawSelections[title + ": start-text"] = [desdeText];
-        rawSelections[title + ":end-text"] = [hastaText];
-        rawSelections[title + ": end-text"] = [hastaText];
-        
-        rawSelections[title + ":start - text"] = [desdeText];
-        rawSelections[title + ": start - text"] = [desdeText];
-        rawSelections[title + ":end - text"] = [hastaText];
-        rawSelections[title + ": end - text"] = [hastaText];
-        
-        rawSelections[title + ":start[text]"] = [desdeText];
-        rawSelections[title + ": start[text]"] = [desdeText];
-        rawSelections[title + ":end[text]"] = [hastaText];
-        rawSelections[title + ": end[text]"] = [hastaText];
-
-        rawSelections[title + ":start-texto"] = [desdeText];
-        rawSelections[title + ": start-texto"] = [desdeText];
-        rawSelections[title + ":end-texto"] = [hastaText];
-        rawSelections[title + ": end-texto"] = [hastaText];
-
-        formState[title] = { desde: desdeVal, hasta: hastaVal };
-      }
-
-      // 2. Recopilar valores de checkboxes agrupados por título y ordenados por su índice original
-      var allCheckboxGroups = document.querySelectorAll('.demanda-checkbox-option');
-      var titles = [];
-      allCheckboxGroups.forEach(function(cb) {
-        var title = cb.getAttribute('data-title');
-        if (titles.indexOf(title) === -1) {
-          titles.push(title);
-        }
-      });
-      var nextAutoNum = 2; // Inicia por defecto en 2 si no se ha especificado nada
-
-      titles.forEach(function(title) {
-        var checkedBoxes = document.querySelectorAll('.demanda-checkbox-option[data-title="' + title + '"]:checked');
-        
-        // Guardar los nombres de las opciones marcadas para la lógica IF
-        rawSelections[title] = [];
-        checkedBoxes.forEach(function(cb) {
-          var index = parseInt(cb.getAttribute('data-index'), 10);
-          var opt = receivedData[title].options[index];
-          rawSelections[title].push(opt.name);
+        // 1. Recopilar valores de dropdowns
+        var selects = document.querySelectorAll('.demanda-select');
+        selects.forEach(function(s) {
+          var title = s.getAttribute('data-title');
+          if (!title) return;
+          selections[title] = s.value;
+          var selectedOptName = (s.selectedIndex >= 0 && s.options && s.options[s.selectedIndex]) ? s.options[s.selectedIndex].text : s.value;
+          rawSelections[title] = [selectedOptName];
+          formState[title] = s.value;
         });
 
-        if (checkedBoxes.length === 0) {
-          selections[title] = '';
-          return;
-        }
-
-        var originalOptions = receivedData[title].options;
-        var startNum = receivedData[title].startNum;
-        var autowrap = receivedData[title].autowrap || false;
-        
-        // Determinar el número de inicio para este grupo
-        var currentNum;
-        if (startNum !== null && startNum !== undefined) {
-          currentNum = startNum;
-          nextAutoNum = startNum; // Actualizamos el contador global si se especificó uno explícito
-        } else {
-          currentNum = nextAutoNum;
-        }
-
-        var selectedIndices = [];
-        checkedBoxes.forEach(function(cb) {
-          selectedIndices.push(parseInt(cb.getAttribute('data-index'), 10));
-        });
-        selectedIndices.sort(function(a, b) { return a - b; });
-
-        var resultText = '';
-        var numRegex = /\[(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*n(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*u(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*m(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|\s)*\]/gi;
-
-        var selectedValues = [];
-        selectedIndices.forEach(function(idx) {
-          var opt = originalOptions[idx];
-          selectedValues.push({
-            value: opt.value,
-            separator: opt.separator
-          });
-        });
-
-        if (autowrap) {
-          // Formateo de lista gramatical en español:
-          // 1 elemento: "A"
-          // 2 elementos: "A y B"
-          // 3 o más elementos: "A, B y C"
-          if (selectedValues.length === 1) {
-            resultText = selectedValues[0].value;
+        // 1.2. Recopilar valores de campos de texto
+        var inputs = document.querySelectorAll('.demanda-input-field');
+        inputs.forEach(function(inp) {
+          var title = inp.getAttribute('data-title');
+          if (!title) return;
+          var val = inp.value.trim();
+          var type = inp.getAttribute('data-type');
+          
+          formState[title] = val;
+          
+          if (type === 'date' && val) {
+            var formattedVal = formatSpanishLongDate(val);
+            selections[title] = formattedVal;
+            rawSelections[title] = [formattedVal];
           } else {
-            var allButLast = [];
-            for (var i = 0; i < selectedValues.length - 1; i++) {
-              allButLast.push(selectedValues[i].value);
-            }
-            var firstPart = allButLast.join(', ');
-            var lastValue = selectedValues[selectedValues.length - 1].value;
-            resultText = firstPart + ' y ' + lastValue;
+            selections[title] = val;
+            rawSelections[title] = [val];
           }
-        } else {
-          // Formateo estándar usando los separadores de la plantilla
-          selectedValues.forEach(function(item, i) {
-            resultText += item.value;
-            if (i < selectedValues.length - 1) {
-              resultText += item.separator;
+        });
+
+        // 1.3. Recopilar valores de campos de tipo date-range
+        var dateRangeGroups = {};
+        var inputsDesde = document.querySelectorAll('.demanda-date-input-desde');
+        inputsDesde.forEach(function(inp) {
+          var title = inp.getAttribute('data-title');
+          if (title) {
+            if (!dateRangeGroups[title]) dateRangeGroups[title] = {};
+            dateRangeGroups[title].desde = inp.value.trim();
+          }
+        });
+        var inputsHasta = document.querySelectorAll('.demanda-date-input-hasta');
+        inputsHasta.forEach(function(inp) {
+          var title = inp.getAttribute('data-title');
+          if (title) {
+            if (!dateRangeGroups[title]) dateRangeGroups[title] = {};
+            dateRangeGroups[title].hasta = inp.value.trim();
+          }
+        });
+
+        for (var title in dateRangeGroups) {
+          var group = dateRangeGroups[title];
+          var desdeVal = group.desde;
+          var hastaVal = group.hasta;
+
+          var numDaysStr = '';
+          if (desdeVal && hastaVal) {
+            var dateDesde = parseSpanishDate(desdeVal);
+            var dateHasta = parseSpanishDate(hastaVal);
+            if (dateDesde && dateHasta) {
+              var diffTime = dateHasta.getTime() - dateDesde.getTime();
+              var diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+              if (diffDays >= 0) {
+                numDaysStr = String(diffDays);
+              } else {
+                numDaysStr = '0';
+              }
+            }
+          }
+          selections[title] = numDaysStr;
+          selections[title + ": start"] = desdeVal || '';
+          selections[title + ":start"] = desdeVal || '';
+          selections[title + ": end"] = hastaVal || '';
+          selections[title + ":end"] = hastaVal || '';
+
+          var desdeText = desdeVal ? formatSpanishLongDate(desdeVal) : '';
+          var hastaText = hastaVal ? formatSpanishLongDate(hastaVal) : '';
+
+          selections[title + ":start-text"] = desdeText;
+          selections[title + ": start-text"] = desdeText;
+          selections[title + ":end-text"] = hastaText;
+          selections[title + ": end-text"] = hastaText;
+          
+          selections[title + ":start - text"] = desdeText;
+          selections[title + ": start - text"] = desdeText;
+          selections[title + ":end - text"] = hastaText;
+          selections[title + ": end - text"] = hastaText;
+          
+          selections[title + ":start[text]"] = desdeText;
+          selections[title + ": start[text]"] = desdeText;
+          selections[title + ":end[text]"] = hastaText;
+          selections[title + ": end[text]"] = hastaText;
+
+          selections[title + ":start-texto"] = desdeText;
+          selections[title + ": start-texto"] = desdeText;
+          selections[title + ":end-texto"] = hastaText;
+          selections[title + ": end-texto"] = hastaText;
+
+          rawSelections[title] = [numDaysStr];
+          rawSelections[title + ": start"] = [desdeVal || ''];
+          rawSelections[title + ":start"] = [desdeVal || ''];
+          rawSelections[title + ": end"] = [hastaVal || ''];
+          rawSelections[title + ":end"] = [hastaVal || ''];
+
+          rawSelections[title + ":start-text"] = [desdeText];
+          rawSelections[title + ": start-text"] = [desdeText];
+          rawSelections[title + ":end-text"] = [hastaText];
+          rawSelections[title + ": end-text"] = [hastaText];
+          
+          rawSelections[title + ":start - text"] = [desdeText];
+          rawSelections[title + ": start - text"] = [desdeText];
+          rawSelections[title + ":end - text"] = [hastaText];
+          rawSelections[title + ": end - text"] = [hastaText];
+          
+          rawSelections[title + ":start[text]"] = [desdeText];
+          rawSelections[title + ": start[text]"] = [desdeText];
+          rawSelections[title + ":end[text]"] = [hastaText];
+          rawSelections[title + ": end[text]"] = [hastaText];
+
+          rawSelections[title + ":start-texto"] = [desdeText];
+          rawSelections[title + ": start-texto"] = [desdeText];
+          rawSelections[title + ":end-texto"] = [hastaText];
+          rawSelections[title + ": end-texto"] = [hastaText];
+
+          formState[title] = { desde: desdeVal, hasta: hastaVal };
+        }
+
+        // 2. Recopilar valores de checkboxes agrupados por título sin usar selector de atributos peligroso
+        var allCheckboxGroups = Array.from(document.querySelectorAll('.demanda-checkbox-option'));
+        var titles = [];
+        allCheckboxGroups.forEach(function(cb) {
+          var title = cb.getAttribute('data-title');
+          if (title && titles.indexOf(title) === -1) {
+            titles.push(title);
+          }
+        });
+        var nextAutoNum = 2;
+
+        titles.forEach(function(title) {
+          var checkedBoxes = allCheckboxGroups.filter(function(cb) {
+            return cb.getAttribute('data-title') === title && cb.checked;
+          });
+          
+          rawSelections[title] = [];
+          var metaInfo = (receivedData && receivedData[title]) ? receivedData[title] : null;
+          var originalOptions = metaInfo ? (metaInfo.options || []) : [];
+
+          checkedBoxes.forEach(function(cb) {
+            var index = parseInt(cb.getAttribute('data-index'), 10);
+            var opt = originalOptions[index];
+            if (opt && opt.name) {
+              rawSelections[title].push(opt.name);
             }
           });
-        }
 
-        selections[title] = resultText;
-      });
-
-      // Registrar la variable especial con el siguiente número secuencial de documento
-      selections["[num]"] = String(nextAutoNum);
-      selections["num"] = String(nextAutoNum);
-      rawSelections["[num]"] = [String(nextAutoNum)];
-      rawSelections["num"] = [String(nextAutoNum)];
-
-      // Guardar los checkboxes seleccionados en formState
-      allCheckboxGroups.forEach(function(cb) {
-        var title = cb.getAttribute('data-title');
-        var index = parseInt(cb.getAttribute('data-index'), 10);
-        if (cb.checked) {
-          if (!formState[title]) {
-            formState[title] = [];
+          if (checkedBoxes.length === 0) {
+            selections[title] = '';
+            return;
           }
-          formState[title].push(index);
-        }
-      });
 
-      // Enviar selecciones y estado del formulario a la ventana principal (section.html)
-      console.log("DEMANDA GENERAR - selections:", JSON.stringify(selections), "rawSelections:", JSON.stringify(rawSelections));
-      bc.postMessage({
-        type: 'generate',
-        selections: selections,
-        rawSelections: rawSelections,
-        formState: formState
-      });
+          var startNum = metaInfo ? metaInfo.startNum : null;
+          var autowrap = metaInfo ? (metaInfo.autowrap || false) : false;
+          
+          if (startNum !== null && startNum !== undefined) {
+            nextAutoNum = startNum;
+          }
 
-      // Retardo de 100ms para asegurar la entrega del mensaje BroadcastChannel antes de cerrar el modal
-      setTimeout(function() {
-        t.closeModal();
-      }, 100);
+          var selectedIndices = [];
+          checkedBoxes.forEach(function(cb) {
+            selectedIndices.push(parseInt(cb.getAttribute('data-index'), 10));
+          });
+          selectedIndices.sort(function(a, b) { return a - b; });
+
+          var resultText = '';
+          var selectedValues = [];
+          selectedIndices.forEach(function(idx) {
+            var opt = originalOptions[idx];
+            if (opt) {
+              selectedValues.push({
+                value: opt.value || '',
+                separator: opt.separator || ''
+              });
+            }
+          });
+
+          if (autowrap) {
+            if (selectedValues.length === 1) {
+              resultText = selectedValues[0].value;
+            } else if (selectedValues.length > 1) {
+              var allButLast = [];
+              for (var i = 0; i < selectedValues.length - 1; i++) {
+                allButLast.push(selectedValues[i].value);
+              }
+              var firstPart = allButLast.join(', ');
+              var lastValue = selectedValues[selectedValues.length - 1].value;
+              resultText = firstPart + ' y ' + lastValue;
+            }
+          } else {
+            selectedValues.forEach(function(item, i) {
+              resultText += item.value;
+              if (i < selectedValues.length - 1) {
+                resultText += item.separator;
+              }
+            });
+          }
+
+          selections[title] = resultText;
+        });
+
+        selections["[num]"] = String(nextAutoNum);
+        selections["num"] = String(nextAutoNum);
+        rawSelections["[num]"] = [String(nextAutoNum)];
+        rawSelections["num"] = [String(nextAutoNum)];
+
+        allCheckboxGroups.forEach(function(cb) {
+          var title = cb.getAttribute('data-title');
+          var index = parseInt(cb.getAttribute('data-index'), 10);
+          if (title && cb.checked) {
+            if (!formState[title]) {
+              formState[title] = [];
+            }
+            formState[title].push(index);
+          }
+        });
+
+        console.log("DEMANDA GENERAR - selections:", JSON.stringify(selections), "rawSelections:", JSON.stringify(rawSelections));
+        bc.postMessage({
+          type: 'generate',
+          selections: selections,
+          rawSelections: rawSelections,
+          formState: formState
+        });
+
+        setTimeout(function() {
+          t.closeModal();
+        }, 100);
+      } catch (err) {
+        console.error("Error en demanda.html al generar:", err);
+        alert("Error al procesar el formulario de demanda: " + err.message);
+      }
     });
 
     document.getElementById('btn-cancelar').addEventListener('click', function() {

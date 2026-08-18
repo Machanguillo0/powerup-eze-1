@@ -3903,24 +3903,11 @@
                 display: 'success'
               });
             }
-          })
-          .catch(function(err) {
-            console.error("Error al autorizar:", err);
-          });
-      } else {
+} else {
         // Limpiar el valor para permitir seleccionar el mismo archivo tras modificaciones
         event.target.value = '';
       }
-    });
-
-    // Procesar la plantilla de Demanda Nexo Causal
-    document.getElementById('demanda-upload').addEventListener('change', function (event) {
-      if (!event.target.files || event.target.files.length === 0) return;
-      var file = event.target.files[0];
-      var statusDiv = document.getElementById('upload-status');
-      statusDiv.textContent = 'Analizando plantilla: ' + file.name + '...';
-      t.sizeTo(document.body).done();
-
+      
       getUnifiedFields(t).then(function (data) {
         var reader = new FileReader();
         reader.onload = function (e) {
@@ -3972,6 +3959,12 @@
 
               console.log("Antigravity: Meta-tags detectadas:", metaTagsByTitle);
 
+              // Transmitir inmediatamente las meta-etiquetas por el canal
+              demandaChannel.postMessage({
+                type: 'meta_tags',
+                metaTags: demandaState.metaTags
+              });
+
               statusDiv.textContent = 'Plantilla cargada. Esperando personalización en la ventana emergente...';
               t.sizeTo(document.body).done();
 
@@ -3983,19 +3976,20 @@
               });
             } else {
               // Si no tiene meta-etiquetas, procesar y subir directamente
-              statusDiv.textContent = 'Generando y subiendo documento...';
+              statusDiv.textContent = 'Procesando plantilla estándar y generando documento...';
               t.sizeTo(document.body).done();
 
-              // Reemplazos estándar
-              contentXml = reemplazarEtiquetasEstandar(contentXml, data.fields);
+              var fields = data.fields;
+              contentXml = reemplazarEtiquetasEstandar(contentXml, fields);
 
               // Guardar en el zip y generar blob
               zip.file("word/document.xml", contentXml);
               var outContent = zip.generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
               var baseTemplateName = file.name.substring(0, file.name.lastIndexOf('.'));
-              var nombreFinal = baseTemplateName + "_" + data.fields.nombre.replace(/\s+/g, '_') + ".docx";
+              var nombreFinal = baseTemplateName + "_" + fields.nombre.replace(/\s+/g, '_') + ".docx";
 
-              subirDocumentoATrello(t, data, outContent, nombreFinal, file.name, statusDiv, event.target);
+              var inputEl = document.getElementById('demanda-upload');
+              subirDocumentoATrello(t, data, outContent, nombreFinal, file.name, statusDiv, inputEl);
             }
 
           } catch (err) {
@@ -4837,11 +4831,13 @@
       if (!event.data) return;
       
       if (event.data.type === 'get_meta_tags') {
-        // Enviar las meta-etiquetas cargadas al modal
-        demandaChannel.postMessage({
-          type: 'meta_tags',
-          metaTags: demandaState.metaTags
-        });
+        // Enviar las meta-etiquetas cargadas al modal solo si ya están listas
+        if (demandaState && demandaState.metaTags) {
+          demandaChannel.postMessage({
+            type: 'meta_tags',
+            metaTags: demandaState.metaTags
+          });
+        }
       } else if (event.data.type === 'generate') {
         // Generar el documento con las selecciones del modal
         var selections = event.data.selections;
