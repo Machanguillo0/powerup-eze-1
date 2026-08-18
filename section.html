@@ -2688,6 +2688,12 @@
         nameLower = nameLower.replace(textDateRegex, '').trim();
       }
 
+      // Limpiar sufijos de tipo entre corchetes (ej: [date], [int], [text], [number], [float])
+      var typeBracketRegex = /\s*\[(date|int|text|number|float|date range|date-range|daterange)\]\s*$/i;
+      if (typeBracketRegex.test(nameLower)) {
+        nameLower = nameLower.replace(typeBracketRegex, '').trim();
+      }
+
       // Limpiar otros sufijos conocidos de formato o tipo (ej: :date, :fecha, :text, :string)
       var otherSuffixRegex = /(?::\s*(?:date|fecha|text|string))\s*$/i;
       if (otherSuffixRegex.test(nameLower)) {
