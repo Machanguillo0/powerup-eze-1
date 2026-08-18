@@ -2647,14 +2647,58 @@
       return resultVal;
     }
 
+    // Convertir fecha corta (01/07/25 o 01/07/2025) a texto largo (1 de Julio de 2025)
+    function formatDateToSpanishText(val) {
+      if (!val || val === "___________") return val;
+      var str = String(val).trim();
+      var monthsArrCap = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+      
+      var m = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+      if (m) {
+        var day = parseInt(m[1], 10);
+        var monthIdx = parseInt(m[2], 10) - 1;
+        var year = parseInt(m[3], 10);
+        if (year < 100) year += (year >= 50 ? 1900 : 2000);
+        
+        var monthName = monthsArrCap[monthIdx];
+        if (monthName) {
+          return day + " de " + monthName + " de " + year;
+        }
+      }
+      return str;
+    }
+
     // Función auxiliar para obtener el valor del campo a partir del nombre de etiqueta estándar
     function getFieldValueForTagName(tagName, fields) {
       var nameLower = tagName.toLowerCase().trim();
+      var wantsTextDate = false;
+
+      if (nameLower.endsWith(':texto')) {
+        wantsTextDate = true;
+        nameLower = nameLower.replace(/:texto$/, '').trim();
+      } else if (nameLower.endsWith(' en texto')) {
+        wantsTextDate = true;
+        nameLower = nameLower.replace(/ en texto$/, '').trim();
+      } else if (nameLower.endsWith('(texto)')) {
+        wantsTextDate = true;
+        nameLower = nameLower.replace(/\(texto\)$/, '').trim();
+      } else if (nameLower.endsWith('_texto')) {
+        wantsTextDate = true;
+        nameLower = nameLower.replace(/_texto$/, '').trim();
+      }
       
       if (nameLower.endsWith(':')) {
         nameLower = nameLower.substring(0, nameLower.length - 1).trim();
       }
 
+      var rawVal = resolveRawFieldValue(nameLower, tagName, fields);
+      if (rawVal !== null && rawVal !== undefined && wantsTextDate) {
+        return formatDateToSpanishText(rawVal);
+      }
+      return rawVal;
+    }
+
+    function resolveRawFieldValue(nameLower, tagName, fields) {
       // --- RESOLUCIÓN DE CAMPOS DE ASEGURADORAS (ej: {{Vehículo contrario: aseguradora: teléfono}}) ---
       var insurancesMap = fields.insurancesMap || (typeof unified !== 'undefined' ? unified.insurancesMap : null);
       if (insurancesMap) {
