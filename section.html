@@ -2269,6 +2269,8 @@
       if (val === undefined || val === null) return 0;
       var str = String(val).trim();
       str = str.replace(/[€$%\s]/g, '');
+      if (!str) return 0;
+      
       var hasComma = str.indexOf(',') > -1;
       var hasDot = str.indexOf('.') > -1;
       
@@ -2280,6 +2282,10 @@
         }
       } else if (hasComma) {
         str = str.replace(/,/g, '.');
+      } else if (hasDot) {
+        if (/^\d{1,3}(?:\.\d{3})+$/.test(str) || /^\d+\.\d{3}$/.test(str)) {
+          str = str.replace(/\./g, '');
+        }
       }
       
       var num = parseFloat(str);
@@ -2580,7 +2586,7 @@
       // 3. Sustitución de claves existentes en la expresión matemática
       var keys = [];
       for (var k in fields) {
-        if (fields.hasOwnProperty(k) && typeof fields[k] === 'string') {
+        if (fields.hasOwnProperty(k) && fields[k] !== null && fields[k] !== undefined && (typeof fields[k] === 'string' || typeof fields[k] === 'number')) {
           keys.push(k);
         }
       }
