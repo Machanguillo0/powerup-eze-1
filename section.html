@@ -2650,10 +2650,10 @@
     // Convertir fecha corta (01/07/25 o 01/07/2025) a texto largo (1 de Julio de 2025)
     function formatDateToSpanishText(val) {
       if (!val || val === "___________") return val;
-      var str = String(val).trim();
+      var str = String(val).replace(/[\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]/g, ' ').trim();
       var monthsArrCap = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
       
-      var m = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+      var m = str.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
       if (m) {
         var day = parseInt(m[1], 10);
         var monthIdx = parseInt(m[2], 10) - 1;
@@ -2662,7 +2662,8 @@
         
         var monthName = monthsArrCap[monthIdx];
         if (monthName) {
-          return day + " de " + monthName + " de " + year;
+          var formattedDate = day + " de " + monthName + " de " + year;
+          return str.replace(m[0], formattedDate);
         }
       }
       return str;
@@ -2670,23 +2671,23 @@
 
     // Función auxiliar para obtener el valor del campo a partir del nombre de etiqueta estándar
     function getFieldValueForTagName(tagName, fields) {
-      var nameLower = tagName.toLowerCase().trim();
+      var cleanedTag = tagName.replace(/[\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]/g, ' ').trim();
+      var nameLower = cleanedTag.toLowerCase();
       var wantsTextDate = false;
 
-      if (nameLower.endsWith(':texto')) {
+      // Detectar sufijos de texto en cualquier variante: :texto, : texto, en texto, (texto), _texto, etc.
+      var textDateRegex = /(?::\s*texto|\s+en\s+texto|\(\s*texto\s*\)|_texto)\s*$/i;
+      if (textDateRegex.test(nameLower)) {
         wantsTextDate = true;
-        nameLower = nameLower.replace(/:texto$/, '').trim();
-      } else if (nameLower.endsWith(' en texto')) {
-        wantsTextDate = true;
-        nameLower = nameLower.replace(/ en texto$/, '').trim();
-      } else if (nameLower.endsWith('(texto)')) {
-        wantsTextDate = true;
-        nameLower = nameLower.replace(/\(texto\)$/, '').trim();
-      } else if (nameLower.endsWith('_texto')) {
-        wantsTextDate = true;
-        nameLower = nameLower.replace(/_texto$/, '').trim();
+        nameLower = nameLower.replace(textDateRegex, '').trim();
       }
-      
+
+      // Limpiar otros sufijos conocidos de formato o tipo (ej: :date, :fecha, :text, :string)
+      var otherSuffixRegex = /(?::\s*(?:date|fecha|text|string))\s*$/i;
+      if (otherSuffixRegex.test(nameLower)) {
+        nameLower = nameLower.replace(otherSuffixRegex, '').trim();
+      }
+
       if (nameLower.endsWith(':')) {
         nameLower = nameLower.substring(0, nameLower.length - 1).trim();
       }
@@ -2778,7 +2779,15 @@
         case 'diagnóstico':
         case 'diagnostico': return fields.diagnostico_principal || fields["diagnóstico principal"] || fields["diagnostico principal"] || fields["diagnóstico"] || fields["diagnostico"];
         case 'fecha del siniestro':
-        case 'fecha siniestro': return fields.fecha || fields.fecha_siniestro;
+        case 'fecha de siniestro':
+        case 'fecha siniestro':
+        case 'fecha_siniestro':
+        case 'fecha':
+          var fVal = fields.fecha || fields.fecha_siniestro || fields["fecha del siniestro"] || fields["fecha de siniestro"] || fields["fecha_siniestro"];
+          if (fVal && fVal !== "___________") return fVal;
+          if (fields.fecha !== undefined) return fields.fecha;
+          if (fields.fecha_siniestro !== undefined) return fields.fecha_siniestro;
+          return "___________";
         case 'hora': return fields.hora;
         case 'lugar': return fields.lugar;
         case 'ciudad': return fields.ciudad;
