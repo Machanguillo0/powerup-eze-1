@@ -1018,6 +1018,15 @@
       unifiedData: null
     };
 
+    function resetDemandaState() {
+      console.log("[DEMANDA DEBUG] Reseteando demandaState.");
+      demandaState.file = null;
+      demandaState.zip = null;
+      demandaState.contentXml = null;
+      demandaState.metaTags = null;
+      demandaState.unifiedData = null;
+    }
+
     function triggerVisualRefresh() {
       console.log("Antigravity Power-up: Ejecutando refresco visual.");
       var btnFact = document.getElementById('boton-desc-facturacion');
@@ -3785,11 +3794,13 @@
 
     // Función auxiliar para subir el documento modificado a Trello
     function subirDocumentoATrello(t, data, outContent, nombreFinal, originalFileName, statusDiv, fileInput) {
+      console.log("[DEMANDA DEBUG] Iniciando subirDocumentoATrello:", nombreFinal);
       statusDiv.textContent = 'Autenticando con Trello API...';
       t.getRestApi().getToken().then(function (token) {
         if (!token) return t.getRestApi().authorize({ scope: 'read,write', expiration: 'never', return_url: window.location.href });
         return token;
       }).then(function (token) {
+        console.log("[DEMANDA DEBUG] Token obtenido. Enviando petición POST a Trello...");
         statusDiv.textContent = 'Subiendo documento directamente a Trello...';
         var formData = new FormData();
         formData.append("key", t.getRestApi().appKey);
@@ -3802,6 +3813,7 @@
         urlParams.append('token', token);
         return fetch(`https://api.trello.com/1/cards/${cardId}/attachments?${urlParams.toString()}`, { method: 'POST', body: formData });
       }).then(function (response) {
+        console.log("[DEMANDA DEBUG] Petición a Trello finalizada con HTTP status:", response.status);
         if (response.status === 401) {
           t.getRestApi().clearToken();
           window.isApiAuthorized = false;
@@ -3813,6 +3825,7 @@
           throw new Error('Sesión desparejada. Vuelve a hacer clic.');
         }
         if (!response.ok) throw new Error('Error HTTP ' + response.status);
+        console.log("[DEMANDA DEBUG] ¡Documento adjuntado exitosamente en Trello!");
         statusDiv.textContent = '¡Documento modificado y adjuntado con éxito!';
         if (fileInput) fileInput.value = '';
         t.sizeTo(document.body).done();
@@ -4855,8 +4868,10 @@
     var demandaChannel = new BroadcastChannel('demanda_channel');
     demandaChannel.onmessage = function (event) {
       if (!event.data) return;
+      console.log("[DEMANDA DEBUG] Mensaje recibido en BroadcastChannel:", event.data.type);
       
       if (event.data.type === 'get_meta_tags') {
+        console.log("[DEMANDA DEBUG] Modal solicitó get_meta_tags. Estado listo:", !!(demandaState && demandaState.metaTags));
         // Enviar las meta-etiquetas cargadas al modal solo si ya están listas
         if (demandaState && demandaState.metaTags) {
           demandaChannel.postMessage({
@@ -4865,6 +4880,7 @@
           });
         }
       } else if (event.data.type === 'generate') {
+        console.log("[DEMANDA DEBUG] Orden 'generate' recibida desde modal con selecciones:", event.data.selections);
         // Generar el documento con las selecciones del modal
         var selections = event.data.selections;
         var rawSelections = event.data.rawSelections || {};
