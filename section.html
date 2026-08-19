@@ -2484,16 +2484,24 @@
       }
       
       var formula = innerClean.substring(5).trim();
+      // Limpiar llaves { } envolventes si las hay (ej: {Importe total [words]})
+      formula = formula.replace(/^[\{\s]+|[\}\s]+$/g, '').trim();
+
       var inWords = false;
       var isInt = false;
       if (formula.toLowerCase().endsWith('[words]')) {
         inWords = true;
         formula = formula.substring(0, formula.length - 7).trim();
+      } else if (formula.toLowerCase().endsWith('[letras]')) {
+        inWords = true;
+        formula = formula.substring(0, formula.length - 8).trim();
       } else if (formula.toLowerCase().endsWith('[int]')) {
         isInt = true;
         formula = formula.substring(0, formula.length - 5).trim();
       }
       
+      formula = formula.replace(/^[\{\s]+|[\}\s]+$/g, '').trim();
+
       return {
         formula: formula,
         inWords: inWords,
@@ -2546,7 +2554,7 @@
     // Función auxiliar para almacenar un campo calculado en el objeto de campos
     function storeCalculatedField(varName, value, fields) {
       if (!varName || !fields) return;
-      var cleanVar = varName.trim();
+      var cleanVar = varName.replace(/^[\{\s]+|[\}\s]+$/g, '').trim();
       if (!cleanVar) return;
       
       var normVar = cleanStringForMatching(cleanVar);
@@ -2566,20 +2574,37 @@
       // 1. Detectar si es una asignación: "Nombre Variable = Expresión"
       var eqIdx = cleanFormula.indexOf('=');
       if (eqIdx > 0) {
-        targetVarName = cleanFormula.substring(0, eqIdx).trim();
+        targetVarName = cleanFormula.substring(0, eqIdx).replace(/^[\{\s]+|[\}\s]+$/g, '').trim();
         cleanFormula = cleanFormula.substring(eqIdx + 1).trim();
       }
 
+      // Limpiar llaves { } envolventes si existen
+      cleanFormula = cleanFormula.replace(/^[\{\s]+|[\}\s]+$/g, '').trim();
+
       // 2. Si la fórmula es únicamente el nombre de una variable previamente almacenada o existente (sin operadores matemáticos)
-      var normFormula = cleanStringForMatching(cleanFormula);
-      var isDirectVariable = !/[+\-*/()]/.test(cleanFormula);
+      var cleanVarName = cleanFormula.replace(/^[\{\s]+|[\}\s]+$/g, '').trim();
+      var normVarName = cleanStringForMatching(cleanVarName);
+      var isDirectVariable = !/[+\-*/()]/.test(cleanVarName);
       if (isDirectVariable) {
-        var existingVal = fields[cleanFormula] !== undefined ? fields[cleanFormula] : fields[normFormula];
+        var existingVal = fields[cleanVarName] !== undefined ? fields[cleanVarName] : fields[normVarName];
         if (existingVal !== undefined && existingVal !== null) {
-          if (targetVarName) {
-            storeCalculatedField(targetVarName, existingVal, fields);
+          var finalVal = existingVal;
+          if (inWords) {
+            if (existingVal !== "___________" && String(existingVal).trim() !== "") {
+              var numVal = parseNumericValue(existingVal);
+              finalVal = formatAsWordsAndNumbers(numVal);
+            }
+          } else if (isInt) {
+            if (existingVal !== "___________" && String(existingVal).trim() !== "") {
+              var numVal = parseNumericValue(existingVal);
+              var intVal = Math.round(numVal);
+              finalVal = String(intVal).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+            }
           }
-          return existingVal;
+          if (targetVarName && finalVal !== "___________") {
+            storeCalculatedField(targetVarName, finalVal, fields);
+          }
+          return finalVal;
         }
       }
 
@@ -2680,6 +2705,14 @@
       var cleanedTag = tagName.replace(/[\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]/g, ' ').trim();
       var nameLower = cleanedTag.toLowerCase();
       var wantsTextDate = false;
+      var wantsWords = false;
+
+      // Detectar sufijos de texto en letras: [words], [letras], :words, :letras, en letras, (letras), _words, _letras
+      var wordsRegex = /(?:\s*\[(?:words|letras)\]|:\s*(?:words|letras)|\s+en\s+letras|\(\s*(?:words|letras)\s*\)|_(?:words|letras))\s*$/i;
+      if (wordsRegex.test(nameLower)) {
+        wantsWords = true;
+        nameLower = nameLower.replace(wordsRegex, '').trim();
+      }
 
       // Detectar sufijos de texto en cualquier variante: :texto, : texto, en texto, (texto), _texto, etc.
       var textDateRegex = /(?::\s*texto|\s+en\s+texto|\(\s*texto\s*\)|_texto)\s*$/i;
@@ -2688,14 +2721,14 @@
         nameLower = nameLower.replace(textDateRegex, '').trim();
       }
 
-      // Limpiar sufijos de tipo entre corchetes (ej: [date], [int], [text], [number], [float])
-      var typeBracketRegex = /\s*\[(date|int|text|number|float|date range|date-range|daterange)\]\s*$/i;
+      // Limpiar sufijos de tipo entre corchetes (ej: [date], [int], [text], [number], [float], [words], [letras])
+      var typeBracketRegex = /\s*\[(date|int|text|number|float|words|letras|date range|date-range|daterange)\]\s*$/i;
       if (typeBracketRegex.test(nameLower)) {
         nameLower = nameLower.replace(typeBracketRegex, '').trim();
       }
 
-      // Limpiar otros sufijos conocidos de formato o tipo (ej: :date, :fecha, :text, :string)
-      var otherSuffixRegex = /(?::\s*(?:date|fecha|text|string))\s*$/i;
+      // Limpiar otros sufijos conocidos de formato o tipo (ej: :date, :fecha, :text, :string, :words, :letras)
+      var otherSuffixRegex = /(?::\s*(?:date|fecha|text|string|words|letras))\s*$/i;
       if (otherSuffixRegex.test(nameLower)) {
         nameLower = nameLower.replace(otherSuffixRegex, '').trim();
       }
@@ -2705,8 +2738,15 @@
       }
 
       var rawVal = resolveRawFieldValue(nameLower, tagName, fields);
-      if (rawVal !== null && rawVal !== undefined && wantsTextDate) {
-        return formatDateToSpanishText(rawVal);
+      if (rawVal !== null && rawVal !== undefined) {
+        if (wantsWords) {
+          if (rawVal === "___________" || String(rawVal).trim() === "") return rawVal;
+          var numVal = parseNumericValue(rawVal);
+          return formatAsWordsAndNumbers(numVal);
+        }
+        if (wantsTextDate) {
+          return formatDateToSpanishText(rawVal);
+        }
       }
       return rawVal;
     }
