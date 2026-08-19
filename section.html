@@ -2062,7 +2062,9 @@
       };
     }
 
-    // Función para parsear una etiqueta condicional del tipo {{IF:Nombre_Metaetiqueta:Nombre_Opcion{Texto}}}
+    // Función para parsear una etiqueta condicional del tipo:
+    // {{IF:Nombre_Metaetiqueta=Nombre_Opcion{TextoSi}{TextoNo}}}
+    // {{IF:Nombre_Metaetiqueta:Nombre_Opcion{TextoSi}{TextoNo}}}
     function parseConditionalTag(fullTagText) {
       var localXml = fullTagText.replace(/<w:proofErr\s+[^>]*\/>/g, '');
       localXml = localXml.replace(/<w:noProof\s+[^>]*\/>/g, '');
@@ -2082,65 +2084,71 @@
         return null;
       }
       
-      var titleAndOption = innerClean.substring(3, firstBraceClean).trim();
-      var separatorIdx = titleAndOption.lastIndexOf(':');
-      if (separatorIdx === -1) {
-        return null;
+      var headerStr = innerClean.substring(3, firstBraceClean).trim();
+      if (!headerStr) return null;
+      
+      var title = headerStr;
+      var optionName = null;
+      
+      var eqIdx = headerStr.indexOf('=');
+      var colonIdx = headerStr.indexOf(':');
+      
+      if (eqIdx > -1) {
+        title = headerStr.substring(0, eqIdx).trim();
+        optionName = headerStr.substring(eqIdx + 1).trim();
+      } else if (colonIdx > -1) {
+        title = headerStr.substring(0, colonIdx).trim();
+        optionName = headerStr.substring(colonIdx + 1).trim();
       }
       
-      var title = titleAndOption.substring(0, separatorIdx).trim();
-      var optionName = titleAndOption.substring(separatorIdx + 1).trim();
-      
-      // Encontrar la 3ª llave de apertura '{' (excluyendo tags XML) para el inicio de la sección condicional
-      var openBraceCount = 0;
-      var firstBraceIdx = -1;
+      // Parsear todos los bloques { } dentro de localXml
+      var blocks = [];
+      var openCount = 0;
+      var currentBlock = "";
       var insideTag = false;
+      
       for (var i = 0; i < localXml.length; i++) {
         var char = localXml.charAt(i);
         if (char === '<') {
           insideTag = true;
+          if (openCount >= 3) currentBlock += char;
         } else if (char === '>') {
           insideTag = false;
-        } else if (!insideTag && char === '{') {
-          openBraceCount++;
-          if (openBraceCount === 3) {
-            firstBraceIdx = i;
-            break;
+          if (openCount >= 3) currentBlock += char;
+        } else {
+          if (insideTag) {
+            if (openCount >= 3) currentBlock += char;
+          } else {
+            if (char === '{') {
+              openCount++;
+              if (openCount > 3) {
+                currentBlock += char;
+              }
+            } else if (char === '}') {
+              if (openCount > 3) {
+                currentBlock += char;
+              } else if (openCount === 3) {
+                blocks.push(currentBlock);
+                currentBlock = "";
+              }
+              openCount--;
+            } else {
+              if (openCount >= 3) {
+                currentBlock += char;
+              }
+            }
           }
         }
       }
       
-      if (firstBraceIdx === -1) return null;
-      
-      // Encontrar la 3ª llave de cierre de atrás hacia adelante en el XML local (excluyendo tags XML)
-      var braceCount = 0;
-      var closingBraceIdx = -1;
-      insideTag = false;
-      for (var i = localXml.length - 1; i >= 0; i--) {
-        var char = localXml.charAt(i);
-        if (char === '>') {
-          insideTag = true;
-        } else if (char === '<') {
-          insideTag = false;
-        } else if (!insideTag && char === '}') {
-          braceCount++;
-          if (braceCount === 3) {
-            closingBraceIdx = i;
-            break;
-          }
-        }
-      }
-      
-      if (closingBraceIdx === -1 || closingBraceIdx <= firstBraceIdx) {
-        return null;
-      }
-      
-      var xmlContent = localXml.substring(firstBraceIdx + 1, closingBraceIdx);
+      if (blocks.length === 0) return null;
       
       return {
         title: title,
         optionName: optionName,
-        xmlContent: xmlContent
+        trueContent: blocks[0] || "",
+        falseContent: blocks[1] || "",
+        xmlContent: blocks[0] || ""
       };
     }
 
@@ -5179,15 +5187,42 @@
 
           condReplacements.forEach(function(item) {
             var condParsed = item.parsed;
-            var selectedList = rawSelections[condParsed.title] || [];
-            var isSelected = selectedList.some(function(sel) {
-              return sel.trim().toLowerCase() === condParsed.optionName.toLowerCase();
-            });
-
-            var replacementVal = '';
-            if (isSelected) {
-              replacementVal = item.parsed.xmlContent;
+            var title = condParsed.title;
+            var normTitle = cleanStringForMatching(title);
+            var optionName = condParsed.optionName;
+            
+            var selectedList = rawSelections[title] || rawSelections[normTitle] || [];
+            var fields = demandaState.unifiedData ? (demandaState.unifiedData.fields || {}) : {};
+            var fieldValue = fields[title] !== undefined ? fields[title] : fields[normTitle];
+            
+            var isSelected = false;
+            
+            if (optionName !== null && optionName !== undefined) {
+              var normOptionName = cleanStringForMatching(optionName);
+              
+              if (selectedList && selectedList.length > 0) {
+                isSelected = selectedList.some(function(sel) {
+                  return cleanStringForMatching(sel) === normOptionName;
+                });
+              }
+              
+              if (!isSelected && fieldValue !== null && fieldValue !== undefined) {
+                var strVal = String(fieldValue).trim();
+                isSelected = (cleanStringForMatching(strVal) === normOptionName);
+              }
+            } else {
+              if (selectedList && selectedList.length > 0) {
+                isSelected = selectedList.some(function(sel) {
+                  var s = sel.trim();
+                  return s !== '' && s !== '0' && s.toLowerCase() !== 'false' && s.toLowerCase() !== 'no';
+                });
+              } else if (fieldValue !== null && fieldValue !== undefined) {
+                var strVal = String(fieldValue).trim();
+                isSelected = (strVal !== '' && strVal !== '___________' && strVal !== '0' && strVal.toLowerCase() !== 'false' && strVal.toLowerCase() !== 'no');
+              }
             }
+
+            var replacementVal = isSelected ? condParsed.trueContent : condParsed.falseContent;
             
             // Si el valor es vacío, verificar si el bloque condicional era el único contenido en su párrafo
             // para eliminar el párrafo completo y no dejar una línea en blanco
