@@ -1865,11 +1865,19 @@
       
       while (i < len) {
         if (contentXml.charAt(i) === '{') {
+          // Comprobar si hay una segunda llave '{' (ignorando etiquetas XML y espacios entre ambas)
           var j = i + 1;
-          while (j < len && contentXml.charAt(j) === '<') {
-            var closeGt = contentXml.indexOf('>', j);
-            if (closeGt !== -1) {
-              j = closeGt + 1;
+          while (j < len) {
+            var c = contentXml.charAt(j);
+            if (c === '<') {
+              var closeGt = contentXml.indexOf('>', j);
+              if (closeGt !== -1) {
+                j = closeGt + 1;
+              } else {
+                break;
+              }
+            } else if (/\s/.test(c)) {
+              j++;
             } else {
               break;
             }
@@ -1877,8 +1885,8 @@
           
           if (j < len && contentXml.charAt(j) === '{') {
             var startIdx = i;
-            var braceDepth = 0;
-            var curr = i;
+            var braceDepth = 2; // Ya tenemos {{
+            var curr = j + 1;
             var insideXml = false;
             var tagAborted = false;
             
@@ -1903,12 +1911,26 @@
                     braceDepth--;
                     if (braceDepth === 0) {
                       curr++;
-                      while (curr < len && contentXml.charAt(curr) === '}') {
-                        curr++;
+                      // Avanzar por espacios o tags XML para incluir la llave de cierre final si quedó separada
+                      var k = curr;
+                      while (k < len) {
+                        var kc = contentXml.charAt(k);
+                        if (kc === '<') {
+                          var closeK = contentXml.indexOf('>', k);
+                          if (closeK !== -1) { k = closeK + 1; } else { break; }
+                        } else if (/\s/.test(kc)) {
+                          k++;
+                        } else if (kc === '}') {
+                          curr = k + 1;
+                          break;
+                        } else {
+                          break;
+                        }
                       }
                       var matchedXml = contentXml.substring(startIdx, curr);
                       matches.push(matchedXml);
                       i = curr - 1;
+                      tagAborted = false;
                       break;
                     }
                   }
@@ -1917,7 +1939,7 @@
               }
             }
             
-            if (tagAborted || braceDepth > 0) {
+            if (tagAborted) {
               i = startIdx + 1;
               continue;
             }
