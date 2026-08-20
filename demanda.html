@@ -182,7 +182,10 @@
   <script>
     var t = window.TrelloPowerUp.iframe();
     var bc = new BroadcastChannel('demanda_channel');
-    var receivedData = null;    // Pedir datos a section.html con reintento automático hasta recibir respuesta
+    var receivedData = null;
+    var receivedFields = null;
+
+    // Pedir datos a section.html con reintento automático hasta recibir respuesta
     function requestMetaTags() {
       if (!receivedData) {
         bc.postMessage({ type: 'get_meta_tags' });
@@ -202,6 +205,7 @@
       if (event.data && event.data.type === 'meta_tags') {
         if (!event.data.metaTags) return; // Si aún no están listas, esperar siguiente reintento
         receivedData = event.data.metaTags;
+        receivedFields = event.data.fields || null;
         clearInterval(metaInterval);
         
         // Obtener el idList de la tarjeta actual para cargar la persistencia a nivel de cliente (columna)
@@ -235,6 +239,24 @@
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+    }
+
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function resolveDisplayText(rawText) {
+      if (!rawText) return '';
+      var text = rawText;
+      if (receivedFields && typeof receivedFields === 'object') {
+        for (var key in receivedFields) {
+          if (receivedFields.hasOwnProperty(key) && receivedFields[key]) {
+            var re = new RegExp("\\{\\{" + escapeRegExp(key) + "\\}\\}", "gi");
+            text = text.replace(re, receivedFields[key]);
+          }
+        }
+      }
+      return text;
     }
 
     function renderForm(metaTags, saved) {
@@ -271,7 +293,7 @@
           (metaTag.options || []).forEach(function(opt, index) {
             var option = document.createElement('option');
             option.value = opt.value || '';
-            option.textContent = opt.name || opt.value || ('Opción ' + (index + 1));
+            option.textContent = resolveDisplayText(opt.name || opt.value || ('Opción ' + (index + 1)));
             select.appendChild(option);
           });
 
@@ -295,7 +317,7 @@
             checkbox.setAttribute('data-index', index);
 
             var span = document.createElement('span');
-            span.textContent = opt.name || opt.value || ('Opción ' + (index + 1));
+            span.textContent = resolveDisplayText(opt.name || opt.value || ('Opción ' + (index + 1)));
 
             if (saved && saved[title] && Array.isArray(saved[title])) {
               if (saved[title].indexOf(index) > -1) {

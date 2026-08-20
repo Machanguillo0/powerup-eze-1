@@ -1856,6 +1856,78 @@
       return finalLines.join('\n');
     }
 
+    // Función auxiliar para extraer todas las meta-etiquetas top-level (incluyendo aquellas con llaves anidadas {{Nombre}})
+    function findMetaTagsInXml(contentXml) {
+      if (!contentXml) return [];
+      var matches = [];
+      var i = 0;
+      var len = contentXml.length;
+      
+      while (i < len) {
+        if (contentXml.charAt(i) === '{') {
+          var j = i + 1;
+          while (j < len && contentXml.charAt(j) === '<') {
+            var closeGt = contentXml.indexOf('>', j);
+            if (closeGt !== -1) {
+              j = closeGt + 1;
+            } else {
+              break;
+            }
+          }
+          
+          if (j < len && contentXml.charAt(j) === '{') {
+            var startIdx = i;
+            var braceDepth = 0;
+            var curr = i;
+            var insideXml = false;
+            var tagAborted = false;
+            
+            while (curr < len) {
+              var ch = contentXml.charAt(curr);
+              if (ch === '<') {
+                var sub = contentXml.substring(curr);
+                if (/^<\/?w:(?:p|tbl|tr|tc)\b/i.test(sub)) {
+                  tagAborted = true;
+                  break;
+                }
+                insideXml = true;
+                curr++;
+              } else if (ch === '>') {
+                insideXml = false;
+                curr++;
+              } else {
+                if (!insideXml) {
+                  if (ch === '{') {
+                    braceDepth++;
+                  } else if (ch === '}') {
+                    braceDepth--;
+                    if (braceDepth === 0) {
+                      curr++;
+                      while (curr < len && contentXml.charAt(curr) === '}') {
+                        curr++;
+                      }
+                      var matchedXml = contentXml.substring(startIdx, curr);
+                      matches.push(matchedXml);
+                      i = curr - 1;
+                      break;
+                    }
+                  }
+                }
+                curr++;
+              }
+            }
+            
+            if (tagAborted || braceDepth > 0) {
+              i = startIdx + 1;
+              continue;
+            }
+          }
+        }
+        i++;
+      }
+      return matches;
+    }
+
     // Función para parsear una meta-etiqueta multiselección preservando etiquetas XML de formato interno
     function parseMetaTag(fullTagText) {
       // Limpiar solo marcadores de corrección ortográfica/gramatical
@@ -4071,15 +4143,13 @@
             // Analizar meta-etiquetas multiselección
             var metaTagsByTitle = {};
             var hasMetaTags = false;
-            var splitTagRegex = /(\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|[\s\S])*?\}(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\}(?:(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\})?)/g;
-            var match;
-            while ((match = splitTagRegex.exec(contentXml)) !== null) {
-              var fullXmlMatch = match[0];
+            var allMetaMatches = findMetaTagsInXml(contentXml);
+            allMetaMatches.forEach(function(fullXmlMatch) {
               var parsed = parseMetaTag(fullXmlMatch);
               if (parsed) {
                 // Si la etiqueta es "Lista de documentos numerados", no la mostramos en el formulario modal
                 if (parsed.title.toLowerCase().startsWith("lista de documentos numerados")) {
-                  continue;
+                  return;
                 }
                 hasMetaTags = true;
                 if (!metaTagsByTitle[parsed.title]) {
@@ -4094,7 +4164,7 @@
                 }
                 metaTagsByTitle[parsed.title].xmlMatches.push(fullXmlMatch);
               }
-            }
+            });
 
             // Si hay meta-etiquetas, guardar estado y abrir modal
             if (hasMetaTags) {
@@ -4109,7 +4179,8 @@
               // Transmitir inmediatamente las meta-etiquetas por el canal
               demandaChannel.postMessage({
                 type: 'meta_tags',
-                metaTags: demandaState.metaTags
+                metaTags: demandaState.metaTags,
+                fields: data ? (data.fields || {}) : {}
               });
 
               statusDiv.textContent = 'Plantilla cargada. Esperando personalización en la ventana emergente...';
@@ -5170,12 +5241,9 @@
           }
 
           // 1.2. Reemplazar las etiquetas condicionales IF basadas en rawSelections
-          var splitTagRegex = /(\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\{(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>|[\s\S])*?\}(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\}(?:(?:(?!<\/?w:(?:p|tbl|tr|tc)\b)<[^>]+>)*\})?)/g;
           var condReplacements = [];
-          var condMatch;
-          splitTagRegex.lastIndex = 0;
-          while ((condMatch = splitTagRegex.exec(contentXml)) !== null) {
-            var fullXmlMatch = condMatch[0];
+          var allMetaMatchesCond = findMetaTagsInXml(contentXml);
+          allMetaMatchesCond.forEach(function(fullXmlMatch) {
             var condParsed = parseConditionalTag(fullXmlMatch);
             if (condParsed) {
               condReplacements.push({
@@ -5183,7 +5251,7 @@
                 parsed: condParsed
               });
             }
-          }
+          });
 
           condReplacements.forEach(function(item) {
             var condParsed = item.parsed;
@@ -5262,10 +5330,8 @@
 
           // 1.3. Reemplazar las etiquetas de cálculo CALC
           var calcReplacements = [];
-          var calcMatch;
-          splitTagRegex.lastIndex = 0;
-          while ((calcMatch = splitTagRegex.exec(contentXml)) !== null) {
-            var fullXmlMatch = calcMatch[0];
+          var allMetaMatchesCalc = findMetaTagsInXml(contentXml);
+          allMetaMatchesCalc.forEach(function(fullXmlMatch) {
             var calcParsed = parseCalcTag(fullXmlMatch);
             if (calcParsed) {
               calcReplacements.push({
@@ -5273,7 +5339,7 @@
                 parsed: calcParsed
               });
             }
-          }
+          });
 
           calcReplacements.forEach(function(item) {
             var resultVal = evaluateFormula(item.parsed.formula, demandaState.unifiedData.fields, item.parsed.inWords, item.parsed.isInt);
@@ -5317,10 +5383,8 @@
 
           // 1.5. Reemplazar la etiqueta de Lista de documentos numerados
           var listReplacements = [];
-          var listMatch;
-          splitTagRegex.lastIndex = 0;
-          while ((listMatch = splitTagRegex.exec(contentXml)) !== null) {
-            var fullXmlMatch = listMatch[0];
+          var allMetaMatchesList = findMetaTagsInXml(contentXml);
+          allMetaMatchesList.forEach(function(fullXmlMatch) {
             var cleanText = fullXmlMatch.replace(/<[^>]+>/g, '').trim();
             if (cleanText.startsWith('{{') && cleanText.endsWith('}}')) {
               var innerClean = cleanText.substring(2, cleanText.length - 2).trim();
